@@ -1,10 +1,5 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::process::exit;
-
-fn invalid_command(command: &str) {
-    println!("{}: command not found", command);
-}
 
 fn main() {
     let builtin_commands = ["echo", "exit", "type"];
@@ -24,15 +19,14 @@ fn main() {
             println!("{}", command);
         } else if command.starts_with("type") {
             command = command[5..].trim().to_string();
-            let mut not_found = false;
             if builtin_commands.contains(&command.as_str()) {
                 println!("{} is a shell builtin", command);
             } else {
-                invalid_command(&command);
+                println!("{}: not found", command);
                 continue;
             }
         } else {
-            invalid_command(&command);
+            println!("{}: command not found", command);
         }
     }
 }
