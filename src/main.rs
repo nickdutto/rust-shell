@@ -42,7 +42,7 @@ fn run_command_by_path(command: &str, mode: PathCommandMode) -> bool {
                             entry.path().as_os_str().to_str().unwrap()
                         ),
                         PathCommandMode::Execute => {
-                            Command::new(entry.path().as_os_str())
+                            Command::new(command_name)
                                 .args(command_split.get(1..).unwrap())
                                 .spawn()
                                 .unwrap()
