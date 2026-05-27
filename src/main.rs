@@ -29,6 +29,7 @@ fn main() {
                 println!("{} is a shell builtin", command);
             } else {
                 invalid_command(&command);
+                continue;
             }
         } else {
             invalid_command(&command);
