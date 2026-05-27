@@ -89,7 +89,11 @@ fn main() {
                 continue;
             }
         } else {
-            println!("{}: command not found", command);
+            let command_in_path = run_command_by_path(&command, PathCommandMode::Execute);
+
+            if !command_in_path {
+                println!("{}: command not found", command);
+            }
         }
     }
 }
