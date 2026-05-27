@@ -1,11 +1,19 @@
 use std::env;
+use std::fmt::format;
 use std::fs;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
-fn search_path(command: &str) -> bool {
+enum PathCommandMode {
+    Type,
+    Execute,
+}
+
+fn run_command_by_path(command: &str, mode: PathCommandMode) -> bool {
+    let command_split: Vec<&str> = command.trim().split(" ").collect();
     let mut paths: Vec<PathBuf> = vec![];
 
     let path_var = "PATH";
@@ -23,14 +31,26 @@ fn search_path(command: &str) -> bool {
     for path_buf in paths {
         for entry in path_buf.read_dir().unwrap() {
             let entry = entry.unwrap();
-            if entry.file_name() == command.trim() {
+            let command_name = command_split.first().unwrap();
+            if entry.file_name() == *command_name {
                 let metadata = entry.metadata().unwrap();
                 if metadata.is_file() && (metadata.permissions().mode() & 0o111) != 0 {
-                    println!(
-                        "{} is {}",
-                        command,
-                        entry.path().as_os_str().to_str().unwrap()
-                    );
+                    match mode {
+                        PathCommandMode::Type => println!(
+                            "{} is {}",
+                            command,
+                            entry.path().as_os_str().to_str().unwrap()
+                        ),
+                        PathCommandMode::Execute => {
+                            Command::new(entry.path().as_os_str())
+                                .args(command_split.get(1..).unwrap())
+                                .spawn()
+                                .unwrap()
+                                .wait()
+                                .unwrap();
+                        }
+                    }
+
                     return true;
                 }
             }
@@ -61,7 +81,7 @@ fn main() {
             if builtin_commands.contains(&command.as_str()) {
                 println!("{} is a shell builtin", command);
             } else {
-                let command_in_path = search_path(&command);
+                let command_in_path = run_command_by_path(&command, PathCommandMode::Type);
 
                 if !command_in_path {
                     println!("{}: not found", command);
@@ -79,8 +99,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_search_path() {
-        search_path("ls");
+    fn test_run_command_by_path_type() {
+        run_command_by_path("ls", PathCommandMode::Type);
+        assert!(true);
+    }
+
+    #[test]
+    fn test_run_command_by_path_execute() {
+        run_command_by_path("ls", PathCommandMode::Execute);
         assert!(true);
     }
 }
