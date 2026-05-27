@@ -2,8 +2,12 @@
 use std::io::{self, Write};
 use std::process::exit;
 
+fn invalid_command(command: &str) {
+    println!("{}: command not found", command);
+}
+
 fn main() {
-    let builtin_commands = vec!["echo", "exit", "type"];
+    let builtin_commands = ["echo", "exit", "type"];
 
     loop {
         print!("$ ");
@@ -20,14 +24,14 @@ fn main() {
             println!("{}", command);
         } else if command.starts_with("type") {
             command = command[5..].trim().to_string();
-            for builtin_command in &builtin_commands {
-                if *builtin_command == command {
-                    println!("{} is a shell builtin", builtin_command);
-                    break;
-                }
+            let mut not_found = false;
+            if builtin_commands.contains(&command.as_str()) {
+                println!("{} is a shell builtin", command);
+            } else {
+                invalid_command(&command);
             }
         } else {
-            println!("{}: command not found", command);
+            invalid_command(&command);
         }
     }
 }
