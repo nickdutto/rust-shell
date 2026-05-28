@@ -39,20 +39,12 @@ impl Command {
 }
 
 fn handle_cd(input: &str, writer: &mut impl Write) {
-    let path = Path::new(&input[3..]);
-    match env::set_current_dir(path) {
-        Ok(_) => (),
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            writeln!(
-                writer,
-                "cd: {}: No such file or directory",
-                path.to_str().unwrap().trim(),
-            )
-            .unwrap();
+    let input = input[3..].trim();
+    match input {
+        "~" => {
+            cd_set_dir(Path::new(&env::var_os("HOME").unwrap()), writer);
         }
-        Err(e) => {
-            writeln!(writer, "cd: {}: {}", path.to_str().unwrap().trim(), e).unwrap();
-        }
+        _ => cd_set_dir(Path::new(&input), writer),
     }
 }
 
@@ -135,6 +127,23 @@ fn handle_type(input: &str, writer: &mut impl Write) {
         }
 
         writeln!(writer, "{}: not found", command).unwrap();
+    }
+}
+
+fn cd_set_dir(path: &Path, writer: &mut impl Write) {
+    match env::set_current_dir(path) {
+        Ok(_) => (),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            writeln!(
+                writer,
+                "cd: {}: No such file or directory",
+                path.to_str().unwrap().trim(),
+            )
+            .unwrap();
+        }
+        Err(e) => {
+            writeln!(writer, "cd: {}: {}", path.to_str().unwrap().trim(), e).unwrap();
+        }
     }
 }
 
