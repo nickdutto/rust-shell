@@ -1,7 +1,7 @@
-﻿use std::io::Write;
+﻿use crate::env::get_env_paths;
+use std::io::{ErrorKind, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
-use std::{env, io};
+use std::process;
 
 pub enum Command {
     Exit,
@@ -12,6 +12,7 @@ pub enum Command {
 
 impl Command {
     pub fn parse_command(input: &str) -> Command {
+        let input = input.trim();
         match input {
             "exit" => Command::Exit,
             s if s.starts_with("echo") => Command::Echo(input.into()),
@@ -20,99 +21,91 @@ impl Command {
         }
     }
 
-    pub fn run_command(command: Command) {
+    pub fn run_command(command: Command, writer: &mut impl Write) {
         match command {
             Command::Exit => handle_exit(),
-            Command::Echo(cmd) => handle_echo(&cmd),
-            Command::Executable(cmd) => handle_executable(&cmd),
-            Command::Type(cmd) => handle_type(&cmd),
+            Command::Echo(cmd) => handle_echo(&cmd, writer),
+            Command::Executable(cmd) => handle_executable(&cmd, writer),
+            Command::Type(cmd) => handle_type(&cmd, writer),
         }
     }
 }
 
-enum PathCommandMode {
-    Type,
-    Execute,
-}
-
 fn handle_exit() {
-    io::stdout().flush().unwrap();
-    std::process::exit(1);
+    stdout().flush().unwrap();
+    process::exit(0);
 }
 
-fn handle_echo(input: &str) {
-    println!("{}", input[5..].trim());
+fn handle_echo(input: &str, writer: &mut impl Write) {
+    writeln!(writer, "{}", input[5..].trim()).unwrap();
 }
 
-fn handle_executable(input: &str) {
-    let command_in_path = run_command_by_path(input, PathCommandMode::Execute);
+fn handle_executable(input: &str, writer: &mut impl Write) {
+    let command_split: Vec<&str> = input.trim().split(" ").collect();
+    let command_name = command_split.first().unwrap();
+    let command_args = command_split.get(1..).unwrap();
 
-    if !command_in_path {
-        println!("{}: command not found", input);
+    match process::Command::new(command_name)
+        .args(command_args)
+        .spawn()
+    {
+        Ok(mut child) => {
+            child.wait().unwrap();
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            writeln!(writer, "{}: command not found", command_name.trim()).unwrap();
+        }
+        Err(e) => {
+            writeln!(
+                writer,
+                "{}: error executing command: {}",
+                command_name.trim(),
+                e
+            )
+            .unwrap();
+        }
     }
 }
 
-fn handle_type(input: &str) {
+fn handle_type(input: &str, writer: &mut impl Write) {
     let builtin_commands = ["echo", "exit", "type"];
     let command = input[5..].trim().to_string();
 
     if builtin_commands.contains(&command.as_str()) {
-        println!("{} is a shell builtin", command);
+        writeln!(writer, "{} is a shell builtin", command).unwrap();
     } else {
-        let command_in_path = run_command_by_path(&command, PathCommandMode::Type);
+        let command_split: Vec<&str> = command.trim().split(" ").collect();
+        let command_name = command_split.first().unwrap();
 
-        if !command_in_path {
-            println!("{}: not found", command);
-        }
-    }
-}
-
-fn run_command_by_path(command: &str, mode: PathCommandMode) -> bool {
-    let command_split: Vec<&str> = command.trim().split(" ").collect();
-    let mut paths: Vec<PathBuf> = vec![];
-
-    let path_var = "PATH";
-    match env::var_os(path_var) {
-        Some(var_paths) => {
-            for path in env::split_paths(&var_paths) {
-                if path.is_dir() {
-                    paths.push(path.to_path_buf());
+        let entries = get_env_paths("PATH", writer)
+            .into_iter()
+            .filter_map(|dir_path| dir_path.read_dir().ok())
+            .flatten()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter_map(|entry| {
+                if let Ok(metadata) = entry.metadata()
+                    && metadata.is_file()
+                    // TODO: permissions check is not cross platform
+                    && (metadata.permissions().mode() & 0o111) != 0
+                {
+                    return Some(entry);
                 }
+
+                None
+            });
+
+        for entry in entries {
+            if entry.file_name().unwrap().to_str().unwrap() != *command_name {
+                continue;
             }
+
+            writeln!(writer, "{} is {}", command, entry.to_str().unwrap()).unwrap();
+            return;
         }
-        None => println!("{path_var} is not defined in the environment."),
+
+        writeln!(writer, "{}: not found", command).unwrap();
     }
-
-    for path_buf in paths {
-        for entry in path_buf.read_dir().unwrap() {
-            let entry = entry.unwrap();
-            let command_name = command_split.first().unwrap();
-            if entry.file_name() == *command_name {
-                let metadata = entry.metadata().unwrap();
-                if metadata.is_file() && (metadata.permissions().mode() & 0o111) != 0 {
-                    match mode {
-                        PathCommandMode::Type => println!(
-                            "{} is {}",
-                            command,
-                            entry.path().as_os_str().to_str().unwrap()
-                        ),
-                        PathCommandMode::Execute => {
-                            std::process::Command::new(command_name)
-                                .args(command_split.get(1..).unwrap())
-                                .spawn()
-                                .unwrap()
-                                .wait()
-                                .unwrap();
-                        }
-                    }
-
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
 }
 
 #[cfg(test)]
@@ -120,14 +113,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_run_command_by_path_type() {
-        run_command_by_path("ls", PathCommandMode::Type);
-        assert!(true);
+    fn test_handle_echo_output() {
+        let mut buffer = Vec::new();
+        handle_echo("echo hello world", &mut buffer);
+        let result = String::from_utf8(buffer).unwrap();
+
+        assert_eq!(result, "hello world\n");
     }
 
     #[test]
-    fn test_run_command_by_path_execute() {
-        run_command_by_path("ls", PathCommandMode::Execute);
-        assert!(true);
+    fn test_handle_type_builtin() {
+        let mut buffer = Vec::new();
+        handle_type("type exit", &mut buffer);
+        let result = String::from_utf8(buffer).unwrap();
+
+        assert_eq!(result, "exit is a shell builtin\n");
+    }
+
+    #[test]
+    fn test_handle_type_via_path() {
+        let mut buffer = Vec::new();
+        handle_type("type ls", &mut buffer);
+        let result = String::from_utf8(buffer).unwrap();
+
+        // TODO: this relies on the host machine having ls available so its not really a clean test
+        assert!(result.contains("ls is /"));
+    }
+
+    #[test]
+    fn test_handle_executable_missing() {
+        let mut buffer = Vec::new();
+        handle_executable("not_a_real_command_1234", &mut buffer);
+        let result = String::from_utf8(buffer).unwrap();
+
+        assert_eq!(result, "not_a_real_command_1234: command not found\n");
     }
 }
