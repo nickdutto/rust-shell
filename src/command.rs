@@ -1,9 +1,11 @@
 ﻿use crate::env::get_env_paths;
 use std::io::{ErrorKind, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::{env, process};
 
 pub enum Command {
+    Cd(String),
     Exit,
     Echo(String),
     Executable(String),
@@ -15,6 +17,7 @@ impl Command {
     pub fn parse_command(input: &str) -> Command {
         let input = input.trim();
         match input {
+            s if s[..2].to_string() == "cd" => Command::Cd(input.into()),
             "exit" => Command::Exit,
             "pwd" => Command::Pwd,
             s if s.starts_with("echo") => Command::Echo(input.into()),
@@ -25,11 +28,30 @@ impl Command {
 
     pub fn run_command(command: Command, writer: &mut impl Write) {
         match command {
+            Command::Cd(cmd) => handle_cd(&cmd, writer),
             Command::Exit => handle_exit(),
             Command::Echo(cmd) => handle_echo(&cmd, writer),
             Command::Executable(cmd) => handle_executable(&cmd, writer),
             Command::Type(cmd) => handle_type(&cmd, writer),
             Command::Pwd => handle_pwd(writer),
+        }
+    }
+}
+
+fn handle_cd(input: &str, writer: &mut impl Write) {
+    let path = Path::new(&input[3..]);
+    match env::set_current_dir(path) {
+        Ok(_) => (),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            writeln!(
+                writer,
+                "cd: {}: No such file or directory",
+                path.to_str().unwrap().trim(),
+            )
+            .unwrap();
+        }
+        Err(e) => {
+            writeln!(writer, "cd: {}: {}", path.to_str().unwrap().trim(), e).unwrap();
         }
     }
 }
@@ -76,7 +98,7 @@ fn handle_executable(input: &str, writer: &mut impl Write) {
 }
 
 fn handle_type(input: &str, writer: &mut impl Write) {
-    let builtin_commands = ["echo", "exit", "type", "pwd"];
+    let builtin_commands = ["cd", "echo", "exit", "type", "pwd"];
     let command = input[5..].trim().to_string();
 
     if builtin_commands.contains(&command.as_str()) {
