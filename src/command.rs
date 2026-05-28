@@ -1,13 +1,14 @@
 ﻿use crate::env::get_env_paths;
 use std::io::{ErrorKind, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
-use std::process;
+use std::{env, process};
 
 pub enum Command {
     Exit,
     Echo(String),
     Executable(String),
     Type(String),
+    Pwd,
 }
 
 impl Command {
@@ -15,6 +16,7 @@ impl Command {
         let input = input.trim();
         match input {
             "exit" => Command::Exit,
+            "pwd" => Command::Pwd,
             s if s.starts_with("echo") => Command::Echo(input.into()),
             s if s.starts_with("type") => Command::Type(input.into()),
             _ => Command::Executable(input.into()),
@@ -27,6 +29,7 @@ impl Command {
             Command::Echo(cmd) => handle_echo(&cmd, writer),
             Command::Executable(cmd) => handle_executable(&cmd, writer),
             Command::Type(cmd) => handle_type(&cmd, writer),
+            Command::Pwd => handle_pwd(writer),
         }
     }
 }
@@ -38,6 +41,11 @@ fn handle_exit() {
 
 fn handle_echo(input: &str, writer: &mut impl Write) {
     writeln!(writer, "{}", input[5..].trim()).unwrap();
+}
+
+fn handle_pwd(writer: &mut impl Write) {
+    let path = env::current_dir().unwrap();
+    writeln!(writer, "{}", path.to_str().unwrap()).unwrap();
 }
 
 fn handle_executable(input: &str, writer: &mut impl Write) {
