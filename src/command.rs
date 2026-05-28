@@ -76,7 +76,7 @@ fn handle_executable(input: &str, writer: &mut impl Write) {
 }
 
 fn handle_type(input: &str, writer: &mut impl Write) {
-    let builtin_commands = ["echo", "exit", "type"];
+    let builtin_commands = ["echo", "exit", "type", "pwd"];
     let command = input[5..].trim().to_string();
 
     if builtin_commands.contains(&command.as_str()) {
