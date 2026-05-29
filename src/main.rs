@@ -1,5 +1,6 @@
 mod command;
 mod env;
+mod parser;
 mod shell;
 
 use crate::shell::Shell;
