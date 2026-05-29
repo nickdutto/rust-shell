@@ -16,7 +16,7 @@ pub enum Command {
 
 impl Command {
     pub fn parse_command(input: &str) -> Command {
-        let input = tokenize_arguments(input);
+        let input = tokenize_arguments(input.trim());
 
         if input.is_empty() {
             return Command::Executable(vec![]);
