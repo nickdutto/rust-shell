@@ -5,7 +5,7 @@ use std::io::{BufReader, ErrorKind, Read, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Stdio;
-use std::{env, process};
+use std::{env, fs, process};
 
 pub enum Command {
     Cd(Tokens),
@@ -31,6 +31,30 @@ impl Command {
     }
 
     pub fn run_command(command: Command, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+        let tokens_ref = match &command {
+            Command::Cd(tokens)
+            | Command::Echo(tokens)
+            | Command::Executable(tokens)
+            | Command::Pwd(tokens)
+            | Command::Type(tokens) => Some(tokens),
+            Command::Exit => None,
+        };
+
+        if let Some(tokens) = tokens_ref
+            && let Some(redirection) = &tokens.redirection
+        {
+            if let Some(parent) = Path::new(&redirection.location).parent() {
+                fs::create_dir_all(parent).ok();
+            }
+
+            fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&redirection.location)
+                .unwrap();
+        }
+
         match command {
             Command::Cd(tokens) => handle_cd(tokens, err_writer),
             Command::Echo(tokens) => handle_echo(tokens, out_writer),
