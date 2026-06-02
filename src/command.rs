@@ -1,89 +1,120 @@
 ﻿use crate::env::get_env_paths;
-use crate::parser::tokenize_arguments;
-use std::io::{ErrorKind, Write, stdout};
+use crate::parser::{Tokens, tokenize_arguments};
+use crate::writer::{OutputType, write_output};
+use std::io::{BufReader, ErrorKind, Read, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::process::Stdio;
 use std::{env, process};
 
 pub enum Command {
-    Cd(Vec<String>),
-    Echo(Vec<String>),
-    Executable(Vec<String>),
+    Cd(Tokens),
+    Echo(Tokens),
+    Executable(Tokens),
     Exit,
-    Pwd,
-    Type(Vec<String>),
+    Pwd(Tokens),
+    Type(Tokens),
 }
 
 impl Command {
     pub fn parse_command(input: &str) -> Command {
-        let input = tokenize_arguments(input.trim());
+        let tokens = tokenize_arguments(input.trim());
 
-        if input.is_empty() {
-            return Command::Executable(vec![]);
-        }
-
-        let command = input.first().unwrap().trim();
-        let args = input.get(1..).unwrap_or(&[]).to_vec();
-
-        match command {
-            "cd" => Command::Cd(args),
-            "echo" => Command::Echo(args),
+        match tokens.command.as_str() {
+            "cd" => Command::Cd(tokens),
+            "echo" => Command::Echo(tokens),
             "exit" => Command::Exit,
-            "pwd" => Command::Pwd,
-            "type" => Command::Type(args),
-            _ => Command::Executable(input),
+            "pwd" => Command::Pwd(tokens),
+            "type" => Command::Type(tokens),
+            _ => Command::Executable(tokens),
         }
     }
 
-    pub fn run_command(command: Command, writer: &mut impl Write) {
+    pub fn run_command(command: Command, out_writer: &mut impl Write, err_writer: &mut impl Write) {
         match command {
-            Command::Cd(args) => handle_cd(&args, writer),
-            Command::Echo(args) => handle_echo(&args, writer),
-            Command::Executable(args) => handle_executable(&args, writer),
+            Command::Cd(tokens) => handle_cd(tokens, err_writer),
+            Command::Echo(tokens) => handle_echo(tokens, out_writer),
+            Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
             Command::Exit => handle_exit(),
-            Command::Pwd => handle_pwd(writer),
-            Command::Type(args) => handle_type(&args, writer),
+            Command::Pwd(tokens) => handle_pwd(tokens, out_writer),
+            Command::Type(tokens) => handle_type(tokens, out_writer, err_writer),
         }
     }
 }
 
-fn handle_cd(args: &[String], writer: &mut impl Write) {
-    let target = args.first().map(|s| s.as_str().trim()).unwrap_or("~");
-    match target {
+fn handle_cd(tokens: Tokens, err_writer: &mut impl Write) {
+    let target = tokens
+        .arguments
+        .first()
+        .map(|s| s.as_str().trim())
+        .unwrap_or("~");
+
+    let result = match target {
         "~" => {
             if let Some(home) = env::var_os("HOME") {
-                cd_set_dir(Path::new(&home), writer);
+                cd_set_dir(Path::new(&home))
+            } else {
+                Ok(())
             }
         }
-        _ => cd_set_dir(Path::new(&target), writer),
+        _ => cd_set_dir(Path::new(&target)),
+    };
+
+    if let Err(err_message) = result {
+        write_output(&err_message, OutputType::Stderr, &tokens, err_writer);
     }
 }
 
-fn handle_echo(args: &[String], writer: &mut impl Write) {
-    let output = args.join(" ");
-    writeln!(writer, "{}", output.trim()).unwrap();
+fn handle_echo(tokens: Tokens, out_writer: &mut impl Write) {
+    let output = tokens.arguments.join(" ");
+    write_output(output.trim(), OutputType::Stdout, &tokens, out_writer);
 }
 
-fn handle_executable(tokens: &[String], writer: &mut impl Write) {
-    if tokens.is_empty() {
+fn handle_executable(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+    if tokens.command.is_empty() {
         return;
     }
 
-    let command_name = tokens.first().unwrap().trim();
-    let command_args = tokens.get(1..).unwrap();
+    let mut stdout_output = String::new();
+    let mut stderr_output = String::new();
 
-    match process::Command::new(command_name)
-        .args(command_args)
+    match process::Command::new(&tokens.command)
+        .args(&tokens.arguments)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
     {
         Ok(mut child) => {
+            if let Some(stdout) = child.stdout.take() {
+                let mut reader = BufReader::new(stdout);
+                reader.read_to_string(&mut stdout_output).unwrap();
+            }
+
+            if let Some(stderr) = child.stderr.take() {
+                let mut reader = BufReader::new(stderr);
+                reader.read_to_string(&mut stderr_output).unwrap();
+            }
+
             child.wait().unwrap();
+
+            write_output(&stdout_output, OutputType::Stdout, &tokens, out_writer);
+            write_output(&stderr_output, OutputType::Stderr, &tokens, err_writer);
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {
-            writeln!(writer, "{}: command not found", command_name).unwrap();
+            write_output(
+                &format!("{}: command not found", tokens.command),
+                OutputType::Stderr,
+                &tokens,
+                err_writer,
+            );
         }
         Err(e) => {
-            writeln!(writer, "{}: error executing command: {}", command_name, e).unwrap();
+            write_output(
+                &format!("{}: error executing command: {}", tokens.command, e),
+                OutputType::Stderr,
+                &tokens,
+                err_writer,
+            );
         }
     }
 }
@@ -93,25 +124,45 @@ fn handle_exit() {
     process::exit(0);
 }
 
-fn handle_pwd(writer: &mut impl Write) {
+fn handle_pwd(tokens: Tokens, out_writer: &mut impl Write) {
     let path = env::current_dir().unwrap();
-    writeln!(writer, "{}", path.to_str().unwrap()).unwrap();
+    write_output(
+        &format!("{}", path.display()),
+        OutputType::Stdout,
+        &tokens,
+        out_writer,
+    );
 }
 
-fn handle_type(args: &[String], writer: &mut impl Write) {
+fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut impl Write) {
     let builtin_commands = ["cd", "echo", "exit", "pwd", "type"];
-    let command_name = match args.first() {
+    let command_name = match tokens.arguments.first() {
         Some(command) => command.as_str().trim(),
         None => {
-            writeln!(writer, "type: missing operand").unwrap();
+            write_output(
+                "type: missing operand",
+                OutputType::Stderr,
+                &tokens,
+                err_writer,
+            );
             return;
         }
     };
 
+    let mut output = String::new();
+
     if builtin_commands.contains(&command_name) {
-        writeln!(writer, "{} is a shell builtin", command_name).unwrap();
+        output = format!("{} is a shell builtin", command_name);
     } else {
-        let entries = get_env_paths("PATH", writer)
+        let paths = match get_env_paths("PATH") {
+            Ok(paths) => paths,
+            Err(err_message) => {
+                write_output(&err_message, OutputType::Stderr, &tokens, err_writer);
+                vec![]
+            }
+        };
+
+        let entries = paths
             .into_iter()
             .filter_map(|dir_path| dir_path.read_dir().ok())
             .flatten()
@@ -129,33 +180,33 @@ fn handle_type(args: &[String], writer: &mut impl Write) {
                 None
             });
 
+        let mut found = false;
         for entry in entries {
             if entry.file_name().unwrap().to_str().unwrap() != command_name {
                 continue;
             }
 
-            writeln!(writer, "{} is {}", command_name, entry.to_str().unwrap()).unwrap();
-            return;
+            output = format!("{} is {}", command_name, entry.to_str().unwrap());
+            found = true;
+            break;
         }
 
-        writeln!(writer, "{}: not found", command_name).unwrap();
+        if !found {
+            output = format!("{}: not found", command_name);
+        }
     }
+
+    write_output(&output, OutputType::Stdout, &tokens, out_writer);
 }
 
-fn cd_set_dir(path: &Path, writer: &mut impl Write) {
+fn cd_set_dir(path: &Path) -> Result<(), String> {
     match env::set_current_dir(path) {
-        Ok(_) => (),
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            writeln!(
-                writer,
-                "cd: {}: No such file or directory",
-                path.to_str().unwrap(),
-            )
-            .unwrap();
-        }
-        Err(e) => {
-            writeln!(writer, "cd: {}: {}", path.to_str().unwrap(), e).unwrap();
-        }
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::NotFound => Err(format!(
+            "cd: {}: No such file or directory",
+            path.to_str().unwrap()
+        )),
+        Err(e) => Err(format!("cd: {}: {}", path.display(), e)),
     }
 }
 
@@ -165,42 +216,68 @@ mod tests {
 
     #[test]
     fn test_handle_echo_output() {
-        let mut buffer = Vec::new();
-        let args = vec!["hello".to_string(), "world".to_string()];
-        handle_echo(&args, &mut buffer);
-        let result = String::from_utf8(buffer).unwrap();
+        let mut stdout_buffer = Vec::new();
+        let tokens = Tokens {
+            command: "echo".to_string(),
+            arguments: vec!["hello".to_string(), "world".to_string()],
+            redirection: None,
+        };
+
+        handle_echo(tokens, &mut stdout_buffer);
+        let result = String::from_utf8(stdout_buffer).unwrap();
 
         assert_eq!(result, "hello world\n");
     }
 
     #[test]
     fn test_handle_type_builtin() {
-        let mut buffer = Vec::new();
-        let args = vec!["exit".to_string()];
-        handle_type(&args, &mut buffer);
-        let result = String::from_utf8(buffer).unwrap();
+        let mut stdout_buffer = Vec::new();
+        let mut stderr_buffer = Vec::new();
+        let tokens = Tokens {
+            command: "type".to_string(),
+            arguments: vec!["exit".to_string()],
+            redirection: None,
+        };
+
+        handle_type(tokens, &mut stdout_buffer, &mut stderr_buffer);
+        let result = String::from_utf8(stdout_buffer).unwrap();
 
         assert_eq!(result, "exit is a shell builtin\n");
+        assert!(stderr_buffer.is_empty());
     }
 
     #[test]
     fn test_handle_type_via_path() {
-        let mut buffer = Vec::new();
-        let args = vec!["ls".to_string()];
-        handle_type(&args, &mut buffer);
-        let result = String::from_utf8(buffer).unwrap();
+        let mut stdout_buffer = Vec::new();
+        let mut stderr_buffer = Vec::new();
+        let tokens = Tokens {
+            command: "type".to_string(),
+            arguments: vec!["ls".to_string()],
+            redirection: None,
+        };
+
+        handle_type(tokens, &mut stdout_buffer, &mut stderr_buffer);
+        let result = String::from_utf8(stdout_buffer).unwrap();
 
         // TODO: this relies on the host machine having ls available so its not really a clean test
         assert!(result.contains("ls is /"));
+        assert!(stderr_buffer.is_empty());
     }
 
     #[test]
     fn test_handle_executable_missing() {
-        let mut buffer = Vec::new();
-        let tokens = vec!["not_a_real_command_1234".to_string()];
-        handle_executable(&tokens, &mut buffer);
-        let result = String::from_utf8(buffer).unwrap();
+        let mut stdout_buffer = Vec::new();
+        let mut stderr_buffer = Vec::new();
+        let tokens = Tokens {
+            command: "not_a_real_command_1234".to_string(),
+            arguments: vec![],
+            redirection: None,
+        };
+
+        handle_executable(tokens, &mut stdout_buffer, &mut stderr_buffer);
+        let result = String::from_utf8(stderr_buffer).unwrap();
 
         assert_eq!(result, "not_a_real_command_1234: command not found\n");
+        assert!(stdout_buffer.is_empty());
     }
 }

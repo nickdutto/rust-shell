@@ -1,6 +1,6 @@
 ﻿use crate::command::Command;
 use std::io;
-use std::io::{Write, stdout};
+use std::io::{Write, stderr, stdout};
 
 pub struct Shell;
 
@@ -17,7 +17,7 @@ impl Shell {
                 continue;
             }
 
-            Command::run_command(Command::parse_command(&input), &mut stdout());
+            Command::run_command(Command::parse_command(&input), &mut stdout(), &mut stderr());
         }
     }
 }
