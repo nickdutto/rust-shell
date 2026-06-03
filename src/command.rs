@@ -7,6 +7,8 @@ use std::path::Path;
 use std::process::Stdio;
 use std::{env, process};
 
+pub const BUILTIN_COMMANDS: &[&str] = &["cd", "echo", "exit", "pwd", "type"];
+
 pub enum Command {
     Cd(Tokens),
     Echo(Tokens),
@@ -154,7 +156,6 @@ fn handle_pwd(tokens: Tokens, out_writer: &mut impl Write) {
 }
 
 fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut impl Write) {
-    let builtin_commands = ["cd", "echo", "exit", "pwd", "type"];
     let command_name = match tokens.arguments.first() {
         Some(command) => command.as_str().trim(),
         None => {
@@ -170,7 +171,7 @@ fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut imp
 
     let mut output = String::new();
 
-    if builtin_commands.contains(&command_name) {
+    if BUILTIN_COMMANDS.contains(&command_name) {
         output = format!("{} is a shell builtin", command_name);
     } else {
         let paths = match get_env_paths("PATH") {
