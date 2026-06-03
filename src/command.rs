@@ -1,8 +1,8 @@
 ﻿use crate::env::get_env_paths;
 use crate::parser::{Tokens, tokenize_arguments};
 use crate::writer::{OutputType, initialise_writer_file, write_output};
+use is_executable::is_executable;
 use std::io::{BufReader, ErrorKind, Read, Write, stdout};
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Stdio;
 use std::{env, process};
@@ -188,13 +188,9 @@ fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut imp
             .flatten()
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
-            .filter_map(|entry| {
-                if let Ok(metadata) = entry.metadata()
-                    && metadata.is_file()
-                    // TODO: permissions check is not cross platform
-                    && (metadata.permissions().mode() & 0o111) != 0
-                {
-                    return Some(entry);
+            .filter_map(|path| {
+                if is_executable(&path) {
+                    return Some(path);
                 }
 
                 None
