@@ -1,6 +1,6 @@
 ﻿use crate::parser::Tokens;
 use std::fs;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
@@ -58,7 +58,22 @@ pub fn write_to_writer(output: &str, writer: &mut impl Write) {
 }
 
 pub fn write_to_file(output: &str, redirection: &Redirection) {
-    let mut file = OpenOptions::new()
+    let mut file = initialise_writer_file(redirection);
+
+    if output.ends_with('\n') {
+        file.write_all(output.trim().as_bytes()).unwrap();
+    } else {
+        file.write_all(format!("{}\n", output.trim()).as_bytes())
+            .unwrap();
+    }
+}
+
+pub fn initialise_writer_file(redirection: &Redirection) -> File {
+    if let Some(parent) = Path::new(&redirection.location).parent() {
+        fs::create_dir_all(parent).ok();
+    }
+
+    OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(
@@ -70,20 +85,5 @@ pub fn write_to_file(output: &str, redirection: &Redirection) {
                 || redirection.mode == RedirectionMode::ErrorAppend,
         )
         .open(&redirection.location)
-        .unwrap();
-
-    if output.ends_with('\n') {
-        file.write_all(output.trim().as_bytes()).unwrap();
-    } else {
-        file.write_all(format!("{}\n", output.trim()).as_bytes())
-            .unwrap();
-    }
-}
-
-pub fn initialise_writer_file(redirection: &Redirection) {
-    if let Some(parent) = Path::new(&redirection.location).parent() {
-        fs::create_dir_all(parent).ok();
-    }
-
-    OpenOptions::new().write(true).create(true);
+        .unwrap()
 }
