@@ -1,23 +1,20 @@
 ﻿use crate::command::Command;
-use std::io;
-use std::io::{Write, stderr, stdout};
+use std::error::Error;
+use std::io::{stderr, stdout};
 
 pub struct Shell;
 
 impl Shell {
-    pub fn start_session() {
+    pub fn start_session() -> Result<(), Box<dyn Error>> {
         loop {
-            print!("$ ");
-            stdout().flush().unwrap();
+            let mut rl = rustyline::DefaultEditor::new()?;
 
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
-
-            if input.trim().is_empty() {
+            let readline = rl.readline("$ ")?;
+            if readline.trim().is_empty() {
                 continue;
             }
 
-            Command::parse_command(&input).run_command(&mut stdout(), &mut stderr());
+            Command::parse_command(&readline).run_command(&mut stdout(), &mut stderr());
         }
     }
 }
