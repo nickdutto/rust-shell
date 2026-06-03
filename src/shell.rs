@@ -17,7 +17,7 @@ impl Shell {
                 continue;
             }
 
-            Command::run_command(Command::parse_command(&input), &mut stdout(), &mut stderr());
+            Command::parse_command(&input).run_command(&mut stdout(), &mut stderr());
         }
     }
 }

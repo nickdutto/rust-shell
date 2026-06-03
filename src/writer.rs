@@ -1,11 +1,15 @@
 ﻿use crate::parser::Tokens;
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::path::Path;
 
 #[derive(Debug, PartialEq)]
 pub enum RedirectionMode {
     Output,
+    OutputAppend,
     Error,
+    ErrorAppend,
 }
 
 #[derive(Debug)]
@@ -31,8 +35,14 @@ pub fn write_output(
 
     match &tokens.redirection {
         Some(redirection) => match (output_type, &redirection.mode) {
-            (OutputType::Stdout, RedirectionMode::Output) => write_to_file(output, redirection),
-            (OutputType::Stderr, RedirectionMode::Error) => write_to_file(output, redirection),
+            (OutputType::Stdout, RedirectionMode::Output)
+            | (OutputType::Stdout, RedirectionMode::OutputAppend) => {
+                write_to_file(output, redirection)
+            }
+            (OutputType::Stderr, RedirectionMode::Error)
+            | (OutputType::Stderr, RedirectionMode::ErrorAppend) => {
+                write_to_file(output, redirection)
+            }
             (OutputType::Stdout, _) => write_to_writer(output, writer),
             (OutputType::Stderr, _) => write_to_writer(output, writer),
         },
@@ -51,9 +61,29 @@ pub fn write_to_file(output: &str, redirection: &Redirection) {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
-        .truncate(true)
+        .truncate(
+            redirection.mode == RedirectionMode::Output
+                || redirection.mode == RedirectionMode::Error,
+        )
+        .append(
+            redirection.mode == RedirectionMode::OutputAppend
+                || redirection.mode == RedirectionMode::ErrorAppend,
+        )
         .open(&redirection.location)
         .unwrap();
 
-    file.write_all(output.trim().as_bytes()).unwrap();
+    if output.ends_with('\n') {
+        file.write_all(output.trim().as_bytes()).unwrap();
+    } else {
+        file.write_all(format!("{}\n", output.trim()).as_bytes())
+            .unwrap();
+    }
+}
+
+pub fn initialise_writer_file(redirection: &Redirection) {
+    if let Some(parent) = Path::new(&redirection.location).parent() {
+        fs::create_dir_all(parent).ok();
+    }
+
+    OpenOptions::new().write(true).create(true);
 }

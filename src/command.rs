@@ -1,11 +1,11 @@
 ﻿use crate::env::get_env_paths;
 use crate::parser::{Tokens, tokenize_arguments};
-use crate::writer::{OutputType, write_output};
+use crate::writer::{OutputType, initialise_writer_file, write_output};
 use std::io::{BufReader, ErrorKind, Read, Write, stdout};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Stdio;
-use std::{env, fs, process};
+use std::{env, process};
 
 pub enum Command {
     Cd(Tokens),
@@ -17,7 +17,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn parse_command(input: &str) -> Command {
+    pub fn parse_command(input: &str) -> Self {
         let tokens = tokenize_arguments(input.trim());
 
         match tokens.command.as_str() {
@@ -30,8 +30,21 @@ impl Command {
         }
     }
 
-    pub fn run_command(command: Command, out_writer: &mut impl Write, err_writer: &mut impl Write) {
-        let tokens_ref = match &command {
+    pub fn run_command(self, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+        self.initialise_redirection_file();
+
+        match self {
+            Command::Cd(tokens) => handle_cd(tokens, err_writer),
+            Command::Echo(tokens) => handle_echo(tokens, out_writer),
+            Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
+            Command::Exit => handle_exit(),
+            Command::Pwd(tokens) => handle_pwd(tokens, out_writer),
+            Command::Type(tokens) => handle_type(tokens, out_writer, err_writer),
+        }
+    }
+
+    fn initialise_redirection_file(&self) {
+        let tokens_ref = match self {
             Command::Cd(tokens)
             | Command::Echo(tokens)
             | Command::Executable(tokens)
@@ -43,25 +56,7 @@ impl Command {
         if let Some(tokens) = tokens_ref
             && let Some(redirection) = &tokens.redirection
         {
-            if let Some(parent) = Path::new(&redirection.location).parent() {
-                fs::create_dir_all(parent).ok();
-            }
-
-            fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&redirection.location)
-                .unwrap();
-        }
-
-        match command {
-            Command::Cd(tokens) => handle_cd(tokens, err_writer),
-            Command::Echo(tokens) => handle_echo(tokens, out_writer),
-            Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
-            Command::Exit => handle_exit(),
-            Command::Pwd(tokens) => handle_pwd(tokens, out_writer),
-            Command::Type(tokens) => handle_type(tokens, out_writer, err_writer),
+            initialise_writer_file(redirection);
         }
     }
 }

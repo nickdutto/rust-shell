@@ -1,4 +1,6 @@
 ﻿use crate::writer::{Redirection, RedirectionMode};
+use std::iter::Peekable;
+use std::str::Chars;
 
 #[derive(Clone, Copy)]
 enum TokenState {
@@ -18,6 +20,35 @@ pub struct Tokens {
     pub redirection: Option<Redirection>,
 }
 
+struct TokenScanner<'a> {
+    chars: Peekable<Chars<'a>>,
+}
+
+impl<'a> TokenScanner<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            chars: input.chars().peekable(),
+        }
+    }
+
+    fn peek(&mut self) -> Option<&char> {
+        self.chars.peek()
+    }
+
+    fn next(&mut self) -> Option<char> {
+        self.chars.next()
+    }
+
+    fn next_if_matches(&mut self, expected: char) -> bool {
+        if self.peek() == Some(&expected) {
+            self.next();
+            true
+        } else {
+            false
+        }
+    }
+}
+
 pub fn tokenize_arguments(input: &str) -> Tokens {
     let mut tokens = vec![];
     let mut token_buffer = String::new();
@@ -25,9 +56,8 @@ pub fn tokenize_arguments(input: &str) -> Tokens {
     let mut redirection_mode: Option<RedirectionMode> = None;
     let mut redirection_location = String::new();
 
-    let mut chars = input.chars().peekable();
-
-    while let Some(ch) = chars.next() {
+    let mut scanner = TokenScanner::new(input);
+    while let Some(ch) = scanner.next() {
         match (ch, state) {
             ('\\', TokenState::Normal) => state = TokenState::EscapeNormal,
             ('\\', TokenState::InDoubleQuote) => state = TokenState::EscapeDoubleQuote,
@@ -55,32 +85,47 @@ pub fn tokenize_arguments(input: &str) -> Tokens {
             }
 
             ('1', TokenState::Normal) => {
-                if chars.peek() == Some(&'>') {
-                    chars.next();
-                    redirection_mode = Some(RedirectionMode::Output);
+                if scanner.next_if_matches('>') {
+                    if scanner.next_if_matches('>') {
+                        redirection_mode = Some(RedirectionMode::OutputAppend);
+                    } else {
+                        redirection_mode = Some(RedirectionMode::Output);
+                    }
                     state = TokenState::RedirectOut;
                 } else {
                     token_buffer.push('1');
                 }
             }
+
             ('2', TokenState::Normal) => {
-                if chars.peek() == Some(&'>') {
-                    chars.next();
-                    redirection_mode = Some(RedirectionMode::Error);
+                if scanner.next_if_matches('>') {
+                    if scanner.next_if_matches('>') {
+                        redirection_mode = Some(RedirectionMode::ErrorAppend);
+                    } else {
+                        redirection_mode = Some(RedirectionMode::Error);
+                    }
                     state = TokenState::RedirectError;
                 } else {
                     token_buffer.push('2');
                 }
             }
+
             ('>', TokenState::Normal) => {
-                redirection_mode = Some(RedirectionMode::Output);
+                if scanner.next_if_matches('>') {
+                    redirection_mode = Some(RedirectionMode::OutputAppend);
+                } else {
+                    redirection_mode = Some(RedirectionMode::Output);
+                }
                 state = TokenState::RedirectOut;
             }
 
             (ch, TokenState::RedirectOut) | (ch, TokenState::RedirectError) => {
                 redirection_location.push(ch);
             }
-            (ch, _) => token_buffer.push(ch),
+
+            (ch, _) => {
+                token_buffer.push(ch);
+            }
         }
     }
 
@@ -253,6 +298,38 @@ mod tests {
         assert!(tokens.redirection.is_some());
         let redir = tokens.redirection.unwrap();
         assert_eq!(redir.mode, RedirectionMode::Error);
+        assert_eq!(redir.location, "err.txt");
+
+        let tokens = tokenize_arguments("echo 1 target 2");
+        assert_eq!(tokens.command, "echo");
+        assert_eq!(tokens.arguments, vec!["1", "target", "2"]);
+        assert!(tokens.redirection.is_none());
+    }
+
+    #[test]
+    fn tokenize_arguments_handles_redirection_append() {
+        let tokens = tokenize_arguments("echo hello >> output.txt");
+        assert_eq!(tokens.command, "echo");
+        assert_eq!(tokens.arguments, vec!["hello"]);
+        assert!(tokens.redirection.is_some());
+        let redir = tokens.redirection.unwrap();
+        assert_eq!(redir.mode, RedirectionMode::OutputAppend);
+        assert_eq!(redir.location, "output.txt");
+
+        let tokens = tokenize_arguments("pwd 1>> /tmp/foo/bar.log");
+        assert_eq!(tokens.command, "pwd");
+        assert!(tokens.arguments.is_empty());
+        assert!(tokens.redirection.is_some());
+        let redir = tokens.redirection.unwrap();
+        assert_eq!(redir.mode, RedirectionMode::OutputAppend);
+        assert_eq!(redir.location, "/tmp/foo/bar.log");
+
+        let tokens = tokenize_arguments("cd /nonexistent 2>> err.txt");
+        assert_eq!(tokens.command, "cd");
+        assert_eq!(tokens.arguments, vec!["/nonexistent"]);
+        assert!(tokens.redirection.is_some());
+        let redir = tokens.redirection.unwrap();
+        assert_eq!(redir.mode, RedirectionMode::ErrorAppend);
         assert_eq!(redir.location, "err.txt");
 
         let tokens = tokenize_arguments("echo 1 target 2");
