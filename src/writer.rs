@@ -61,10 +61,9 @@ pub fn write_to_file(output: &str, redirection: &Redirection) {
     let mut file = initialise_writer_file(redirection);
 
     if output.ends_with('\n') {
-        file.write_all(output.trim().as_bytes()).unwrap();
+        file.write_all(output.as_bytes()).unwrap();
     } else {
-        file.write_all(format!("{}\n", output.trim()).as_bytes())
-            .unwrap();
+        file.write_all(format!("{}\n", output).as_bytes()).unwrap();
     }
 }
 
