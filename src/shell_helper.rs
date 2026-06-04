@@ -134,26 +134,19 @@ impl<'a> ShellHelper<'a> {
         completion_paths.sort_by(|a, b| a.path.cmp(&b.path));
 
         for completion_path in completion_paths {
-            if completion_path.is_dir && last_partial_input.is_empty()
+            if last_partial_input.is_empty()
                 || last_partial_input.ends_with('/')
+                || completion_path.path.starts_with(&partial_filename)
             {
-                let completion = format!("{}{}/", path, completion_path.path);
-                candidates.push(Pair {
-                    display: completion.clone(),
-                    replacement: completion,
-                });
-            } else if !last_partial_input.ends_with('/')
-                && completion_path.path.starts_with(&partial_filename)
-            {
-                let replacement = if completion_path.is_dir {
+                let path_pair = if completion_path.is_dir {
                     format!("{}{}/", path, completion_path.path)
                 } else {
                     format!("{}{} ", path, completion_path.path)
                 };
 
                 candidates.push(Pair {
-                    display: replacement.trim().to_string(),
-                    replacement,
+                    display: path_pair.trim().to_string(),
+                    replacement: path_pair,
                 });
             }
         }
