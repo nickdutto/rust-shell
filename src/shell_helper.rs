@@ -6,7 +6,8 @@ use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Helper};
-use std::env;
+use std::path::PathBuf;
+use std::{env, fs};
 
 pub struct ShellHelper<'a> {
     builtin_commands: Vec<&'a str>,
@@ -83,7 +84,7 @@ impl<'a> ShellHelper<'a> {
 
     fn complete_filename(&self, line: &str, pos: &mut usize, candidates: &mut Vec<Pair>) {
         let last_partial_input = match line.split(' ').next_back() {
-            Some(last) => last.to_lowercase(),
+            Some(last) => last,
             None => return,
         };
 
@@ -91,9 +92,27 @@ impl<'a> ShellHelper<'a> {
             *pos = last_whitespace;
         }
 
-        let filenames: Vec<String> = env::current_dir()
+        let path;
+        let partial_filename;
+
+        let char = '/';
+        if let Some(idx) = last_partial_input.rfind(char) {
+            let cut_index = idx + char.len_utf8();
+            path = last_partial_input[..cut_index].to_string();
+            partial_filename = last_partial_input[cut_index..].to_string();
+        } else {
+            path = String::new();
+            partial_filename = last_partial_input.to_string();
+        };
+
+        let dir_path = if !path.is_empty() {
+            PathBuf::from(&path)
+        } else {
+            env::current_dir().ok().unwrap().to_path_buf()
+        };
+
+        let filenames: Vec<String> = fs::read_dir(dir_path)
             .into_iter()
-            .flat_map(|dir| dir.read_dir())
             .flatten()
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
@@ -101,10 +120,10 @@ impl<'a> ShellHelper<'a> {
             .collect();
 
         for filename in filenames {
-            if filename.to_lowercase().starts_with(&last_partial_input) {
+            if filename.starts_with(&partial_filename) {
                 candidates.push(Pair {
-                    display: filename.to_string(),
-                    replacement: format!("{} ", filename),
+                    display: format!("{}{}", path, filename),
+                    replacement: format!("{}{} ", path, filename),
                 });
             }
         }
