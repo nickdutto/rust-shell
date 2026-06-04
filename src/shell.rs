@@ -1,11 +1,12 @@
 ﻿use crate::command::{BUILTIN_COMMANDS, Command};
 use crate::env::get_env_path_executables;
 use rustyline::completion::{Completer, Pair};
+use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
-use rustyline::{Context, Editor, Helper};
+use rustyline::{CompletionType, Context, Editor, Helper};
 use std::io::{stderr, stdout};
 use std::process;
 
@@ -60,6 +61,9 @@ impl<'a> Completer for ShellHelper<'a> {
                 }
             }
 
+            candidates.sort_by(|a, b| a.replacement.cmp(&b.replacement));
+            candidates.dedup_by(|a, b| a.replacement == b.replacement);
+
             return Ok((0, candidates));
         }
 
@@ -74,6 +78,7 @@ impl Shell {
         let shell_helper = ShellHelper::new();
         let mut rl = Editor::new().unwrap();
         rl.set_helper(Some(shell_helper));
+        rl.set_completion_type(CompletionType::List);
 
         loop {
             let readline = rl.readline("$ ");
