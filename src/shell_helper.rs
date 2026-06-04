@@ -9,6 +9,11 @@ use rustyline::{Context, Helper};
 use std::path::PathBuf;
 use std::{env, fs};
 
+struct CompletionPath {
+    path: String,
+    is_dir: bool,
+}
+
 pub struct ShellHelper<'a> {
     builtin_commands: Vec<&'a str>,
     path_executables: Vec<String>,
@@ -111,19 +116,44 @@ impl<'a> ShellHelper<'a> {
             env::current_dir().ok().unwrap().to_path_buf()
         };
 
-        let filenames: Vec<String> = fs::read_dir(dir_path)
+        let mut completion_paths: Vec<CompletionPath> = fs::read_dir(dir_path)
             .into_iter()
             .flatten()
             .filter_map(|entry| entry.ok())
-            .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
-            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter_map(|entry| {
+                let file_name = entry.file_name().into_string().ok()?;
+                let file_type = entry.file_type().ok()?;
+
+                Some(CompletionPath {
+                    path: file_name,
+                    is_dir: file_type.is_dir(),
+                })
+            })
             .collect();
 
-        for filename in filenames {
-            if filename.starts_with(&partial_filename) {
+        completion_paths.sort_by(|a, b| a.path.cmp(&b.path));
+
+        for completion_path in completion_paths {
+            if completion_path.is_dir && last_partial_input.is_empty()
+                || last_partial_input.ends_with('/')
+            {
+                let completion = format!("{}{}/", path, completion_path.path);
                 candidates.push(Pair {
-                    display: format!("{}{}", path, filename),
-                    replacement: format!("{}{} ", path, filename),
+                    display: completion.clone(),
+                    replacement: completion,
+                });
+            } else if !last_partial_input.ends_with('/')
+                && completion_path.path.starts_with(&partial_filename)
+            {
+                let replacement = if completion_path.is_dir {
+                    format!("{}{}/", path, completion_path.path)
+                } else {
+                    format!("{}{} ", path, completion_path.path)
+                };
+
+                candidates.push(Pair {
+                    display: replacement.trim().to_string(),
+                    replacement,
                 });
             }
         }
