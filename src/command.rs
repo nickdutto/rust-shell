@@ -7,10 +7,11 @@ use std::path::Path;
 use std::process::Stdio;
 use std::{env, process};
 
-pub const BUILTIN_COMMANDS: &[&str] = &["cd", "echo", "exit", "pwd", "type"];
+pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "pwd", "type"];
 
 pub enum Command {
     Cd(Tokens),
+    Complete(Tokens),
     Echo(Tokens),
     Executable(Tokens),
     Exit,
@@ -24,6 +25,7 @@ impl Command {
 
         match tokens.command.as_str() {
             "cd" => Command::Cd(tokens),
+            "complete" => Command::Complete(tokens),
             "echo" => Command::Echo(tokens),
             "exit" => Command::Exit,
             "pwd" => Command::Pwd(tokens),
@@ -37,6 +39,7 @@ impl Command {
 
         match self {
             Command::Cd(tokens) => handle_cd(tokens, err_writer),
+            Command::Complete(tokens) => handle_complete(tokens, out_writer, err_writer),
             Command::Echo(tokens) => handle_echo(tokens, out_writer),
             Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
             Command::Exit => handle_exit(),
@@ -48,6 +51,7 @@ impl Command {
     fn initialise_redirection_file(&self) {
         let tokens_ref = match self {
             Command::Cd(tokens)
+            | Command::Complete(tokens)
             | Command::Echo(tokens)
             | Command::Executable(tokens)
             | Command::Pwd(tokens)
@@ -83,6 +87,23 @@ fn handle_cd(tokens: Tokens, err_writer: &mut impl Write) {
 
     if let Err(err_message) = result {
         write_output(&err_message, OutputType::Stderr, &tokens, err_writer);
+    }
+}
+
+fn handle_complete(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+    let program = tokens
+        .arguments
+        .iter()
+        .position(|x| x == "-p")
+        .and_then(|i| tokens.arguments.get(i + 1));
+
+    if let Some(p) = program {
+        write_output(
+            &format!("{}: {}: no completion specification", tokens.command, p),
+            OutputType::Stdout,
+            &tokens,
+            err_writer,
+        )
     }
 }
 
