@@ -19,6 +19,12 @@ pub struct ShellHelper<'a> {
     path_executables: Vec<String>,
 }
 
+impl<'a> Default for ShellHelper<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> ShellHelper<'a> {
     pub fn new() -> Self {
         ShellHelper {
