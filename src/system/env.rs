@@ -32,13 +32,15 @@ pub fn get_env_path_executables(path_env_var: &str) -> Vec<String> {
         .filter_map(|dir_path| dir_path.read_dir().ok())
         .flatten()
         .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .filter(|path| is_executable(path))
-        .filter_map(|path| {
-            path.file_name()
-                .and_then(|os_str| os_str.to_str())
-                .map(|s| s.to_string())
+        .filter(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                file_type.is_file() || file_type.is_symlink()
+            } else {
+                false
+            }
         })
+        .filter(|entry| is_executable(entry.path()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
         .collect();
 
     executables.sort();
