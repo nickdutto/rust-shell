@@ -7,6 +7,7 @@ use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::tokenize::{Tokens, tokenize_arguments};
 use crate::io::writer::initialise_writer_file;
+use crate::shell::ShellState;
 use std::io::Write;
 
 pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "pwd", "type"];
@@ -36,12 +37,19 @@ impl Command {
         }
     }
 
-    pub fn run_command(self, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+    pub fn run_command(
+        self,
+        shell_state: &mut ShellState,
+        out_writer: &mut impl Write,
+        err_writer: &mut impl Write,
+    ) {
         self.initialise_redirection_file();
 
         match self {
             Command::Cd(tokens) => handle_cd(tokens, err_writer),
-            Command::Complete(tokens) => handle_complete(tokens, out_writer, err_writer),
+            Command::Complete(tokens) => {
+                handle_complete(tokens, shell_state, out_writer, err_writer)
+            }
             Command::Echo(tokens) => handle_echo(tokens, out_writer),
             Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
             Command::Exit => handle_exit(),

@@ -4,14 +4,23 @@ use crate::system::env::get_env_path_executables;
 use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
+use std::collections::HashMap;
 use std::io::{stderr, stdout};
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
+
+pub struct ShellState {
+    pub completion_specifications: HashMap<String, String>,
+}
 
 pub struct Shell;
 
 impl Shell {
     pub fn start_session() {
+        let mut shell_state = ShellState {
+            completion_specifications: HashMap::new(),
+        };
+
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
         let executable_completions_bg = Arc::clone(&executable_completions);
 
@@ -38,6 +47,7 @@ impl Shell {
 
                     Command::run_command(
                         Command::parse_command(&input),
+                        &mut shell_state,
                         &mut stdout(),
                         &mut stderr(),
                     );
