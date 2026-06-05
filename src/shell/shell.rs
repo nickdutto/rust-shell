@@ -17,9 +17,9 @@ pub struct Shell;
 
 impl Shell {
     pub fn start_session() {
-        let mut shell_state = ShellState {
+        let shell_state = Arc::new(RwLock::new(ShellState {
             completion_specifications: HashMap::new(),
-        };
+        }));
 
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
         let executable_completions_bg = Arc::clone(&executable_completions);
@@ -31,8 +31,12 @@ impl Shell {
             }
         });
 
+        let shell_state_for_helper = Arc::clone(&shell_state);
         let mut rl = Editor::new().unwrap();
-        rl.set_helper(Some(ShellHelper::new(executable_completions)));
+        rl.set_helper(Some(ShellHelper::new(
+            executable_completions,
+            shell_state_for_helper,
+        )));
         rl.set_completion_type(CompletionType::List);
 
         loop {
@@ -45,12 +49,14 @@ impl Shell {
 
                     rl.add_history_entry(input.as_str()).ok();
 
-                    Command::run_command(
-                        Command::parse_command(&input),
-                        &mut shell_state,
-                        &mut stdout(),
-                        &mut stderr(),
-                    );
+                    if let Ok(mut shell_state_guard) = shell_state.write() {
+                        Command::run_command(
+                            Command::parse_command(&input),
+                            &mut shell_state_guard,
+                            &mut stdout(),
+                            &mut stderr(),
+                        );
+                    }
                 }
                 Err(ReadlineError::Interrupted) => {
                     process::exit(0);

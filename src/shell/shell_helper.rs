@@ -1,4 +1,5 @@
 use crate::command::BUILTIN_COMMANDS;
+use crate::shell::ShellState;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -7,7 +8,7 @@ use rustyline::validate::Validator;
 use rustyline::{Context, Helper};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::{env, fs};
+use std::{env, fs, process};
 
 struct CompletionPath {
     path: String,
@@ -15,24 +16,20 @@ struct CompletionPath {
 }
 
 pub struct ShellHelper<'a> {
+    shell_state: Arc<RwLock<ShellState>>,
     builtin_commands: Vec<&'a str>,
     path_executables: Arc<RwLock<Vec<String>>>,
 }
 
-impl<'a> Default for ShellHelper<'a> {
-    fn default() -> Self {
-        ShellHelper {
-            builtin_commands: BUILTIN_COMMANDS.to_vec(),
-            path_executables: Arc::new(RwLock::new(Vec::new())),
-        }
-    }
-}
-
 impl<'a> ShellHelper<'a> {
-    pub fn new(path_executables: Arc<RwLock<Vec<String>>>) -> Self {
+    pub fn new(
+        path_executables: Arc<RwLock<Vec<String>>>,
+        shell_state: Arc<RwLock<ShellState>>,
+    ) -> Self {
         ShellHelper {
             builtin_commands: BUILTIN_COMMANDS.to_vec(),
             path_executables,
+            shell_state,
         }
     }
 }
@@ -61,6 +58,7 @@ impl<'a> Completer for ShellHelper<'a> {
         }
 
         if !partial_input.contains(' ') {
+            self.complete_specification_script(partial_input, &mut pos, &mut candidates);
             self.complete_command(partial_input, &mut pos, &mut candidates);
         } else {
             self.complete_filename(line, &mut pos, &mut candidates);
@@ -70,6 +68,29 @@ impl<'a> Completer for ShellHelper<'a> {
         candidates.dedup_by(|a, b| a.replacement == b.replacement);
 
         Ok((pos, candidates))
+    }
+}
+
+impl<'a> ShellHelper<'a> {
+    fn complete_specification_script(
+        &self,
+        partial_input: &str,
+        pos: &mut usize,
+        candidates: &mut Vec<Pair>,
+    ) {
+        if let Ok(shell_state_guard) = self.shell_state.read() {
+            for (key, value) in &shell_state_guard.completion_specifications {
+                if key.starts_with(partial_input)
+                    && let Ok(output) = process::Command::new(value).output()
+                {
+                    let stdout = String::from_utf8(output.stdout).unwrap();
+                    candidates.push(Pair {
+                        display: stdout.to_string(),
+                        replacement: format!("{} {} ", partial_input, stdout.trim()),
+                    });
+                }
+            }
+        }
     }
 }
 
