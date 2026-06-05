@@ -28,8 +28,8 @@ Time to move on to the next stage!
 Note: This section is for stages 2 and beyond.
 
 1. Ensure you have `cargo (1.95)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
+2. Run `./your_program.sh` to run your program, which is implemented in
    `src/main.rs`. This command compiles your Rust project, so it might be slow
    the first time you run it. Subsequent runs will be fast.
-1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
+3. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.

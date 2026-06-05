@@ -1,5 +1,5 @@
 use crate::command::BUILTIN_COMMANDS;
-use crate::env::get_env_path_executables;
+use crate::system::env::get_env_path_executables;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;

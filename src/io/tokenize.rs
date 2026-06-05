@@ -1,4 +1,4 @@
-﻿use crate::writer::{Redirection, RedirectionMode};
+use crate::io::writer::{Redirection, RedirectionMode};
 use std::iter::Peekable;
 use std::str::Chars;
 

@@ -1,5 +1,5 @@
 ﻿use crate::command::Command;
-use crate::shell_helper::ShellHelper;
+use crate::shell::shell_helper::ShellHelper;
 use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};

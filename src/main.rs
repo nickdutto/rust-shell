@@ -1,11 +1,9 @@
-mod command;
-mod env;
-mod parser;
-mod shell;
-mod shell_helper;
-mod writer;
+pub mod command;
+pub mod io;
+pub mod shell;
+pub mod system;
 
-use crate::shell::Shell;
+use shell::Shell;
 
 fn main() {
     Shell::start_session();

@@ -1,4 +1,4 @@
-﻿use crate::parser::Tokens;
+﻿use crate::io::tokenize::Tokens;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
