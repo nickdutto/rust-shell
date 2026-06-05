@@ -1,5 +1,4 @@
 use crate::command::BUILTIN_COMMANDS;
-use crate::system::env::get_env_path_executables;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -7,6 +6,7 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Helper};
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use std::{env, fs};
 
 struct CompletionPath {
@@ -16,20 +16,23 @@ struct CompletionPath {
 
 pub struct ShellHelper<'a> {
     builtin_commands: Vec<&'a str>,
-    path_executables: Vec<String>,
+    path_executables: Arc<RwLock<Vec<String>>>,
 }
 
 impl<'a> Default for ShellHelper<'a> {
     fn default() -> Self {
-        Self::new()
+        ShellHelper {
+            builtin_commands: BUILTIN_COMMANDS.to_vec(),
+            path_executables: Arc::new(RwLock::new(Vec::new())),
+        }
     }
 }
 
 impl<'a> ShellHelper<'a> {
-    pub fn new() -> Self {
+    pub fn new(path_executables: Arc<RwLock<Vec<String>>>) -> Self {
         ShellHelper {
             builtin_commands: BUILTIN_COMMANDS.to_vec(),
-            path_executables: get_env_path_executables("PATH"),
+            path_executables,
         }
     }
 }
@@ -81,12 +84,14 @@ impl<'a> ShellHelper<'a> {
             }
         }
 
-        for executable in &self.path_executables {
-            if executable.starts_with(partial_input) {
-                candidates.push(Pair {
-                    display: executable.to_string(),
-                    replacement: format!("{} ", executable),
-                });
+        if let Ok(executables) = self.path_executables.read() {
+            for executable in executables.iter() {
+                if executable.starts_with(partial_input) {
+                    candidates.push(Pair {
+                        display: executable.to_string(),
+                        replacement: format!("{} ", executable),
+                    });
+                }
             }
         }
 
