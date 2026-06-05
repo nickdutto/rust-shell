@@ -58,10 +58,13 @@ impl<'a> Completer for ShellHelper<'a> {
         }
 
         if !partial_input.contains(' ') {
-            self.complete_specification_script(partial_input, &mut pos, &mut candidates);
             self.complete_command(partial_input, &mut pos, &mut candidates);
         } else {
-            self.complete_filename(line, &mut pos, &mut candidates);
+            let specification_found =
+                self.complete_specification_script(partial_input, &mut candidates);
+            if !specification_found {
+                self.complete_filename(line, &mut pos, &mut candidates);
+            }
         }
 
         candidates.sort_by(|a, b| a.replacement.cmp(&b.replacement));
@@ -75,22 +78,26 @@ impl<'a> ShellHelper<'a> {
     fn complete_specification_script(
         &self,
         partial_input: &str,
-        pos: &mut usize,
         candidates: &mut Vec<Pair>,
-    ) {
+    ) -> bool {
+        let input = partial_input.trim();
         if let Ok(shell_state_guard) = self.shell_state.read() {
             for (key, value) in &shell_state_guard.completion_specifications {
-                if key.starts_with(partial_input)
+                if key == input
                     && let Ok(output) = process::Command::new(value).output()
                 {
                     let stdout = String::from_utf8(output.stdout).unwrap();
                     candidates.push(Pair {
-                        display: stdout.to_string(),
-                        replacement: format!("{} {} ", partial_input, stdout.trim()),
+                        display: stdout.trim().to_string(),
+                        replacement: format!("{} ", stdout.trim()),
                     });
+
+                    return true;
                 }
             }
         }
+
+        false
     }
 }
 
