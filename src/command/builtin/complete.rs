@@ -13,12 +13,41 @@ pub fn handle_complete(
 
     while let Some(argument) = arguments_iter.next() {
         match argument.as_str() {
+            "-C" => {
+                if let Some(spec_path_arg) = arguments_iter.next()
+                    && let Some(spec_name_arg) = arguments_iter.next()
+                {
+                    shell_state
+                        .completion_specifications
+                        .insert(spec_name_arg.clone(), spec_path_arg.clone());
+                }
+            }
             "-p" => {
-                let Some(print) = arguments_iter.next() else {
+                let Some(spec_name_arg) = arguments_iter.next() else {
+                    write_output(
+                        &format!("{}: missing specification name for -p", tokens.command),
+                        OutputType::Stderr,
+                        &tokens,
+                        err_writer,
+                    );
+                    return;
+                };
+
+                if let Some((spec_name, spec_path)) = shell_state
+                    .completion_specifications
+                    .get_key_value(spec_name_arg)
+                {
+                    write_output(
+                        &format!("{} -C '{}' {}", tokens.command, spec_path, spec_name),
+                        OutputType::Stdout,
+                        &tokens,
+                        out_writer,
+                    );
+                } else {
                     write_output(
                         &format!(
-                            "{}: no completion specification name provided for -p",
-                            tokens.command
+                            "{}: {}: no completion specification",
+                            tokens.command, spec_name_arg
                         ),
                         OutputType::Stderr,
                         &tokens,
@@ -26,35 +55,6 @@ pub fn handle_complete(
                     );
                     return;
                 };
-
-                let Some(specification) = shell_state.completion_specifications.get(print) else {
-                    write_output(
-                        &format!("{}: {}: no completion specification", tokens.command, print),
-                        OutputType::Stderr,
-                        &tokens,
-                        err_writer,
-                    );
-                    return;
-                };
-
-                write_output(
-                    &format!("{} -C '{}' {}", tokens.command, specification, print),
-                    OutputType::Stdout,
-                    &tokens,
-                    out_writer,
-                );
-            }
-            "-C" => {
-                let register_path = arguments_iter.next();
-                let register_name = arguments_iter.next();
-
-                if let Some(path) = register_path
-                    && let Some(name) = register_name
-                {
-                    shell_state
-                        .completion_specifications
-                        .insert(name.clone(), path.clone());
-                }
             }
             _ => (),
         }
