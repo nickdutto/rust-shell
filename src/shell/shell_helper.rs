@@ -63,7 +63,7 @@ impl<'a> Completer for ShellHelper<'a> {
             let specification_found =
                 self.complete_specification_script(line, partial_input, &mut pos, &mut candidates);
             if !specification_found {
-                self.complete_filename(line, &mut pos, &mut candidates);
+                self.complete_filename(partial_input, &mut pos, &mut candidates);
             }
         }
 
@@ -162,13 +162,13 @@ impl<'a> ShellHelper<'a> {
         *pos = 0;
     }
 
-    fn complete_filename(&self, line: &str, pos: &mut usize, candidates: &mut Vec<Pair>) {
-        let last_partial_input = match line.split(' ').next_back() {
-            Some(last) => last,
-            None => return,
+    fn complete_filename(&self, partial_input: &str, pos: &mut usize, candidates: &mut Vec<Pair>) {
+        let last_partial_input = match partial_input.rfind(' ') {
+            Some(idx) => &partial_input[idx + 1..],
+            None => partial_input,
         };
 
-        if let Some(last_whitespace) = line.rfind(' ').map(|idx| idx + 1) {
+        if let Some(last_whitespace) = partial_input.rfind(' ').map(|idx| idx + 1) {
             *pos = last_whitespace;
         }
 
