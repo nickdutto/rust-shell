@@ -22,6 +22,11 @@ pub fn handle_complete(
                         .insert(spec_name_arg.clone(), spec_path_arg.clone());
                 }
             }
+            "-r" => {
+                if let Some(spec_name_arg) = arguments_iter.next() {
+                    shell_state.completion_specifications.remove(spec_name_arg);
+                }
+            }
             "-p" => {
                 let Some(spec_name_arg) = arguments_iter.next() else {
                     write_output(
