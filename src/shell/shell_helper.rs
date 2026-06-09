@@ -61,7 +61,7 @@ impl<'a> Completer for ShellHelper<'a> {
             self.complete_command(partial_input, &mut pos, &mut candidates);
         } else {
             let specification_found =
-                self.complete_specification_script(partial_input, &mut candidates);
+                self.complete_specification_script(line, partial_input, &mut pos, &mut candidates);
             if !specification_found {
                 self.complete_filename(line, &mut pos, &mut candidates);
             }
@@ -77,24 +77,60 @@ impl<'a> Completer for ShellHelper<'a> {
 impl<'a> ShellHelper<'a> {
     fn complete_specification_script(
         &self,
+        line: &str,
         partial_input: &str,
+        pos: &mut usize,
         candidates: &mut Vec<Pair>,
     ) -> bool {
-        let input = partial_input.trim();
-        if let Ok(shell_state_guard) = self.shell_state.read() {
-            for (key, value) in &shell_state_guard.completion_specifications {
-                if key == input
-                    && let Ok(output) = process::Command::new(value).output()
-                {
-                    let stdout = String::from_utf8(output.stdout).unwrap();
-                    candidates.push(Pair {
-                        display: stdout.trim().to_string(),
-                        replacement: format!("{} ", stdout.trim()),
-                    });
+        let words: Vec<&str> = partial_input.split_whitespace().collect();
+        if words.is_empty() {
+            return false;
+        }
 
-                    return true;
+        let command = words[0];
+        let (current_word, preceding_word) = if partial_input.ends_with(' ') {
+            ("", words.last().cloned().unwrap_or(""))
+        } else {
+            (
+                words.last().cloned().unwrap_or(""),
+                if words.len() >= 2 {
+                    words[words.len() - 2]
+                } else {
+                    ""
+                },
+            )
+        };
+
+        if let Ok(shell_state_guard) = self.shell_state.read()
+            && let Some(value) = shell_state_guard.completion_specifications.get(command)
+        {
+            if !partial_input.ends_with(' ') {
+                if let Some(last_space) = partial_input.rfind(' ') {
+                    *pos = last_space + 1;
+                } else {
+                    *pos = 0;
                 }
             }
+
+            if let Ok(output) = process::Command::new(value)
+                .args([command, current_word, preceding_word])
+                .env("COMP_LINE", line)
+                .env("COMP_POINT", partial_input.len().to_string())
+                .output()
+                && output.status.success()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        candidates.push(Pair {
+                            display: trimmed.to_string(),
+                            replacement: format!("{} ", trimmed),
+                        });
+                    }
+                }
+            }
+            return true;
         }
 
         false
