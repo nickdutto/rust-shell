@@ -5,11 +5,34 @@ use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
 
+pub enum BackgroundJobStatus {
+    Done,
+    Running,
+}
+
+impl Display for BackgroundJobStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BackgroundJobStatus::Done => f.pad("Done"),
+            BackgroundJobStatus::Running => f.pad("Running"),
+        }
+    }
+}
+
+pub struct BackgroundJob {
+    pub id: usize,
+    pub pid: u32,
+    pub command: String,
+    pub status: BackgroundJobStatus,
+}
+
 pub struct ShellState {
     pub completion_specifications: HashMap<String, String>,
+    pub background_jobs: Vec<BackgroundJob>,
 }
 
 pub struct Shell;
@@ -18,6 +41,7 @@ impl Shell {
     pub fn start_session() {
         let shell_state = Arc::new(RwLock::new(ShellState {
             completion_specifications: HashMap::new(),
+            background_jobs: vec![],
         }));
 
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
@@ -48,12 +72,7 @@ impl Shell {
 
                     rl.add_history_entry(input.as_str()).ok();
 
-                    if let Ok(mut shell_state_guard) = shell_state.write() {
-                        Command::run_command(
-                            Command::parse_command(&input),
-                            &mut shell_state_guard,
-                        );
-                    }
+                    Command::run_command(Command::parse_command(&input), Arc::clone(&shell_state));
                 }
                 Err(ReadlineError::Interrupted) => {
                     process::exit(0);

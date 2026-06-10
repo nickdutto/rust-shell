@@ -1,10 +1,12 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
+use crate::shell::{BackgroundJob, BackgroundJobStatus, ShellState};
 use std::io::{BufReader, ErrorKind, Read};
 use std::process;
 use std::process::{Child, Stdio};
+use std::sync::{Arc, RwLock};
 
-pub fn handle_executable(tokens: Tokens) {
+pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
     if tokens.command.is_empty() {
         return;
     }
@@ -27,15 +29,22 @@ pub fn handle_executable(tokens: Tokens) {
                 .spawn(),
             true,
             tokens,
+            shell_state,
         );
     } else {
-        match_spawn_process(command.args(&tokens.arguments).spawn(), false, tokens)
+        match_spawn_process(
+            command.args(&tokens.arguments).spawn(),
+            false,
+            tokens,
+            shell_state,
+        )
     }
 
     fn match_spawn_process(
         result: std::io::Result<Child>,
         run_background_job: bool,
         tokens: Tokens,
+        shell_state: Arc<RwLock<ShellState>>,
     ) {
         let mut stdout_output = String::new();
         let mut stderr_output = String::new();
@@ -43,7 +52,26 @@ pub fn handle_executable(tokens: Tokens) {
         match result {
             Ok(mut child) => {
                 if run_background_job {
-                    write_output(&format!("[1] {}", child.id()), OutputType::Stdout, &tokens);
+                    let shell_state_clone = Arc::clone(&shell_state);
+
+                    let pid = child.id();
+                    let job_id = {
+                        let mut guard = shell_state_clone.write().unwrap();
+                        let id = guard.background_jobs.len() + 1;
+                        guard.background_jobs.push(BackgroundJob {
+                            id,
+                            pid,
+                            command: format!("{} {}", tokens.command, tokens.arguments.join(" ")),
+                            status: BackgroundJobStatus::Running,
+                        });
+                        id
+                    };
+
+                    write_output(
+                        &format!("[{}] {}", job_id, pid),
+                        OutputType::Stdout,
+                        &tokens,
+                    );
 
                     std::thread::spawn(move || {
                         if let Some(stdout) = child.stdout.take() {
@@ -57,6 +85,17 @@ pub fn handle_executable(tokens: Tokens) {
                         }
 
                         child.wait().unwrap();
+
+                        {
+                            let mut guard = shell_state_clone.write().unwrap();
+                            if let Some(job) = guard
+                                .background_jobs
+                                .iter_mut()
+                                .find(|job| job.id == job_id)
+                            {
+                                job.status = BackgroundJobStatus::Done;
+                            }
+                        }
 
                         write_output(&stdout_output, OutputType::Stdout, &tokens);
                         write_output(&stderr_output, OutputType::Stderr, &tokens);

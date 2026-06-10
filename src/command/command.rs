@@ -9,6 +9,7 @@ use crate::command::builtin::type_cmd::handle_type;
 use crate::io::tokenize::{Tokens, tokenize_arguments};
 use crate::io::writer::initialise_writer_file;
 use crate::shell::ShellState;
+use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "jobs", "pwd", "type"];
 
@@ -39,14 +40,14 @@ impl Command {
         }
     }
 
-    pub fn run_command(self, shell_state: &mut ShellState) {
+    pub fn run_command(self, shell_state: Arc<RwLock<ShellState>>) {
         self.initialise_redirection_file();
 
         match self {
             Command::Cd(tokens) => handle_cd(tokens),
-            Command::Complete(tokens) => handle_complete(tokens, shell_state),
+            Command::Complete(tokens) => handle_complete(tokens, &mut shell_state.write().unwrap()),
             Command::Echo(tokens) => handle_echo(tokens),
-            Command::Executable(tokens) => handle_executable(tokens),
+            Command::Executable(tokens) => handle_executable(tokens, shell_state),
             Command::Exit => handle_exit(),
             Command::Jobs(tokens) => handle_jobs(tokens),
             Command::Pwd(tokens) => handle_pwd(tokens),
