@@ -60,8 +60,6 @@ pub fn handle_executable(tokens: Tokens) {
 
                         write_output(&stdout_output, OutputType::Stdout, &tokens);
                         write_output(&stderr_output, OutputType::Stderr, &tokens);
-
-                        println!("hello world");
                     });
                 } else {
                     if let Some(stdout) = child.stdout.take() {
