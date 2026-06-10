@@ -57,7 +57,12 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     let pid = child.id();
                     let job_id = {
                         let mut guard = shell_state_clone.write().unwrap();
-                        let id = guard.background_jobs.len() + 1;
+                        let id = (1..)
+                            .find(|&smallest| {
+                                !guard.background_jobs.iter().any(|job| job.id == smallest)
+                            })
+                            .unwrap();
+
                         guard.background_jobs.push(BackgroundJob {
                             id,
                             pid,
@@ -94,6 +99,9 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                                 .find(|job| job.id == job_id)
                             {
                                 job.status = BackgroundJobStatus::Done;
+                                if let Some(stripped) = job.command.strip_suffix(" &") {
+                                    job.command = stripped.to_string();
+                                }
                             }
                         }
 

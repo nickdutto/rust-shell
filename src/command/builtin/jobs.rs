@@ -1,32 +1,51 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
-use crate::shell::ShellState;
+use crate::shell::{BackgroundJobStatus, ShellState};
+use std::collections::HashSet;
+use std::sync::{Arc, RwLock};
 
-pub fn handle_jobs(tokens: Tokens, shell_state: &ShellState) {
-    let jobs_output: Vec<String> = shell_state
-        .background_jobs
-        .iter()
-        .enumerate()
-        .map(|(idx, job)| {
-            let marker = match shell_state.background_jobs.len() - idx {
-                1 => "+",
-                2 => "-",
-                _ => " ",
-            };
+pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
+    let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
+    let jobs_output: Vec<String>;
 
-            format!(
-                "[{}]{}  {:<24} {}",
-                job.id,
-                marker,
-                job.status.to_string(),
-                job.command
-            )
-        })
-        .collect();
+    {
+        let guard = shell_state.read().unwrap();
+        jobs_output = guard
+            .background_jobs
+            .iter()
+            .enumerate()
+            .map(|(idx, job)| {
+                if let BackgroundJobStatus::Done = job.status {
+                    job_pids_to_remove.insert(job.pid);
+                };
+
+                let marker = match guard.background_jobs.len() - idx {
+                    1 => "+",
+                    2 => "-",
+                    _ => " ",
+                };
+
+                format!(
+                    "[{}]{}  {:<24} {}",
+                    job.id,
+                    marker,
+                    job.status.to_string(),
+                    job.command
+                )
+            })
+            .collect();
+    }
 
     write_output(
         &jobs_output.join("\n").to_string(),
         OutputType::Stdout,
         &tokens,
     );
+
+    {
+        let mut guard = shell_state.write().unwrap();
+        guard
+            .background_jobs
+            .retain(|job| !job_pids_to_remove.contains(&job.pid));
+    }
 }

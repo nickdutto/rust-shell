@@ -49,7 +49,7 @@ impl Command {
             Command::Echo(tokens) => handle_echo(tokens),
             Command::Executable(tokens) => handle_executable(tokens, shell_state),
             Command::Exit => handle_exit(),
-            Command::Jobs(tokens) => handle_jobs(tokens, &shell_state.read().unwrap()),
+            Command::Jobs(tokens) => handle_jobs(tokens, shell_state),
             Command::Pwd(tokens) => handle_pwd(tokens),
             Command::Type(tokens) => handle_type(tokens),
         }
