@@ -3,6 +3,7 @@ use crate::command::builtin::complete::handle_complete;
 use crate::command::builtin::echo::handle_echo;
 use crate::command::builtin::executable::handle_executable;
 use crate::command::builtin::exit::handle_exit;
+use crate::command::builtin::jobs::handle_jobs;
 use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::tokenize::{Tokens, tokenize_arguments};
@@ -10,7 +11,7 @@ use crate::io::writer::initialise_writer_file;
 use crate::shell::ShellState;
 use std::io::Write;
 
-pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "pwd", "type"];
+pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "jobs", "pwd", "type"];
 
 pub enum Command {
     Cd(Tokens),
@@ -18,6 +19,7 @@ pub enum Command {
     Echo(Tokens),
     Executable(Tokens),
     Exit,
+    Jobs(Tokens),
     Pwd(Tokens),
     Type(Tokens),
 }
@@ -31,6 +33,7 @@ impl Command {
             "complete" => Command::Complete(tokens),
             "echo" => Command::Echo(tokens),
             "exit" => Command::Exit,
+            "jobs" => Command::Jobs(tokens),
             "pwd" => Command::Pwd(tokens),
             "type" => Command::Type(tokens),
             _ => Command::Executable(tokens),
@@ -53,6 +56,7 @@ impl Command {
             Command::Echo(tokens) => handle_echo(tokens, out_writer),
             Command::Executable(tokens) => handle_executable(tokens, out_writer, err_writer),
             Command::Exit => handle_exit(),
+            Command::Jobs(tokens) => handle_jobs(tokens, out_writer),
             Command::Pwd(tokens) => handle_pwd(tokens, out_writer),
             Command::Type(tokens) => handle_type(tokens, out_writer, err_writer),
         }
@@ -64,6 +68,7 @@ impl Command {
             | Command::Complete(tokens)
             | Command::Echo(tokens)
             | Command::Executable(tokens)
+            | Command::Jobs(tokens)
             | Command::Pwd(tokens)
             | Command::Type(tokens) => Some(tokens),
             Command::Exit => None,
