@@ -1,6 +1,6 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
-use crate::shell::{BackgroundJobStatus, ShellState};
+use crate::shell::{BackgroundJob, BackgroundJobStatus, ShellState};
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 
@@ -19,19 +19,7 @@ pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     job_pids_to_remove.insert(job.pid);
                 };
 
-                let marker = match guard.background_jobs.len() - idx {
-                    1 => "+",
-                    2 => "-",
-                    _ => " ",
-                };
-
-                format!(
-                    "[{}]{}  {:<24} {}",
-                    job.id,
-                    marker,
-                    job.status.to_string(),
-                    job.command
-                )
+                format_job_output(job, idx, guard.background_jobs.len())
             })
             .collect();
     }
@@ -48,4 +36,20 @@ pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
             .background_jobs
             .retain(|job| !job_pids_to_remove.contains(&job.pid));
     }
+}
+
+pub fn format_job_output(job: &BackgroundJob, idx: usize, len: usize) -> String {
+    let marker = match len - idx {
+        1 => "+",
+        2 => "-",
+        _ => " ",
+    };
+
+    format!(
+        "[{}]{}  {:<24} {}",
+        job.id,
+        marker,
+        job.status.to_string(),
+        job.command
+    )
 }

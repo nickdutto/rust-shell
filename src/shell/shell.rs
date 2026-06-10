@@ -1,14 +1,18 @@
 ﻿use crate::command::Command;
+use crate::command::builtin::jobs::format_job_output;
+use crate::io::tokenize::Tokens;
+use crate::io::writer::{OutputType, write_output};
 use crate::shell::shell_helper::ShellHelper;
 use crate::system::env::get_env_path_executables;
 use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
 
+#[derive(PartialEq)]
 pub enum BackgroundJobStatus {
     Done,
     Running,
@@ -73,6 +77,40 @@ impl Shell {
                     rl.add_history_entry(input.as_str()).ok();
 
                     Command::run_command(Command::parse_command(&input), Arc::clone(&shell_state));
+
+                    let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
+                    let jobs_output: Vec<String>;
+
+                    {
+                        let guard = shell_state.read().unwrap();
+                        jobs_output = guard
+                            .background_jobs
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, job)| job.status == BackgroundJobStatus::Done)
+                            .map(|(idx, job)| {
+                                job_pids_to_remove.insert(job.pid);
+                                format_job_output(job, idx, guard.background_jobs.len())
+                            })
+                            .collect();
+                    }
+
+                    write_output(
+                        &jobs_output.join("\n").to_string(),
+                        OutputType::Stdout,
+                        &Tokens {
+                            command: String::new(),
+                            arguments: vec![],
+                            redirection: None,
+                        },
+                    );
+
+                    {
+                        let mut guard = shell_state.write().unwrap();
+                        guard
+                            .background_jobs
+                            .retain(|job| !job_pids_to_remove.contains(&job.pid));
+                    }
                 }
                 Err(ReadlineError::Interrupted) => {
                     process::exit(0);
