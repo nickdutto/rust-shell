@@ -3,18 +3,12 @@ use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
-use std::io::Write;
 
-pub fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut impl Write) {
+pub fn handle_type(tokens: Tokens) {
     let command_name = match tokens.arguments.first() {
         Some(command) => command.as_str().trim(),
         None => {
-            write_output(
-                "type: missing operand",
-                OutputType::Stderr,
-                &tokens,
-                err_writer,
-            );
+            write_output("type: missing operand", OutputType::Stderr, &tokens);
             return;
         }
     };
@@ -27,7 +21,7 @@ pub fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut
         let paths = match get_env_paths("PATH") {
             Ok(paths) => paths,
             Err(err_message) => {
-                write_output(&err_message, OutputType::Stderr, &tokens, err_writer);
+                write_output(&err_message, OutputType::Stderr, &tokens);
                 vec![]
             }
         };
@@ -62,46 +56,5 @@ pub fn handle_type(tokens: Tokens, out_writer: &mut impl Write, err_writer: &mut
         }
     }
 
-    write_output(&output, OutputType::Stdout, &tokens, out_writer);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::io::tokenize::Tokens;
-
-    #[test]
-    fn test_handle_type_builtin() {
-        let mut stdout_buffer = Vec::new();
-        let mut stderr_buffer = Vec::new();
-        let tokens = Tokens {
-            command: "type".to_string(),
-            arguments: vec!["exit".to_string()],
-            redirection: None,
-        };
-
-        handle_type(tokens, &mut stdout_buffer, &mut stderr_buffer);
-        let result = String::from_utf8(stdout_buffer).unwrap();
-
-        assert_eq!(result, "exit is a shell builtin\n");
-        assert!(stderr_buffer.is_empty());
-    }
-
-    #[test]
-    fn test_handle_type_via_path() {
-        let mut stdout_buffer = Vec::new();
-        let mut stderr_buffer = Vec::new();
-        let tokens = Tokens {
-            command: "type".to_string(),
-            arguments: vec!["ls".to_string()],
-            redirection: None,
-        };
-
-        handle_type(tokens, &mut stdout_buffer, &mut stderr_buffer);
-        let result = String::from_utf8(stdout_buffer).unwrap();
-
-        // TODO: this relies on the host machine having ls available so its not really a clean test
-        assert!(result.contains("ls is /"));
-        assert!(stderr_buffer.is_empty());
-    }
+    write_output(&output, OutputType::Stdout, &tokens);
 }

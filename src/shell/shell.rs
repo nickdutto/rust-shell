@@ -5,7 +5,6 @@ use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
 use std::collections::HashMap;
-use std::io::{stderr, stdout};
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
 
@@ -53,8 +52,6 @@ impl Shell {
                         Command::run_command(
                             Command::parse_command(&input),
                             &mut shell_state_guard,
-                            &mut stdout(),
-                            &mut stderr(),
                         );
                     }
                 }

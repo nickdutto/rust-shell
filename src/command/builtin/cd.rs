@@ -1,10 +1,10 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
 use std::env;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::path::Path;
 
-pub fn handle_cd(tokens: Tokens, err_writer: &mut impl Write) {
+pub fn handle_cd(tokens: Tokens) {
     let target = tokens
         .arguments
         .first()
@@ -23,7 +23,7 @@ pub fn handle_cd(tokens: Tokens, err_writer: &mut impl Write) {
     };
 
     if let Err(err_message) = result {
-        write_output(&err_message, OutputType::Stderr, &tokens, err_writer);
+        write_output(&err_message, OutputType::Stderr, &tokens);
     }
 }
 

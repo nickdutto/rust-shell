@@ -1,14 +1,8 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
 use crate::shell::ShellState;
-use std::io::Write;
 
-pub fn handle_complete(
-    tokens: Tokens,
-    shell_state: &mut ShellState,
-    out_writer: &mut impl Write,
-    err_writer: &mut impl Write,
-) {
+pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
     let mut arguments_iter = tokens.arguments.iter();
 
     while let Some(argument) = arguments_iter.next() {
@@ -33,7 +27,6 @@ pub fn handle_complete(
                         &format!("{}: missing specification name for -p", tokens.command),
                         OutputType::Stderr,
                         &tokens,
-                        err_writer,
                     );
                     return;
                 };
@@ -46,7 +39,6 @@ pub fn handle_complete(
                         &format!("{} -C '{}' {}", tokens.command, spec_path, spec_name),
                         OutputType::Stdout,
                         &tokens,
-                        out_writer,
                     );
                 } else {
                     write_output(
@@ -56,7 +48,6 @@ pub fn handle_complete(
                         ),
                         OutputType::Stderr,
                         &tokens,
-                        err_writer,
                     );
                     return;
                 };

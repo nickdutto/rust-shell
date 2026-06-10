@@ -23,18 +23,13 @@ pub enum OutputType {
     Stderr,
 }
 
-pub fn write_output(
-    output: &str,
-    output_type: OutputType,
-    tokens: &Tokens,
-    writer: &mut impl Write,
-) {
+pub fn write_output(output: &str, output_type: OutputType, tokens: &Tokens) {
     if output.is_empty() {
         return;
     }
 
     match &tokens.redirection {
-        Some(redirection) => match (output_type, &redirection.mode) {
+        Some(redirection) => match (&output_type, &redirection.mode) {
             (OutputType::Stdout, RedirectionMode::Output)
             | (OutputType::Stdout, RedirectionMode::OutputAppend) => {
                 write_to_file(output, redirection)
@@ -43,18 +38,21 @@ pub fn write_output(
             | (OutputType::Stderr, RedirectionMode::ErrorAppend) => {
                 write_to_file(output, redirection)
             }
-            (OutputType::Stdout, _) => write_to_writer(output, writer),
-            (OutputType::Stderr, _) => write_to_writer(output, writer),
+            (OutputType::Stdout, _) => write_to_writer(output, &output_type),
+            (OutputType::Stderr, _) => write_to_writer(output, &output_type),
         },
         None => match output_type {
-            OutputType::Stdout => write_to_writer(output, writer),
-            OutputType::Stderr => write_to_writer(output, writer),
+            OutputType::Stdout => write_to_writer(output, &output_type),
+            OutputType::Stderr => write_to_writer(output, &output_type),
         },
     }
 }
 
-pub fn write_to_writer(output: &str, writer: &mut impl Write) {
-    writeln!(writer, "{}", output.trim()).unwrap();
+pub fn write_to_writer(output: &str, output_type: &OutputType) {
+    match output_type {
+        OutputType::Stdout => println!("{}", output.trim()),
+        OutputType::Stderr => eprintln!("{}", output.trim()),
+    }
 }
 
 pub fn write_to_file(output: &str, redirection: &Redirection) {
