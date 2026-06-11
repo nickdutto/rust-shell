@@ -3,6 +3,7 @@ use crate::command::builtin::complete::handle_complete;
 use crate::command::builtin::echo::handle_echo;
 use crate::command::builtin::executable::handle_executable;
 use crate::command::builtin::exit::handle_exit;
+use crate::command::builtin::history::handle_history;
 use crate::command::builtin::jobs::handle_jobs;
 use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::type_cmd::handle_type;
@@ -11,7 +12,9 @@ use crate::io::writer::initialise_writer_file;
 use crate::shell::ShellState;
 use std::sync::{Arc, RwLock};
 
-pub const BUILTIN_COMMANDS: &[&str] = &["cd", "complete", "echo", "exit", "jobs", "pwd", "type"];
+pub const BUILTIN_COMMANDS: &[&str] = &[
+    "cd", "complete", "echo", "exit", "history", "jobs", "pwd", "type",
+];
 
 pub enum Command {
     Cd(Tokens),
@@ -19,6 +22,7 @@ pub enum Command {
     Echo(Tokens),
     Executable(Tokens),
     Exit,
+    History(Tokens),
     Jobs(Tokens),
     Pwd(Tokens),
     Type(Tokens),
@@ -33,6 +37,7 @@ impl Command {
             "complete" => Command::Complete(tokens),
             "echo" => Command::Echo(tokens),
             "exit" => Command::Exit,
+            "history" => Command::History(tokens),
             "jobs" => Command::Jobs(tokens),
             "pwd" => Command::Pwd(tokens),
             "type" => Command::Type(tokens),
@@ -49,6 +54,7 @@ impl Command {
             Command::Echo(tokens) => handle_echo(tokens),
             Command::Executable(tokens) => handle_executable(tokens, shell_state),
             Command::Exit => handle_exit(),
+            Command::History(tokens) => handle_history(tokens, shell_state),
             Command::Jobs(tokens) => handle_jobs(tokens, shell_state),
             Command::Pwd(tokens) => handle_pwd(tokens),
             Command::Type(tokens) => handle_type(tokens),
@@ -61,6 +67,7 @@ impl Command {
             | Command::Complete(tokens)
             | Command::Echo(tokens)
             | Command::Executable(tokens)
+            | Command::History(tokens)
             | Command::Jobs(tokens)
             | Command::Pwd(tokens)
             | Command::Type(tokens) => Some(tokens),

@@ -37,6 +37,7 @@ pub struct BackgroundJob {
 pub struct ShellState {
     pub completion_specifications: HashMap<String, String>,
     pub background_jobs: Vec<BackgroundJob>,
+    pub history: Vec<String>,
 }
 
 pub struct Shell;
@@ -46,6 +47,7 @@ impl Shell {
         let shell_state = Arc::new(RwLock::new(ShellState {
             completion_specifications: HashMap::new(),
             background_jobs: vec![],
+            history: vec![],
         }));
 
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
@@ -75,6 +77,10 @@ impl Shell {
                     }
 
                     rl.add_history_entry(input.as_str()).ok();
+                    {
+                        let mut guard = shell_state.write().unwrap();
+                        guard.history.push(input.as_str().to_string())
+                    }
 
                     Command::run_command(Command::parse_command(&input), Arc::clone(&shell_state));
 
