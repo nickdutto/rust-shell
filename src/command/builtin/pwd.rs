@@ -7,6 +7,6 @@ pub fn handle_pwd(tokens: Tokens) {
     write_output(
         format!("{}", path.display()).trim(),
         OutputType::Stdout,
-        &tokens,
+        Some(&tokens),
     );
 }

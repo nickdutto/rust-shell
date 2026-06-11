@@ -23,28 +23,30 @@ pub enum OutputType {
     Stderr,
 }
 
-pub fn write_output(output: &str, output_type: OutputType, tokens: &Tokens) {
+pub fn write_output(output: &str, output_type: OutputType, tokens: Option<&Tokens>) {
     if output.is_empty() {
         return;
     }
 
-    match &tokens.redirection {
-        Some(redirection) => match (&output_type, &redirection.mode) {
-            (OutputType::Stdout, RedirectionMode::Output)
-            | (OutputType::Stdout, RedirectionMode::OutputAppend) => {
-                write_to_file(output, redirection)
-            }
-            (OutputType::Stderr, RedirectionMode::Error)
-            | (OutputType::Stderr, RedirectionMode::ErrorAppend) => {
-                write_to_file(output, redirection)
-            }
-            (OutputType::Stdout, _) => write_to_writer(output, &output_type),
-            (OutputType::Stderr, _) => write_to_writer(output, &output_type),
-        },
-        None => match output_type {
-            OutputType::Stdout => write_to_writer(output, &output_type),
-            OutputType::Stderr => write_to_writer(output, &output_type),
-        },
+    if let Some(tokens) = tokens {
+        match &tokens.redirection {
+            Some(redirection) => match (&output_type, &redirection.mode) {
+                (OutputType::Stdout, RedirectionMode::Output)
+                | (OutputType::Stdout, RedirectionMode::OutputAppend) => {
+                    write_to_file(output, redirection)
+                }
+                (OutputType::Stderr, RedirectionMode::Error)
+                | (OutputType::Stderr, RedirectionMode::ErrorAppend) => {
+                    write_to_file(output, redirection)
+                }
+                (OutputType::Stdout, _) => write_to_writer(output, &output_type),
+                (OutputType::Stderr, _) => write_to_writer(output, &output_type),
+            },
+            None => match output_type {
+                OutputType::Stdout => write_to_writer(output, &output_type),
+                OutputType::Stderr => write_to_writer(output, &output_type),
+            },
+        }
     }
 }
 

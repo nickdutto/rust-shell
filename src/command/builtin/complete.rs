@@ -26,7 +26,7 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
                     write_output(
                         format!("{}: missing specification name for -p", tokens.command).trim(),
                         OutputType::Stderr,
-                        &tokens,
+                        Some(&tokens),
                     );
                     return;
                 };
@@ -38,7 +38,7 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
                     write_output(
                         format!("{} -C '{}' {}", tokens.command, spec_path, spec_name).trim(),
                         OutputType::Stdout,
-                        &tokens,
+                        Some(&tokens),
                     );
                 } else {
                     write_output(
@@ -48,7 +48,7 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
                         )
                             .trim(),
                         OutputType::Stderr,
-                        &tokens,
+                        Some(&tokens),
                     );
                     return;
                 };

@@ -31,7 +31,7 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                             format!("{}: error reading history file: {}", tokens.command, err)
                                 .trim(),
                             OutputType::Stderr,
-                            &tokens,
+                            Some(&tokens),
                         ),
                     }
                 }
@@ -74,61 +74,6 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
             .map(|(idx, entry)| format!("{:>4}{}{:>2}{}\n", "", idx + 1, "", entry))
             .collect();
 
-        write_output(output.trim_end(), OutputType::Stdout, &tokens);
-    }
-}
-
-#[derive(PartialEq)]
-enum WriteMode {
-    Write,
-    Append,
-}
-
-fn save_history_file(
-    shell_state: &Arc<RwLock<ShellState>>,
-    path: &String,
-    mode: WriteMode,
-    tokens: &Tokens,
-) {
-    if let Some(parent) = Path::new(path).parent() {
-        fs::create_dir_all(parent).ok();
-    }
-
-    let skip = if mode == WriteMode::Append {
-        shell_state.read().unwrap().history.append_index
-    } else {
-        0
-    };
-
-    let result = OpenOptions::new()
-        .create(true)
-        .write(mode == WriteMode::Write)
-        .append(mode == WriteMode::Append)
-        .open(path)
-        .and_then(|mut file| {
-            let guard = shell_state.read().unwrap();
-            let output: String = guard
-                .history
-                .entries
-                .iter()
-                .skip(skip)
-                .map(|entry| format!("{}\n", entry))
-                .collect();
-
-            file.write_all(output.as_bytes())
-        });
-
-    match result {
-        Ok(_) => {
-            if mode == WriteMode::Append {
-                let mut guard = shell_state.write().unwrap();
-                guard.history.append_index = guard.history.entries.len()
-            }
-        }
-        Err(err) => write_output(
-            format!("{}: error writing history file: {}", tokens.command, err).trim(),
-            OutputType::Stderr,
-            tokens,
-        ),
+        write_output(output.trim_end(), OutputType::Stdout, Some(&tokens));
     }
 }

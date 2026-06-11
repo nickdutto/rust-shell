@@ -23,7 +23,7 @@ pub fn handle_cd(tokens: Tokens) {
     };
 
     if let Err(err_message) = result {
-        write_output(err_message.trim(), OutputType::Stderr, &tokens);
+        write_output(err_message.trim(), OutputType::Stderr, Some(&tokens));
     }
 }
 

@@ -8,7 +8,7 @@ pub fn handle_type(tokens: Tokens) {
     let command_name = match tokens.arguments.first() {
         Some(command) => command.as_str().trim(),
         None => {
-            write_output("type: missing operand", OutputType::Stderr, &tokens);
+            write_output("type: missing operand", OutputType::Stderr, Some(&tokens));
             return;
         }
     };
@@ -21,7 +21,7 @@ pub fn handle_type(tokens: Tokens) {
         let paths = match get_env_paths("PATH") {
             Ok(paths) => paths,
             Err(err_message) => {
-                write_output(err_message.trim(), OutputType::Stderr, &tokens);
+                write_output(err_message.trim(), OutputType::Stderr, Some(&tokens));
                 vec![]
             }
         };
@@ -56,5 +56,5 @@ pub fn handle_type(tokens: Tokens) {
         }
     }
 
-    write_output(output.trim(), OutputType::Stdout, &tokens);
+    write_output(output.trim(), OutputType::Stdout, Some(&tokens));
 }

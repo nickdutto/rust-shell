@@ -76,7 +76,7 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     write_output(
                         format!("[{}] {}", job_id, pid).trim(),
                         OutputType::Stdout,
-                        &tokens,
+                        Some(&tokens),
                     );
 
                     std::thread::spawn(move || {
@@ -106,8 +106,8 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                             }
                         }
 
-                        write_output(stdout_output.trim(), OutputType::Stdout, &tokens);
-                        write_output(stderr_output.trim(), OutputType::Stderr, &tokens);
+                        write_output(stdout_output.trim(), OutputType::Stdout, Some(&tokens));
+                        write_output(stderr_output.trim(), OutputType::Stderr, Some(&tokens));
                     });
                 } else {
                     if let Some(stdout) = child.stdout.take() {
@@ -122,22 +122,22 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
 
                     child.wait().unwrap();
 
-                    write_output(stdout_output.trim(), OutputType::Stdout, &tokens);
-                    write_output(stderr_output.trim(), OutputType::Stderr, &tokens);
+                    write_output(stdout_output.trim(), OutputType::Stdout, Some(&tokens));
+                    write_output(stderr_output.trim(), OutputType::Stderr, Some(&tokens));
                 }
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 write_output(
                     format!("{}: command not found", tokens.command).trim(),
                     OutputType::Stderr,
-                    &tokens,
+                    Some(&tokens),
                 );
             }
             Err(e) => {
                 write_output(
                     format!("{}: error executing command: {}", tokens.command, e).trim(),
                     OutputType::Stderr,
-                    &tokens,
+                    Some(&tokens),
                 );
             }
         }

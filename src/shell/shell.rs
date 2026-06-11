@@ -80,11 +80,11 @@ impl Shell {
                     write_output(
                         jobs_output.join("\n").to_string().trim(),
                         OutputType::Stdout,
-                        &Tokens {
+                        Some(&Tokens {
                             command: String::new(),
                             arguments: vec![],
                             redirection: None,
-                        },
+                        }),
                     );
 
                     {
