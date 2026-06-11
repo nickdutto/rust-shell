@@ -53,7 +53,7 @@ impl Command {
             Command::Complete(tokens) => handle_complete(tokens, &mut shell_state.write().unwrap()),
             Command::Echo(tokens) => handle_echo(tokens),
             Command::Executable(tokens) => handle_executable(tokens, shell_state),
-            Command::Exit => handle_exit(),
+            Command::Exit => handle_exit(shell_state),
             Command::History(tokens) => handle_history(tokens, shell_state),
             Command::Jobs(tokens) => handle_jobs(tokens, shell_state),
             Command::Pwd(tokens) => handle_pwd(tokens),

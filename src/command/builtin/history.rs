@@ -1,10 +1,7 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
-use crate::shell::ShellState;
-use std::fs;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::Path;
+use crate::shell::history::WriteMode;
+use crate::shell::shell_state::ShellState;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
@@ -17,37 +14,29 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
         match argument.as_str() {
             "-r" => {
                 if let Some(path) = arguments_iter.peek() {
-                    match fs::read_to_string(Path::new(path)) {
-                        Ok(content) => {
-                            for line in content.lines() {
-                                let line = line.trim();
-                                if !line.is_empty() {
-                                    let mut guard = shell_state.write().unwrap();
-                                    guard.history.entries.push(line.to_string());
-                                }
-                            }
-                        }
-                        Err(err) => write_output(
-                            format!("{}: error reading history file: {}", tokens.command, err)
-                                .trim(),
-                            OutputType::Stderr,
-                            Some(&tokens),
-                        ),
-                    }
+                    shell_state.write().unwrap().history.read_history_file(path);
                 }
 
                 output_history = false;
             }
             "-w" => {
                 if let Some(path) = arguments_iter.peek() {
-                    save_history_file(&shell_state, path, WriteMode::Write, &tokens);
+                    shell_state
+                        .write()
+                        .unwrap()
+                        .history
+                        .save_history_file(path, WriteMode::Write);
                 }
 
                 output_history = false;
             }
             "-a" => {
                 if let Some(path) = arguments_iter.peek() {
-                    save_history_file(&shell_state, path, WriteMode::Append, &tokens);
+                    shell_state
+                        .write()
+                        .unwrap()
+                        .history
+                        .save_history_file(path, WriteMode::Append);
                 }
 
                 output_history = false;

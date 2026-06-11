@@ -17,14 +17,7 @@ pub struct Shell;
 
 impl Shell {
     pub fn start_session() {
-        let shell_state = Arc::new(RwLock::new(ShellState {
-            completion_specifications: HashMap::new(),
-            background_jobs: vec![],
-            history: History {
-                entries: vec![],
-                append_index: 0,
-            },
-        }));
+        let shell_state = Arc::new(RwLock::new(ShellState::default()));
 
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
         let executable_completions_bg = Arc::clone(&executable_completions);

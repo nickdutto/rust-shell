@@ -13,10 +13,7 @@ impl Default for ShellState {
         Self {
             completion_specifications: HashMap::new(),
             background_jobs: vec![],
-            history: History {
-                entries: History::startup_history_file(),
-                append_index: 0,
-            },
+            history: History::default(),
         }
     }
 }
