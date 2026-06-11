@@ -1,6 +1,6 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
-use crate::shell::ShellState;
+use crate::shell::shell_state::ShellState;
 
 pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
     let mut arguments_iter = tokens.arguments.iter();

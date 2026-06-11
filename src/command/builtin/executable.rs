@@ -1,6 +1,7 @@
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
-use crate::shell::{BackgroundJob, BackgroundJobStatus, ShellState};
+use crate::shell::jobs::{BackgroundJob, BackgroundJobStatus};
+use crate::shell::shell_state::ShellState;
 use std::io::{BufReader, ErrorKind, Read};
 use std::process;
 use std::process::{Child, Stdio};

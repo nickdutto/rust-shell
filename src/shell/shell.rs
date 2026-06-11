@@ -2,48 +2,16 @@
 use crate::command::builtin::jobs::format_job_output;
 use crate::io::tokenize::Tokens;
 use crate::io::writer::{OutputType, write_output};
+use crate::shell::jobs::BackgroundJobStatus;
 use crate::shell::shell_helper::ShellHelper;
+use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_path_executables;
 use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
-
-#[derive(PartialEq)]
-pub enum BackgroundJobStatus {
-    Done,
-    Running,
-}
-
-impl Display for BackgroundJobStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BackgroundJobStatus::Done => f.pad("Done"),
-            BackgroundJobStatus::Running => f.pad("Running"),
-        }
-    }
-}
-
-pub struct BackgroundJob {
-    pub id: usize,
-    pub pid: u32,
-    pub command: String,
-    pub status: BackgroundJobStatus,
-}
-
-pub struct History {
-    pub entries: Vec<String>,
-    pub append_index: usize,
-}
-
-pub struct ShellState {
-    pub completion_specifications: HashMap<String, String>,
-    pub background_jobs: Vec<BackgroundJob>,
-    pub history: History,
-}
 
 pub struct Shell;
 

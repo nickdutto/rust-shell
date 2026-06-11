@@ -1,5 +1,5 @@
 use crate::command::BUILTIN_COMMANDS;
-use crate::shell::ShellState;
+use crate::shell::shell_state::ShellState;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;

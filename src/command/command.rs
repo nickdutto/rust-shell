@@ -9,7 +9,7 @@ use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::tokenize::{Tokens, tokenize_arguments};
 use crate::io::writer::initialise_writer_file;
-use crate::shell::ShellState;
+use crate::shell::shell_state::ShellState;
 use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
