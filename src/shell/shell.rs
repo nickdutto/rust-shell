@@ -96,7 +96,7 @@ impl Shell {
                     }
 
                     write_output(
-                        &jobs_output.join("\n").to_string(),
+                        jobs_output.join("\n").to_string().trim(),
                         OutputType::Stdout,
                         &Tokens {
                             command: String::new(),

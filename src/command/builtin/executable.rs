@@ -73,7 +73,7 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     };
 
                     write_output(
-                        &format!("[{}] {}", job_id, pid),
+                        format!("[{}] {}", job_id, pid).trim(),
                         OutputType::Stdout,
                         &tokens,
                     );
@@ -105,8 +105,8 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                             }
                         }
 
-                        write_output(&stdout_output, OutputType::Stdout, &tokens);
-                        write_output(&stderr_output, OutputType::Stderr, &tokens);
+                        write_output(stdout_output.trim(), OutputType::Stdout, &tokens);
+                        write_output(stderr_output.trim(), OutputType::Stderr, &tokens);
                     });
                 } else {
                     if let Some(stdout) = child.stdout.take() {
@@ -121,20 +121,20 @@ pub fn handle_executable(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
 
                     child.wait().unwrap();
 
-                    write_output(&stdout_output, OutputType::Stdout, &tokens);
-                    write_output(&stderr_output, OutputType::Stderr, &tokens);
+                    write_output(stdout_output.trim(), OutputType::Stdout, &tokens);
+                    write_output(stderr_output.trim(), OutputType::Stderr, &tokens);
                 }
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 write_output(
-                    &format!("{}: command not found", tokens.command),
+                    format!("{}: command not found", tokens.command).trim(),
                     OutputType::Stderr,
                     &tokens,
                 );
             }
             Err(e) => {
                 write_output(
-                    &format!("{}: error executing command: {}", tokens.command, e),
+                    format!("{}: error executing command: {}", tokens.command, e).trim(),
                     OutputType::Stderr,
                     &tokens,
                 );

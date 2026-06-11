@@ -24,7 +24,7 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
             "-p" => {
                 let Some(spec_name_arg) = arguments_iter.next() else {
                     write_output(
-                        &format!("{}: missing specification name for -p", tokens.command),
+                        format!("{}: missing specification name for -p", tokens.command).trim(),
                         OutputType::Stderr,
                         &tokens,
                     );
@@ -36,16 +36,17 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
                     .get_key_value(spec_name_arg)
                 {
                     write_output(
-                        &format!("{} -C '{}' {}", tokens.command, spec_path, spec_name),
+                        format!("{} -C '{}' {}", tokens.command, spec_path, spec_name).trim(),
                         OutputType::Stdout,
                         &tokens,
                     );
                 } else {
                     write_output(
-                        &format!(
+                        format!(
                             "{}: {}: no completion specification",
                             tokens.command, spec_name_arg
-                        ),
+                        )
+                            .trim(),
                         OutputType::Stderr,
                         &tokens,
                     );

@@ -50,8 +50,8 @@ pub fn write_output(output: &str, output_type: OutputType, tokens: &Tokens) {
 
 pub fn write_to_writer(output: &str, output_type: &OutputType) {
     match output_type {
-        OutputType::Stdout => println!("{}", output.trim()),
-        OutputType::Stderr => eprintln!("{}", output.trim()),
+        OutputType::Stdout => println!("{}", output),
+        OutputType::Stderr => eprintln!("{}", output),
     }
 }
 

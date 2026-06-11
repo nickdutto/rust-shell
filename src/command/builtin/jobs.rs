@@ -25,7 +25,7 @@ pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
     }
 
     write_output(
-        &jobs_output.join("\n").to_string(),
+        jobs_output.join("\n").to_string().trim(),
         OutputType::Stdout,
         &tokens,
     );
