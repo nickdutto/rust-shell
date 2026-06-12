@@ -12,34 +12,23 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
     let mut arguments_iter = tokens.arguments.iter().peekable();
     while let Some(argument) = arguments_iter.next() {
         match argument.as_str() {
-            "-r" => {
-                if let Some(path) = arguments_iter.peek() {
-                    shell_state.write().unwrap().history.read_history_file(path);
-                }
-
+            flag @ ("-r" | "-w" | "-a") => {
                 output_history = false;
-            }
-            "-w" => {
-                if let Some(path) = arguments_iter.peek() {
-                    shell_state
-                        .write()
-                        .unwrap()
-                        .history
-                        .save_history_file(path, WriteMode::Write);
-                }
 
-                output_history = false;
-            }
-            "-a" => {
                 if let Some(path) = arguments_iter.peek() {
-                    shell_state
-                        .write()
-                        .unwrap()
-                        .history
-                        .save_history_file(path, WriteMode::Append);
-                }
+                    let mut guard = shell_state.write().unwrap();
 
-                output_history = false;
+                    let result = match flag {
+                        "-r" => guard.history.read_history_file(path),
+                        "-w" => guard.history.save_history_file(path, WriteMode::Write),
+                        "-a" => guard.history.save_history_file(path, WriteMode::Append),
+                        _ => unreachable!(),
+                    };
+
+                    if let Err(err) = result {
+                        write_output(&err.to_string(), OutputType::Stderr, Some(&tokens));
+                    }
+                }
             }
             _ => {
                 limit = tokens

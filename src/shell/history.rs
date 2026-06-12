@@ -1,13 +1,23 @@
 use crate::io::writer::{OutputType, write_output};
+use std::fmt::Debug;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Error, Write};
 use std::path::Path;
 use std::{env, fs};
+use thiserror::Error;
 
 #[derive(PartialEq)]
 pub enum WriteMode {
     Write,
     Append,
+}
+
+#[derive(Error, Debug)]
+pub enum HistoryError {
+    #[error("history: error reading history file: {error}")]
+    FileReadError { error: Error },
+    #[error("history: error writing history file: {error}")]
+    FileWriteError { error: Error },
 }
 
 pub struct History {
@@ -22,26 +32,33 @@ impl Default for History {
             append_index: 0,
         };
 
-        history.startup_history_file();
+        match history.startup_history_file() {
+            Ok(()) => {}
+            Err(err) => write_output(&err.to_string(), OutputType::Stderr, None),
+        }
 
         history
     }
 }
 
 impl History {
-    pub fn startup_history_file(&mut self) {
+    pub fn startup_history_file(&mut self) -> Result<(), HistoryError> {
         if let Some(history_file_path) = env::var_os("HISTFILE") {
-            self.read_history_file(history_file_path.to_str().unwrap())
+            self.read_history_file(history_file_path.to_str().unwrap())?
         }
+
+        Ok(())
     }
 
-    pub fn exit_save_history_file(&mut self) {
+    pub fn exit_save_history_file(&mut self) -> Result<(), HistoryError> {
         if let Some(history_file_path) = env::var_os("HISTFILE") {
-            self.save_history_file(history_file_path.to_str().unwrap(), WriteMode::Append);
+            self.save_history_file(history_file_path.to_str().unwrap(), WriteMode::Append)?
         }
+
+        Ok(())
     }
 
-    pub fn read_history_file(&mut self, path: &str) {
+    pub fn read_history_file(&mut self, path: &str) -> Result<(), HistoryError> {
         match fs::read_to_string(Path::new(path)) {
             Ok(content) => {
                 self.entries.append(
@@ -52,16 +69,14 @@ impl History {
                         .collect::<Vec<String>>(),
                 );
                 self.append_index = self.entries.len();
+
+                Ok(())
             }
-            Err(err) => write_output(
-                format!("history: error reading history file: {}", err).trim(),
-                OutputType::Stderr,
-                None,
-            ),
+            Err(error) => Err(HistoryError::FileReadError { error }),
         }
     }
 
-    pub fn save_history_file(&mut self, path: &str, mode: WriteMode) {
+    pub fn save_history_file(&mut self, path: &str, mode: WriteMode) -> Result<(), HistoryError> {
         if let Some(parent) = Path::new(path).parent() {
             fs::create_dir_all(parent).ok();
         }
@@ -91,14 +106,11 @@ impl History {
         match result {
             Ok(_) => {
                 if mode == WriteMode::Append {
-                    self.append_index = self.entries.len()
+                    self.append_index = self.entries.len();
                 }
+                Ok(())
             }
-            Err(err) => write_output(
-                format!("history: error writing history file: {}", err).trim(),
-                OutputType::Stderr,
-                None,
-            ),
+            Err(error) => Err(HistoryError::FileWriteError { error }),
         }
     }
 }
