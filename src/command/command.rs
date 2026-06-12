@@ -11,6 +11,7 @@ use crate::command::builtin::type_cmd::handle_type;
 use crate::io::tokenize::{Tokens, tokenize_arguments};
 use crate::io::writer::initialise_writer_file;
 use crate::shell::shell_state::ShellState;
+use crate::shell::variables::Variables;
 use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
@@ -31,8 +32,8 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn parse_command(input: &str) -> Self {
-        let tokens = tokenize_arguments(input.trim());
+    pub fn parse_command(input: &str, variables: &Variables) -> Self {
+        let tokens = tokenize_arguments(input.trim(), variables);
 
         match tokens.command.as_str() {
             "cd" => Command::Cd(tokens),

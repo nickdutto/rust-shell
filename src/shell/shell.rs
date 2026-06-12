@@ -51,7 +51,10 @@ impl Shell {
                         guard.history.entries.push(input.as_str().to_string())
                     }
 
-                    Command::run_command(Command::parse_command(&input), Arc::clone(&shell_state));
+                    let command =
+                        { Command::parse_command(&input, &shell_state.read().unwrap().variables) };
+
+                    Command::run_command(command, Arc::clone(&shell_state));
 
                     let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
                     let jobs_output: Vec<String>;

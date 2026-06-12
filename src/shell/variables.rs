@@ -25,12 +25,26 @@ impl Variables {
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
-        self.variables.get(key)
+    pub fn get(&self, key: &str) -> Result<Option<&String>, VariableError> {
+        if self.validate_key(key) {
+            Ok(self.variables.get(key))
+        } else {
+            Err(VariableError::InvalidIdentifier {
+                key: key.to_string(),
+                value: String::new(),
+            })
+        }
     }
 
-    pub fn get_key_value(&self, key: &str) -> Option<(&String, &String)> {
-        self.variables.get_key_value(key)
+    pub fn get_key_value(&self, key: &str) -> Result<Option<(&String, &String)>, VariableError> {
+        if self.validate_key(key) {
+            Ok(self.variables.get_key_value(key))
+        } else {
+            Err(VariableError::InvalidIdentifier {
+                key: key.to_string(),
+                value: String::new(),
+            })
+        }
     }
 
     pub fn insert(
@@ -41,7 +55,7 @@ impl Variables {
         if self.validate_key(&key) {
             self.variables.insert(key.clone(), value.clone());
 
-            Ok(self.get_key_value(&key))
+            Ok(self.get_key_value(&key)?)
         } else {
             Err(VariableError::InvalidIdentifier { key, value })
         }

@@ -10,7 +10,7 @@ pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
         match argument.as_str() {
             "-p" => {
                 if let Some(variable_key) = arguments_iter.peek() {
-                    if let Some((key, value)) = shell_state
+                    if let Ok(Some((key, value))) = shell_state
                         .read()
                         .unwrap()
                         .variables
