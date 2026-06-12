@@ -4,5 +4,6 @@ pub mod jobs;
 mod shell;
 pub mod shell_helper;
 pub mod shell_state;
+pub mod variables;
 
 pub use self::shell::*;

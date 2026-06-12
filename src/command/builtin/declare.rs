@@ -1,0 +1,61 @@
+use crate::io::tokenize::Tokens;
+use crate::io::writer::{OutputType, write_output};
+use crate::shell::shell_state::ShellState;
+use crate::shell::variables::VariableError;
+use std::sync::{Arc, RwLock};
+
+pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
+    let mut arguments_iter = tokens.arguments.iter().peekable();
+    while let Some(argument) = arguments_iter.next() {
+        match argument.as_str() {
+            "-p" => {
+                if let Some(variable_key) = arguments_iter.peek() {
+                    if let Some((key, value)) = shell_state
+                        .read()
+                        .unwrap()
+                        .variables
+                        .get_key_value(variable_key)
+                    {
+                        write_output(
+                            &format!("declare -- {}=\"{}\"", key, value),
+                            OutputType::Stdout,
+                            Some(&tokens),
+                        );
+                    } else {
+                        write_output(
+                            &format!("declare: {}: not found", variable_key),
+                            OutputType::Stderr,
+                            Some(&tokens),
+                        );
+                    }
+                }
+            }
+            "-l" => {
+                let variables: String = shell_state
+                    .read()
+                    .unwrap()
+                    .variables
+                    .iter()
+                    .map(|(key, value)| format!("{}=\"{}\"\n", key, value))
+                    .collect();
+
+                write_output(variables.trim_end(), OutputType::Stdout, Some(&tokens));
+            }
+            variable_arg => {
+                if let Some((key, value)) = variable_arg.split_once('=')
+                    && let Err(VariableError::InvalidIdentifier { key, value }) = shell_state
+                    .write()
+                    .unwrap()
+                    .variables
+                    .insert(key.to_string(), value.to_string())
+                {
+                    write_output(
+                        &format!("declare: `{}={}': not a valid identifier", key, value),
+                        OutputType::Stderr,
+                        Some(&tokens),
+                    );
+                }
+            }
+        }
+    }
+}

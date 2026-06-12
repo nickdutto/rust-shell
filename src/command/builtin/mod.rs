@@ -1,5 +1,6 @@
 pub mod cd;
 pub mod complete;
+pub mod declare;
 pub mod echo;
 pub mod executable;
 pub mod exit;

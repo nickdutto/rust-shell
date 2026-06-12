@@ -17,7 +17,7 @@ pub struct Shell;
 
 impl Shell {
     pub fn start_session() {
-        let shell_state = Arc::new(RwLock::new(ShellState::default()));
+        let shell_state = Arc::new(RwLock::new(ShellState::new()));
 
         let executable_completions = Arc::new(RwLock::new(Vec::new()));
         let executable_completions_bg = Arc::clone(&executable_completions);

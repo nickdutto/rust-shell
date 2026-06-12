@@ -1,5 +1,6 @@
 ﻿use crate::command::builtin::cd::handle_cd;
 use crate::command::builtin::complete::handle_complete;
+use crate::command::builtin::declare::handle_declare;
 use crate::command::builtin::echo::handle_echo;
 use crate::command::builtin::executable::handle_executable;
 use crate::command::builtin::exit::handle_exit;
@@ -13,12 +14,13 @@ use crate::shell::shell_state::ShellState;
 use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
-    "cd", "complete", "echo", "exit", "history", "jobs", "pwd", "type",
+    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "type",
 ];
 
 pub enum Command {
     Cd(Tokens),
     Complete(Tokens),
+    Declare(Tokens),
     Echo(Tokens),
     Executable(Tokens),
     Exit,
@@ -35,6 +37,7 @@ impl Command {
         match tokens.command.as_str() {
             "cd" => Command::Cd(tokens),
             "complete" => Command::Complete(tokens),
+            "declare" => Command::Declare(tokens),
             "echo" => Command::Echo(tokens),
             "exit" => Command::Exit,
             "history" => Command::History(tokens),
@@ -51,6 +54,7 @@ impl Command {
         match self {
             Command::Cd(tokens) => handle_cd(tokens),
             Command::Complete(tokens) => handle_complete(tokens, &mut shell_state.write().unwrap()),
+            Command::Declare(tokens) => handle_declare(tokens, shell_state),
             Command::Echo(tokens) => handle_echo(tokens),
             Command::Executable(tokens) => handle_executable(tokens, shell_state),
             Command::Exit => handle_exit(shell_state),
@@ -65,6 +69,7 @@ impl Command {
         let tokens_ref = match self {
             Command::Cd(tokens)
             | Command::Complete(tokens)
+            | Command::Declare(tokens)
             | Command::Echo(tokens)
             | Command::Executable(tokens)
             | Command::History(tokens)
