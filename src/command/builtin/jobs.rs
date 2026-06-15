@@ -1,11 +1,11 @@
-use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
+use crate::io::stream::IoStreams;
 use crate::shell::jobs::{BackgroundJob, BackgroundJobStatus};
 use crate::shell::shell_state::ShellState;
 use std::collections::HashSet;
+use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
+pub fn handle_jobs(shell_state: Arc<RwLock<ShellState>>, mut io_streams: IoStreams) {
     let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
     let jobs_output: Vec<String>;
 
@@ -25,12 +25,14 @@ pub fn handle_jobs(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
             .collect();
     }
 
-    write_output(
-        jobs_output.join("\n").to_string().trim(),
-        OutputType::Stdout,
-        Some(&tokens),
-    );
-
+    if !jobs_output.is_empty() {
+        writeln!(
+            io_streams.output,
+            "{}",
+            jobs_output.join("\n").to_string().trim()
+        )
+            .unwrap();
+    }
     {
         let mut guard = shell_state.write().unwrap();
         guard

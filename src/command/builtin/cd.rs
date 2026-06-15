@@ -1,10 +1,11 @@
+use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
 use std::env;
 use std::io::ErrorKind;
+use std::io::Write;
 use std::path::Path;
 
-pub fn handle_cd(tokens: Tokens) {
+pub fn handle_cd(tokens: Tokens, mut io_streams: IoStreams) {
     let target = tokens
         .arguments
         .first()
@@ -22,8 +23,8 @@ pub fn handle_cd(tokens: Tokens) {
         _ => cd_set_dir(Path::new(&target)),
     };
 
-    if let Err(err_message) = result {
-        write_output(err_message.trim(), OutputType::Stderr, Some(&tokens));
+    if let Err(e) = result {
+        writeln!(io_streams.error, "{}", e.trim()).unwrap();
     }
 }
 

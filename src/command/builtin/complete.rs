@@ -1,8 +1,9 @@
+use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
 use crate::shell::shell_state::ShellState;
+use std::io::Write;
 
-pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
+pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState, mut io_streams: IoStreams) {
     let mut arguments_iter = tokens.arguments.iter();
 
     while let Some(argument) = arguments_iter.next() {
@@ -23,11 +24,11 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
             }
             "-p" => {
                 let Some(spec_name_arg) = arguments_iter.next() else {
-                    write_output(
-                        format!("{}: missing specification name for -p", tokens.command).trim(),
-                        OutputType::Stderr,
-                        Some(&tokens),
-                    );
+                    writeln!(
+                        io_streams.error,
+                        "complete: missing specification name for -p",
+                    )
+                        .unwrap();
                     return;
                 };
 
@@ -35,21 +36,19 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState) {
                     .completion_specifications
                     .get_key_value(spec_name_arg)
                 {
-                    write_output(
-                        format!("{} -C '{}' {}", tokens.command, spec_path, spec_name).trim(),
-                        OutputType::Stdout,
-                        Some(&tokens),
-                    );
+                    writeln!(
+                        io_streams.output,
+                        "complete -C '{}' {}",
+                        spec_path, spec_name
+                    )
+                        .unwrap();
                 } else {
-                    write_output(
-                        format!(
-                            "{}: {}: no completion specification",
-                            tokens.command, spec_name_arg
-                        )
-                            .trim(),
-                        OutputType::Stderr,
-                        Some(&tokens),
-                    );
+                    writeln!(
+                        io_streams.error,
+                        "complete: {}: no completion specification",
+                        spec_name_arg,
+                    )
+                        .unwrap();
                     return;
                 };
             }

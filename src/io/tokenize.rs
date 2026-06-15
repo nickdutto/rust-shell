@@ -1,4 +1,4 @@
-use crate::io::writer::{Redirection, RedirectionMode};
+use crate::io::redirection::{Redirection, RedirectionMode};
 use crate::shell::variables::Variables;
 use std::iter::Peekable;
 use std::str::Chars;
@@ -52,17 +52,40 @@ impl<'a> TokenScanner<'a> {
     }
 }
 
-pub fn tokenize_arguments(input: &str, variables: &Variables) -> Tokens {
+pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
+    let mut pipelines = vec![];
+
     let mut tokens = vec![];
     let mut token_buffer = String::new();
+
     let mut variable_buffer = String::new();
-    let mut state: TokenState = TokenState::Normal;
+
     let mut redirection_mode: Option<RedirectionMode> = None;
     let mut redirection_location = String::new();
+
+    let mut state: TokenState = TokenState::Normal;
 
     let mut scanner = TokenScanner::new(input);
     while let Some(ch) = scanner.next() {
         match (ch, state) {
+            ('|', TokenState::Normal | TokenState::RedirectOut | TokenState::RedirectError) => {
+                if !token_buffer.is_empty() {
+                    tokens.push(std::mem::take(&mut token_buffer));
+                }
+
+                pipelines.push(Tokens {
+                    command: tokens.first().unwrap_or(&String::new()).trim().to_string(),
+                    arguments: tokens.get(1..).unwrap_or(&[]).to_vec(),
+                    redirection: redirection_mode.take().map(|mode| Redirection {
+                        mode,
+                        location: std::mem::take(&mut redirection_location).trim().to_string(),
+                    }),
+                });
+
+                tokens.clear();
+
+                state = TokenState::Normal;
+            }
             ('\\', TokenState::Normal) => state = TokenState::EscapeNormal,
             ('\\', TokenState::InDoubleQuote) => state = TokenState::EscapeDoubleQuote,
             (ch, TokenState::EscapeNormal) => {
@@ -176,19 +199,16 @@ pub fn tokenize_arguments(input: &str, variables: &Variables) -> Tokens {
         tokens.push(token_buffer);
     }
 
-    let redirection: Option<Redirection> = redirection_mode.map(|mode| Redirection {
-        mode,
-        location: redirection_location.trim().into(),
+    pipelines.push(Tokens {
+        command: tokens.first().unwrap_or(&String::new()).trim().to_string(),
+        arguments: tokens.get(1..).unwrap_or(&[]).to_vec(),
+        redirection: redirection_mode.map(|mode| Redirection {
+            mode,
+            location: redirection_location.trim().into(),
+        }),
     });
 
-    let command = tokens.first().unwrap().trim().to_string();
-    let arguments = tokens.get(1..).unwrap_or(&[]).to_vec();
-
-    Tokens {
-        command,
-        arguments,
-        redirection,
-    }
+    pipelines
 }
 
 #[cfg(test)]
@@ -310,9 +330,11 @@ mod tests {
             let tokens = tokenize_arguments(case.input, &Variables::new());
 
             assert_eq!(
-                tokens.arguments, case.expected,
+                tokens.first().unwrap().arguments,
+                case.expected,
                 "Failed test case [{}] for input: {:?}",
-                case.description, case.input
+                case.description,
+                case.input
             );
         }
     }
@@ -322,33 +344,33 @@ mod tests {
         let variables = Variables::new();
 
         let tokens = tokenize_arguments("echo hello > output.txt", &variables);
-        assert_eq!(tokens.command, "echo");
-        assert_eq!(tokens.arguments, vec!["hello"]);
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "echo");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["hello"]);
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::Output);
         assert_eq!(redir.location, "output.txt");
 
         let tokens = tokenize_arguments("pwd 1> /tmp/foo/bar.log", &variables);
-        assert_eq!(tokens.command, "pwd");
-        assert!(tokens.arguments.is_empty());
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "pwd");
+        assert!(tokens.first().unwrap().arguments.is_empty());
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::Output);
         assert_eq!(redir.location, "/tmp/foo/bar.log");
 
         let tokens = tokenize_arguments("cd /nonexistent 2> err.txt", &variables);
-        assert_eq!(tokens.command, "cd");
-        assert_eq!(tokens.arguments, vec!["/nonexistent"]);
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "cd");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["/nonexistent"]);
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::Error);
         assert_eq!(redir.location, "err.txt");
 
         let tokens = tokenize_arguments("echo 1 target 2", &variables);
-        assert_eq!(tokens.command, "echo");
-        assert_eq!(tokens.arguments, vec!["1", "target", "2"]);
-        assert!(tokens.redirection.is_none());
+        assert_eq!(tokens.first().unwrap().command, "echo");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["1", "target", "2"]);
+        assert!(tokens.first().unwrap().redirection.is_none());
     }
 
     #[test]
@@ -356,32 +378,32 @@ mod tests {
         let variables = Variables::new();
 
         let tokens = tokenize_arguments("echo hello >> output.txt", &variables);
-        assert_eq!(tokens.command, "echo");
-        assert_eq!(tokens.arguments, vec!["hello"]);
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "echo");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["hello"]);
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::OutputAppend);
         assert_eq!(redir.location, "output.txt");
 
         let tokens = tokenize_arguments("pwd 1>> /tmp/foo/bar.log", &variables);
-        assert_eq!(tokens.command, "pwd");
-        assert!(tokens.arguments.is_empty());
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "pwd");
+        assert!(tokens.first().unwrap().arguments.is_empty());
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::OutputAppend);
         assert_eq!(redir.location, "/tmp/foo/bar.log");
 
         let tokens = tokenize_arguments("cd /nonexistent 2>> err.txt", &variables);
-        assert_eq!(tokens.command, "cd");
-        assert_eq!(tokens.arguments, vec!["/nonexistent"]);
-        assert!(tokens.redirection.is_some());
-        let redir = tokens.redirection.unwrap();
+        assert_eq!(tokens.first().unwrap().command, "cd");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["/nonexistent"]);
+        assert!(tokens.first().unwrap().redirection.is_some());
+        let redir = tokens.first().unwrap().redirection.as_ref().unwrap();
         assert_eq!(redir.mode, RedirectionMode::ErrorAppend);
         assert_eq!(redir.location, "err.txt");
 
         let tokens = tokenize_arguments("echo 1 target 2", &variables);
-        assert_eq!(tokens.command, "echo");
-        assert_eq!(tokens.arguments, vec!["1", "target", "2"]);
-        assert!(tokens.redirection.is_none());
+        assert_eq!(tokens.first().unwrap().command, "echo");
+        assert_eq!(tokens.first().unwrap().arguments, vec!["1", "target", "2"]);
+        assert!(tokens.first().unwrap().redirection.is_none());
     }
 }

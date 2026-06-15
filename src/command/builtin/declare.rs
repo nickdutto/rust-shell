@@ -1,10 +1,15 @@
+use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::VariableError;
+use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
+pub fn handle_declare(
+    tokens: Tokens,
+    shell_state: Arc<RwLock<ShellState>>,
+    mut io_streams: IoStreams,
+) {
     let mut arguments_iter = tokens.arguments.iter().peekable();
     while let Some(argument) = arguments_iter.next() {
         match argument.as_str() {
@@ -16,17 +21,9 @@ pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                         .variables
                         .get_key_value(variable_key)
                     {
-                        write_output(
-                            &format!("declare -- {}=\"{}\"", key, value),
-                            OutputType::Stdout,
-                            Some(&tokens),
-                        );
+                        writeln!(io_streams.output, "declare -- {}=\"{}\"", key, value).unwrap();
                     } else {
-                        write_output(
-                            &format!("declare: {}: not found", variable_key),
-                            OutputType::Stderr,
-                            Some(&tokens),
-                        );
+                        writeln!(io_streams.error, "declare: {}: not found", variable_key).unwrap();
                     }
                 }
             }
@@ -39,7 +36,7 @@ pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     .map(|(key, value)| format!("{}=\"{}\"\n", key, value))
                     .collect();
 
-                write_output(variables.trim_end(), OutputType::Stdout, Some(&tokens));
+                writeln!(io_streams.output, "{}", variables.trim_end()).unwrap();
             }
             variable_arg => {
                 if let Some((key, value)) = variable_arg.split_once('=')
@@ -49,11 +46,12 @@ pub fn handle_declare(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                     .variables
                     .insert(key.to_string(), value.to_string())
                 {
-                    write_output(
-                        &format!("declare: `{}={}': not a valid identifier", key, value),
-                        OutputType::Stderr,
-                        Some(&tokens),
-                    );
+                    writeln!(
+                        io_streams.error,
+                        "declare: `{}={}': not a valid identifier",
+                        key, value,
+                    )
+                        .unwrap();
                 }
             }
         }

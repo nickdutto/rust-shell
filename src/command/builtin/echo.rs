@@ -1,7 +1,8 @@
+use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
+use std::io::Write;
 
-pub fn handle_echo(tokens: Tokens) {
+pub fn handle_echo(tokens: Tokens, mut io_streams: IoStreams) {
     let output = tokens.arguments.join(" ");
-    write_output(output.trim(), OutputType::Stdout, Some(&tokens));
+    writeln!(io_streams.output, "{}", output.trim()).unwrap();
 }

@@ -8,10 +8,11 @@ use crate::command::builtin::history::handle_history;
 use crate::command::builtin::jobs::handle_jobs;
 use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::type_cmd::handle_type;
-use crate::io::tokenize::{Tokens, tokenize_arguments};
-use crate::io::writer::initialise_writer_file;
+use crate::io::redirection::{RedirectionMode, initialise_writer_file};
+use crate::io::stream::{IoStreams, OutputStream};
+use crate::io::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
-use crate::shell::variables::Variables;
+use std::process::Child;
 use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
@@ -26,64 +27,82 @@ pub enum Command {
     Executable(Tokens),
     Exit,
     History(Tokens),
-    Jobs(Tokens),
-    Pwd(Tokens),
+    Jobs,
+    Pwd,
     Type(Tokens),
 }
 
 impl Command {
-    pub fn parse_command(input: &str, variables: &Variables) -> Self {
-        let tokens = tokenize_arguments(input.trim(), variables);
-
-        match tokens.command.as_str() {
-            "cd" => Command::Cd(tokens),
-            "complete" => Command::Complete(tokens),
-            "declare" => Command::Declare(tokens),
-            "echo" => Command::Echo(tokens),
-            "exit" => Command::Exit,
-            "history" => Command::History(tokens),
-            "jobs" => Command::Jobs(tokens),
-            "pwd" => Command::Pwd(tokens),
-            "type" => Command::Type(tokens),
-            _ => Command::Executable(tokens),
-        }
-    }
-
-    pub fn run_command(self, shell_state: Arc<RwLock<ShellState>>) {
-        self.initialise_redirection_file();
-
-        match self {
-            Command::Cd(tokens) => handle_cd(tokens),
-            Command::Complete(tokens) => handle_complete(tokens, &mut shell_state.write().unwrap()),
-            Command::Declare(tokens) => handle_declare(tokens, shell_state),
-            Command::Echo(tokens) => handle_echo(tokens),
-            Command::Executable(tokens) => handle_executable(tokens, shell_state),
-            Command::Exit => handle_exit(shell_state),
-            Command::History(tokens) => handle_history(tokens, shell_state),
-            Command::Jobs(tokens) => handle_jobs(tokens, shell_state),
-            Command::Pwd(tokens) => handle_pwd(tokens),
-            Command::Type(tokens) => handle_type(tokens),
-        }
-    }
-
-    fn initialise_redirection_file(&self) {
-        let tokens_ref = match self {
-            Command::Cd(tokens)
-            | Command::Complete(tokens)
-            | Command::Declare(tokens)
-            | Command::Echo(tokens)
-            | Command::Executable(tokens)
-            | Command::History(tokens)
-            | Command::Jobs(tokens)
-            | Command::Pwd(tokens)
-            | Command::Type(tokens) => Some(tokens),
-            Command::Exit => None,
-        };
-
-        if let Some(tokens) = tokens_ref
+    pub fn run_command(
+        self,
+        shell_state: Arc<RwLock<ShellState>>,
+        mut io_streams: IoStreams,
+    ) -> Option<Child> {
+        if let Some(tokens) = self.get_tokens()
             && let Some(redirection) = &tokens.redirection
         {
-            initialise_writer_file(redirection);
+            let file = initialise_writer_file(redirection);
+            match redirection.mode {
+                RedirectionMode::Output | RedirectionMode::OutputAppend => {
+                    io_streams.output = OutputStream::File(file);
+                }
+                RedirectionMode::Error | RedirectionMode::ErrorAppend => {
+                    io_streams.error = OutputStream::File(file);
+                }
+            }
+        }
+
+        match self {
+            Command::Cd(tokens) => {
+                handle_cd(tokens, io_streams);
+                None
+            }
+            Command::Complete(tokens) => {
+                handle_complete(tokens, &mut shell_state.write().unwrap(), io_streams);
+                None
+            }
+            Command::Declare(tokens) => {
+                handle_declare(tokens, shell_state, io_streams);
+                None
+            }
+            Command::Echo(tokens) => {
+                handle_echo(tokens, io_streams);
+                None
+            }
+            Command::Executable(tokens) => handle_executable(tokens, shell_state, io_streams),
+            Command::Exit => {
+                handle_exit(shell_state, io_streams);
+                None
+            }
+            Command::History(tokens) => {
+                handle_history(tokens, shell_state, io_streams);
+                None
+            }
+            Command::Jobs => {
+                handle_jobs(shell_state, io_streams);
+                None
+            }
+            Command::Pwd => {
+                handle_pwd(io_streams);
+                None
+            }
+            Command::Type(tokens) => {
+                handle_type(tokens, io_streams);
+                None
+            }
+        }
+    }
+
+    fn get_tokens(&self) -> Option<&Tokens> {
+        match self {
+            Command::Cd(t)
+            | Command::Complete(t)
+            | Command::Declare(t)
+            | Command::Echo(t)
+            | Command::Executable(t)
+            | Command::History(t)
+            | Command::Type(t) => Some(t),
+            Command::Jobs | Command::Pwd | Command::Exit => None,
         }
     }
 }

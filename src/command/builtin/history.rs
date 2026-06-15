@@ -1,10 +1,15 @@
+use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
+use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
+pub fn handle_history(
+    tokens: Tokens,
+    shell_state: Arc<RwLock<ShellState>>,
+    mut io_streams: IoStreams,
+) {
     let history_len = shell_state.read().unwrap().history.entries.len();
     let mut limit: usize = history_len;
     let mut output_history = true;
@@ -25,8 +30,8 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
                         _ => unreachable!(),
                     };
 
-                    if let Err(err) = result {
-                        write_output(&err.to_string(), OutputType::Stderr, Some(&tokens));
+                    if let Err(e) = result {
+                        writeln!(io_streams.error, "{}", e).unwrap();
                     }
                 }
             }
@@ -52,6 +57,6 @@ pub fn handle_history(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>) {
             .map(|(idx, entry)| format!("{:>4}{}{:>2}{}\n", "", idx + 1, "", entry))
             .collect();
 
-        write_output(output.trim_end(), OutputType::Stdout, Some(&tokens));
+        writeln!(io_streams.output, "{}", output.trim_end()).unwrap();
     }
 }
