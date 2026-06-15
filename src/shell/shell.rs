@@ -1,7 +1,5 @@
-﻿use crate::command::Command;
-use crate::command::builtin::jobs::format_job_output;
-use crate::io::tokenize::Tokens;
-use crate::io::writer::{OutputType, write_output};
+﻿use crate::command::builtin::jobs::format_job_output;
+use crate::command::job::Job;
 use crate::shell::jobs::BackgroundJobStatus;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
@@ -51,10 +49,11 @@ impl Shell {
                         guard.history.entries.push(input.as_str().to_string())
                     }
 
-                    let command =
-                        { Command::parse_command(&input, &shell_state.read().unwrap().variables) };
-
-                    Command::run_command(command, Arc::clone(&shell_state));
+                    if let Some(job) =
+                        { Job::parse_line(&input, &shell_state.read().unwrap().variables) }
+                    {
+                        job.run(Arc::clone(&shell_state));
+                    }
 
                     let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
                     let jobs_output: Vec<String>;
@@ -73,15 +72,9 @@ impl Shell {
                             .collect();
                     }
 
-                    write_output(
-                        jobs_output.join("\n").to_string().trim(),
-                        OutputType::Stdout,
-                        Some(&Tokens {
-                            command: String::new(),
-                            arguments: vec![],
-                            redirection: None,
-                        }),
-                    );
+                    if !jobs_output.is_empty() {
+                        println!("{}", jobs_output.join("\n").to_string().trim());
+                    }
 
                     {
                         let mut guard = shell_state.write().unwrap();
@@ -96,8 +89,8 @@ impl Shell {
                 Err(ReadlineError::Eof) => {
                     break;
                 }
-                Err(err) => {
-                    println!("Error: {:?}", err);
+                Err(e) => {
+                    println!("Error: {:?}", e);
                     break;
                 }
             }

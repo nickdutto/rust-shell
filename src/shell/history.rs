@@ -1,4 +1,3 @@
-use crate::io::writer::{OutputType, write_output};
 use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::io::{Error, Write};
@@ -34,7 +33,7 @@ impl Default for History {
 
         match history.startup_history_file() {
             Ok(()) => {}
-            Err(err) => write_output(&err.to_string(), OutputType::Stderr, None),
+            Err(e) => eprintln!("{}", e),
         }
 
         history
@@ -72,7 +71,7 @@ impl History {
 
                 Ok(())
             }
-            Err(error) => Err(HistoryError::FileReadError { error }),
+            Err(e) => Err(HistoryError::FileReadError { error: e }),
         }
     }
 
@@ -110,7 +109,7 @@ impl History {
                 }
                 Ok(())
             }
-            Err(error) => Err(HistoryError::FileWriteError { error }),
+            Err(e) => Err(HistoryError::FileWriteError { error: e }),
         }
     }
 }
