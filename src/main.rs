@@ -6,5 +6,5 @@ pub mod system;
 use shell::Shell;
 
 fn main() {
-    Shell::start_session();
+    Shell::new().start_session();
 }
