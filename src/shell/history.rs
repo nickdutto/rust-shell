@@ -19,13 +19,14 @@ pub enum HistoryError {
     FileWriteError { error: Error },
 }
 
+#[derive(Default)]
 pub struct History {
     pub entries: Vec<String>,
     pub append_index: usize,
 }
 
-impl Default for History {
-    fn default() -> Self {
+impl History {
+    pub fn new() -> Self {
         let mut history = Self {
             entries: vec![],
             append_index: 0,
@@ -38,9 +39,7 @@ impl Default for History {
 
         history
     }
-}
 
-impl History {
     pub fn startup_history_file(&mut self) -> Result<(), HistoryError> {
         if let Some(history_file_path) = env::var_os("HISTFILE") {
             self.read_history_file(history_file_path.to_str().unwrap())?

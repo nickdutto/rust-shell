@@ -21,7 +21,7 @@ impl ShellState {
         Self {
             background_jobs: BackgroundJobs::new(),
             completion_specifications: HashMap::new(),
-            history: History::default(),
+            history: History::new(),
             variables: Variables::new(),
         }
     }

@@ -8,14 +8,9 @@ pub enum VariableError {
     InvalidIdentifier { key: String, value: String },
 }
 
+#[derive(Default)]
 pub struct Variables {
     variables: HashMap<String, String>,
-}
-
-impl Default for Variables {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Variables {
