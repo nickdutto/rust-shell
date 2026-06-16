@@ -1,5 +1,5 @@
+pub mod background_jobs;
 pub mod history;
-pub mod jobs;
 #[allow(clippy::module_inception)]
 mod shell;
 pub mod shell_helper;

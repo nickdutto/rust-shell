@@ -1,13 +1,11 @@
-﻿use crate::command::builtin::jobs::format_job_output;
-use crate::command::job::Job;
-use crate::shell::jobs::BackgroundJobStatus;
+﻿use crate::command::job::Job;
+use crate::shell::background_jobs::BackgroundJobStatus;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_path_executables;
 use rustyline::config::Configurer;
 use rustyline::error::ReadlineError;
 use rustyline::{CompletionType, Editor};
-use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
 
@@ -55,7 +53,6 @@ impl Shell {
                         job.run(Arc::clone(&shell_state));
                     }
 
-                    let mut job_pids_to_remove: HashSet<u32> = HashSet::new();
                     let jobs_output: Vec<String>;
 
                     {
@@ -64,10 +61,9 @@ impl Shell {
                             .background_jobs
                             .iter()
                             .enumerate()
-                            .filter(|(_, job)| job.status == BackgroundJobStatus::Done)
+                            .filter(|(_, job)| job.status() == BackgroundJobStatus::Done)
                             .map(|(idx, job)| {
-                                job_pids_to_remove.insert(job.pid);
-                                format_job_output(job, idx, guard.background_jobs.len())
+                                job.format_job_output(idx, guard.background_jobs.len())
                             })
                             .collect();
                     }
@@ -78,9 +74,7 @@ impl Shell {
 
                     {
                         let mut guard = shell_state.write().unwrap();
-                        guard
-                            .background_jobs
-                            .retain(|job| !job_pids_to_remove.contains(&job.pid));
+                        guard.background_jobs.remove_done_jobs();
                     }
                 }
                 Err(ReadlineError::Interrupted) => {

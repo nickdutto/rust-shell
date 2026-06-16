@@ -1,6 +1,6 @@
 use crate::io::stream::{IoStreams, OutputStream};
 use crate::io::tokenize::Tokens;
-use crate::shell::jobs::{BackgroundJob, BackgroundJobStatus};
+use crate::shell::background_jobs::{BackgroundJob, BackgroundJobStatus};
 use crate::shell::shell_state::ShellState;
 use std::io::ErrorKind;
 use std::io::Write;
@@ -42,16 +42,16 @@ pub fn handle_executable(
                     let mut guard = shell_state_clone.write().unwrap();
                     let id = (1..)
                         .find(|&smallest| {
-                            !guard.background_jobs.iter().any(|job| job.id == smallest)
+                            !guard.background_jobs.iter().any(|job| job.id() == smallest)
                         })
                         .unwrap();
 
-                    guard.background_jobs.push(BackgroundJob {
+                    guard.background_jobs.push(BackgroundJob::new(
                         id,
                         pid,
-                        command: format!("{} {}", tokens.command, tokens.arguments.join(" ")),
-                        status: BackgroundJobStatus::Running,
-                    });
+                        format!("{} {}", tokens.command, tokens.arguments.join(" ")),
+                        BackgroundJobStatus::Running,
+                    ));
                     id
                 };
 
@@ -63,12 +63,10 @@ pub fn handle_executable(
                     if let Some(job) = guard
                         .background_jobs
                         .iter_mut()
-                        .find(|job| job.id == job_id)
+                        .find(|job| job.id() == job_id)
                     {
-                        job.status = BackgroundJobStatus::Done;
-                        if let Some(stripped) = job.command.strip_suffix(" &") {
-                            job.command = stripped.to_string();
-                        }
+                        job.set_status(BackgroundJobStatus::Done);
+                        job.strip_command_suffix();
                     }
                 });
 
