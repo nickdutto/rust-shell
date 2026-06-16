@@ -102,7 +102,7 @@ impl<'a> ShellHelper<'a> {
         };
 
         if let Ok(shell_state_guard) = self.shell_state.read()
-            && let Some(value) = shell_state_guard.completion_specifications.get(command)
+            && let Some(value) = shell_state_guard.completions.get(command)
         {
             if !partial_input.ends_with(' ') {
                 if let Some(last_space) = partial_input.rfind(' ') {

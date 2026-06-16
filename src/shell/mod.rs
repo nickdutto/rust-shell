@@ -1,4 +1,5 @@
 pub mod background_jobs;
+pub mod completions;
 pub mod history;
 #[allow(clippy::module_inception)]
 mod shell;
