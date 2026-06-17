@@ -6,6 +6,7 @@ edition = "2024"
 rust-version = "1.95"
 
 [dependencies]
+comfy-table = "7.2.2"
 # anyhow = "1.0.102"
 # bytes = "1.11.1"
 is_executable = "1.0.5"
