@@ -27,7 +27,7 @@ impl Job {
                 "echo" => Command::Echo(tokens),
                 "exit" => Command::Exit,
                 "history" => Command::History(tokens),
-                "jobs" => Command::Jobs,
+                "jobs" => Command::Jobs(tokens),
                 "pwd" => Command::Pwd,
                 "type" => Command::Type(tokens),
                 _ => Command::Executable(tokens),

@@ -1,31 +1,39 @@
 use crate::io::stream::IoStreams;
+use crate::io::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_jobs(shell_state: Arc<RwLock<ShellState>>, mut io_streams: IoStreams) {
-    let jobs_output: Vec<String>;
+pub fn handle_jobs(
+    tokens: Tokens,
+    shell_state: Arc<RwLock<ShellState>>,
+    mut io_streams: IoStreams,
+) {
+    let mut executed = false;
 
-    {
-        let guard = shell_state.read().unwrap();
-        jobs_output = guard
+    for arg in tokens.arguments.iter() {
+        if arg.as_str() == "-t" {
+            let table = shell_state.read().unwrap().background_jobs.to_table();
+            writeln!(io_streams.output, "{}", table).unwrap();
+            executed = true;
+        }
+    }
+
+    if !executed {
+        let jobs_list = shell_state
+            .read()
+            .unwrap()
             .background_jobs
-            .iter()
-            .enumerate()
-            .map(|(idx, job)| job.format_job_output(idx, guard.background_jobs.len()))
-            .collect();
+            .to_list_string(None);
+
+        if !jobs_list.is_empty() {
+            writeln!(io_streams.output, "{jobs_list}").unwrap();
+        }
     }
 
-    if !jobs_output.is_empty() {
-        writeln!(
-            io_streams.output,
-            "{}",
-            jobs_output.join("\n").to_string().trim()
-        )
-            .unwrap();
-    }
-    {
-        let mut guard = shell_state.write().unwrap();
-        guard.background_jobs.remove_done_jobs();
-    }
+    shell_state
+        .write()
+        .unwrap()
+        .background_jobs
+        .remove_done_jobs();
 }

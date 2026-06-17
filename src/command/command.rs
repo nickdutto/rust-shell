@@ -27,7 +27,7 @@ pub enum Command {
     Executable(Tokens),
     Exit,
     History(Tokens),
-    Jobs,
+    Jobs(Tokens),
     Pwd,
     Type(Tokens),
 }
@@ -78,8 +78,8 @@ impl Command {
                 handle_history(tokens, shell_state, io_streams);
                 None
             }
-            Command::Jobs => {
-                handle_jobs(shell_state, io_streams);
+            Command::Jobs(tokens) => {
+                handle_jobs(tokens, shell_state, io_streams);
                 None
             }
             Command::Pwd => {
@@ -101,8 +101,9 @@ impl Command {
             | Command::Echo(t)
             | Command::Executable(t)
             | Command::History(t)
+            | Command::Jobs(t)
             | Command::Type(t) => Some(t),
-            Command::Jobs | Command::Pwd | Command::Exit => None,
+            Command::Pwd | Command::Exit => None,
         }
     }
 }

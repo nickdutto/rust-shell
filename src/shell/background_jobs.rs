@@ -1,3 +1,5 @@
+use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
+use comfy_table::{Attribute, Cell, Color, Table};
 use std::fmt::{Display, Formatter};
 use std::slice::{Iter, IterMut};
 
@@ -69,19 +71,21 @@ impl BackgroundJob {
     }
 
     pub fn format_job_output(&self, idx: usize, len: usize) -> String {
-        let marker = match len - idx {
-            1 => "+",
-            2 => "-",
-            _ => " ",
-        };
-
         format!(
             "[{}]{}  {:<24} {}",
             self.id,
-            marker,
+            BackgroundJob::format_marker(idx, len),
             self.status.to_string(),
             self.command
         )
+    }
+
+    pub fn format_marker(idx: usize, len: usize) -> char {
+        match len - idx {
+            1 => '+',
+            2 => '-',
+            _ => ' ',
+        }
     }
 }
 
@@ -115,5 +119,58 @@ impl BackgroundJobs {
     pub fn remove_done_jobs(&mut self) {
         self.background_jobs
             .retain(|job| job.status == BackgroundJobStatus::Running);
+    }
+
+    pub fn to_list_string(&self, filter: Option<BackgroundJobStatus>) -> String {
+        let len = self.background_jobs.len();
+        let lines: Vec<String> = self
+            .background_jobs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, job)| {
+                if let Some(status_filter) = filter {
+                    if job.status != status_filter {
+                        return None;
+                    }
+
+                    return Some(job.format_job_output(idx, len));
+                };
+
+                Some(job.format_job_output(idx, len))
+            })
+            .collect();
+
+        String::from(lines.join("\n").trim())
+    }
+
+    pub fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.load_preset(UTF8_HORIZONTAL_ONLY).set_header(vec![
+            Cell::new("id").add_attribute(Attribute::Bold),
+            Cell::new("pid").add_attribute(Attribute::Bold),
+            Cell::new("status").add_attribute(Attribute::Bold),
+            Cell::new("command").add_attribute(Attribute::Bold),
+        ]);
+
+        for (idx, job) in self.background_jobs.iter().enumerate() {
+            table.add_row(vec![
+                Cell::new(format!(
+                    "{}{}",
+                    job.id(),
+                    BackgroundJob::format_marker(idx, self.background_jobs.len())
+                )),
+                Cell::new(format!("{}", job.pid())),
+                Cell::new(format!("{}", job.status())).fg(
+                    if job.status() == BackgroundJobStatus::Running {
+                        Color::Blue
+                    } else {
+                        Color::Green
+                    },
+                ),
+                Cell::new(job.command().to_string()),
+            ]);
+        }
+
+        table
     }
 }

@@ -48,10 +48,12 @@ impl<'a> Shell<'a> {
                     }
 
                     self.editor.add_history_entry(line.as_str()).ok();
-                    {
-                        let mut guard = self.shell_state.write().unwrap();
-                        guard.history.entries.push(line.as_str().to_string())
-                    }
+                    self.shell_state
+                        .write()
+                        .unwrap()
+                        .history
+                        .entries
+                        .push(line.as_str().to_string());
 
                     if let Some(job) =
                         { Job::parse_line(&line, &self.shell_state.read().unwrap().variables) }
@@ -90,19 +92,14 @@ impl<'a> Shell<'a> {
     }
 
     fn print_background_jobs(shell_state: Arc<RwLock<ShellState>>) {
-        {
-            let guard = shell_state.read().unwrap();
-            let output: Vec<String> = guard
-                .background_jobs
-                .iter()
-                .enumerate()
-                .filter(|(_, job)| job.status() == BackgroundJobStatus::Done)
-                .map(|(idx, job)| job.format_job_output(idx, guard.background_jobs.len()))
-                .collect();
+        let jobs_list = shell_state
+            .read()
+            .unwrap()
+            .background_jobs
+            .to_list_string(Some(BackgroundJobStatus::Done));
 
-            if !output.is_empty() {
-                println!("{}", output.join("\n").to_string().trim());
-            }
+        if !jobs_list.is_empty() {
+            println!("{jobs_list}");
         }
 
         shell_state
