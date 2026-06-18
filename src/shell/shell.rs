@@ -10,18 +10,18 @@ use rustyline::{CompletionType, Editor};
 use std::sync::{Arc, RwLock};
 use std::{process, thread};
 
-pub struct Shell<'a> {
-    editor: Editor<ShellHelper<'a>, DefaultHistory>,
+pub struct Shell {
+    editor: Editor<ShellHelper, DefaultHistory>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
-impl<'a> Default for Shell<'a> {
+impl Default for Shell {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> Shell<'a> {
+impl Shell {
     pub fn new() -> Self {
         Self {
             editor: Editor::new().unwrap(),
@@ -30,11 +30,10 @@ impl<'a> Shell<'a> {
     }
 
     pub fn start_session(&mut self) {
+        let shell_helper =
+            ShellHelper::new(Shell::get_path_executables(), Arc::clone(&self.shell_state));
+        self.editor.set_helper(Some(shell_helper));
         self.editor.set_completion_type(CompletionType::List);
-        self.editor.set_helper(Some(ShellHelper::new(
-            Shell::build_executable_completions_in_background(),
-            Arc::clone(&self.shell_state),
-        )));
 
         self.repl();
     }
@@ -77,18 +76,18 @@ impl<'a> Shell<'a> {
         }
     }
 
-    fn build_executable_completions_in_background() -> Arc<RwLock<Vec<String>>> {
-        let executable_completions = Arc::new(RwLock::new(Vec::new()));
-        let executable_completions_bg = Arc::clone(&executable_completions);
+    fn get_path_executables() -> Arc<RwLock<Vec<String>>> {
+        let path_executables = Arc::new(RwLock::new(Vec::new()));
+        let path_executables_bg = Arc::clone(&path_executables);
 
         thread::spawn(move || {
             let executables = get_env_path_executables("PATH");
-            if let Ok(mut guard) = executable_completions_bg.write() {
+            if let Ok(mut guard) = path_executables_bg.write() {
                 *guard = executables;
             }
         });
 
-        executable_completions
+        path_executables
     }
 
     fn print_background_jobs(shell_state: Arc<RwLock<ShellState>>) {
