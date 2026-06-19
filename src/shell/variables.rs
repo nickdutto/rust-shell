@@ -21,7 +21,7 @@ impl Variables {
     }
 
     pub fn get(&self, key: &str) -> Result<Option<&String>, VariableError> {
-        if self.validate_key(key) {
+        if Variables::validate_key(key) {
             Ok(self.variables.get(key))
         } else {
             Err(VariableError::InvalidIdentifier {
@@ -32,7 +32,7 @@ impl Variables {
     }
 
     pub fn get_key_value(&self, key: &str) -> Result<Option<(&String, &String)>, VariableError> {
-        if self.validate_key(key) {
+        if Variables::validate_key(key) {
             Ok(self.variables.get_key_value(key))
         } else {
             Err(VariableError::InvalidIdentifier {
@@ -47,7 +47,7 @@ impl Variables {
         key: String,
         value: String,
     ) -> Result<Option<(&String, &String)>, VariableError> {
-        if self.validate_key(&key) {
+        if Variables::validate_key(&key) {
             self.variables.insert(key.clone(), value.clone());
 
             Ok(self.get_key_value(&key)?)
@@ -64,7 +64,7 @@ impl Variables {
         self.variables.iter()
     }
 
-    fn validate_key(&self, key: &str) -> bool {
+    pub fn validate_key(key: &str) -> bool {
         let mut chars = key.chars();
         match chars.next() {
             Some(first) if first.is_ascii_alphabetic() || first == '_' => {
