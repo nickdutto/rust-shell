@@ -103,7 +103,26 @@ impl Highlighter for ShellHelper {
                 }
 
                 _ => {
-                    output.push(ch);
+                    let remaining_line = format!("{}{}", ch, chars.clone().collect::<String>());
+                    let mut matched_command = false;
+
+                    for command in &self.builtin_commands {
+                        if remaining_line.starts_with(command) {
+                            let next_ch = remaining_line.chars().nth(command.chars().count());
+                            if next_ch.is_none_or(|c| c.is_whitespace()) {
+                                output.push_str(&format!("\x1b[36m{command}\x1b[0m"));
+                                if command.chars().count() > 1 {
+                                    chars.nth(command.chars().count() - 2);
+                                }
+                                matched_command = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if !matched_command {
+                        output.push(ch);
+                    }
                 }
             }
         }
