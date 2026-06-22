@@ -1,9 +1,10 @@
 ﻿use crate::command::job::Job;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
+use nu_ansi_term::{Color, Style};
 use reedline::{
-    ColumnarMenu, DefaultPrompt, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline,
-    ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
+    ColumnarMenu, DefaultPrompt, DefaultPromptSegment, Emacs, KeyCode, KeyModifiers, MenuBuilder,
+    Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
 };
 use std::sync::{Arc, RwLock};
 
@@ -39,10 +40,19 @@ impl Shell {
             .with_completer(Box::new(ShellHelper::new(Arc::clone(&self.shell_state))))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
             .with_menu(ReedlineMenu::EngineCompleter(Box::new(
-                ColumnarMenu::default().with_name("completion_menu"),
+                ColumnarMenu::default()
+                    .with_name("completion_menu")
+                    .with_text_style(Style::new())
+                    .with_selected_text_style(Style::new().fg(Color::Fixed(202)))
+                    .with_match_text_style(Style::new().underline())
+                    .with_selected_match_text_style(Style::new().fg(Color::Fixed(202)).underline())
+                    .with_description_text_style(Style::new().dimmed().reset_before_style()),
             )));
 
-        let prompt = DefaultPrompt::default();
+        let prompt = DefaultPrompt::new(
+            DefaultPromptSegment::WorkingDirectory,
+            DefaultPromptSegment::Empty,
+        );
 
         loop {
             let sig = editor.read_line(&prompt);
