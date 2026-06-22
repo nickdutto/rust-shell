@@ -1,10 +1,12 @@
 use crate::command::BUILTIN_COMMANDS;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_path_executables;
-use reedline::{Completer, Suggestion};
+use nu_ansi_term::Style;
+use reedline::{Completer, Highlighter, StyledText, Suggestion};
 use std::sync::{Arc, RwLock};
 use std::thread;
 
+#[derive(Clone)]
 pub struct ShellHelper {
     builtin_commands: Vec<&'static str>,
     path_executables: Arc<RwLock<Vec<String>>>,
@@ -74,5 +76,14 @@ impl Completer for ShellHelper {
         suggestions.dedup_by(|a, b| a.value == b.value);
 
         suggestions
+    }
+}
+
+impl Highlighter for ShellHelper {
+    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+        let mut styled_text = StyledText::new();
+        styled_text.push((Style::new(), line.to_string()));
+
+        styled_text
     }
 }

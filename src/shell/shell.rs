@@ -26,6 +26,8 @@ impl Shell {
     }
 
     pub fn start_session(&mut self) {
+        let shell_helper = ShellHelper::new(Arc::clone(&self.shell_state));
+
         let mut keybindings = default_emacs_keybindings();
         keybindings.add_binding(
             KeyModifiers::NONE,
@@ -37,8 +39,9 @@ impl Shell {
         );
 
         let mut editor = Reedline::create()
-            .with_completer(Box::new(ShellHelper::new(Arc::clone(&self.shell_state))))
+            .with_completer(Box::new(shell_helper.clone()))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
+            .with_highlighter(Box::new(shell_helper))
             .with_menu(ReedlineMenu::EngineCompleter(Box::new(
                 ColumnarMenu::default()
                     .with_name("completion_menu")
