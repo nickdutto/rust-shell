@@ -1,4 +1,4 @@
-use rustyline::completion::Pair;
+use reedline::{Span, Suggestion};
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 use std::path::PathBuf;
@@ -60,46 +60,57 @@ impl Completions {
     pub fn complete_command(
         &self,
         partial_input: &str,
-        pos: &mut usize,
-        candidates: &mut Vec<Pair>,
+        pos: usize,
+        suggestions: &mut Vec<Suggestion>,
         builtin_commands: &Vec<&'static str>,
         path_executables: &Arc<RwLock<Vec<String>>>,
     ) {
+        let span = Span::new(0, pos);
+
         for command in builtin_commands {
             if command.starts_with(partial_input) {
-                candidates.push(Pair {
-                    display: command.to_string(),
-                    replacement: format!("{command} "),
+                suggestions.push(Suggestion {
+                    value: format!("{command} "),
+                    display_override: Some(command.to_string()),
+                    description: Some("Builtin command".to_string()),
+                    style: None,
+                    extra: None,
+                    match_indices: None,
+                    span,
+                    append_whitespace: false,
                 });
             }
         }
 
         for executable in path_executables.read().unwrap().iter() {
             if executable.starts_with(partial_input) {
-                candidates.push(Pair {
-                    display: executable.to_string(),
-                    replacement: format!("{executable} "),
+                suggestions.push(Suggestion {
+                    value: format!("{executable} "),
+                    display_override: Some(executable.to_string()),
+                    description: Some("Path executable".to_string()),
+                    style: None,
+                    extra: None,
+                    match_indices: None,
+                    span,
+                    append_whitespace: false,
                 });
             }
         }
-
-        *pos = 0;
     }
 
     pub fn complete_filename(
         &self,
         partial_input: &str,
-        pos: &mut usize,
-        candidates: &mut Vec<Pair>,
+        pos: usize,
+        suggestions: &mut Vec<Suggestion>,
     ) {
         let last_partial_input = match partial_input.rfind(' ') {
             Some(idx) => &partial_input[idx + 1..],
             None => partial_input,
         };
 
-        if let Some(last_whitespace) = partial_input.rfind(' ').map(|idx| idx + 1) {
-            *pos = last_whitespace;
-        }
+        let start_pos = partial_input.rfind(' ').map(|idx| idx + 1).unwrap_or(0);
+        let span = Span::new(start_pos, pos);
 
         let path;
         let partial_filename;
@@ -148,9 +159,15 @@ impl Completions {
                     format!("{}{} ", path, completion_path.path)
                 };
 
-                candidates.push(Pair {
-                    display: path_pair.trim().to_string(),
-                    replacement: path_pair,
+                suggestions.push(Suggestion {
+                    value: path_pair.clone(),
+                    display_override: Some(path_pair.trim().to_string()),
+                    description: None,
+                    style: None,
+                    extra: None,
+                    match_indices: None,
+                    span,
+                    append_whitespace: false,
                 });
             }
         }
@@ -160,8 +177,8 @@ impl Completions {
         &self,
         line: &str,
         partial_input: &str,
-        pos: &mut usize,
-        candidates: &mut Vec<Pair>,
+        pos: usize,
+        suggestions: &mut Vec<Suggestion>,
     ) -> bool {
         let words: Vec<&str> = partial_input.split_whitespace().collect();
         if words.is_empty() {
@@ -183,13 +200,15 @@ impl Completions {
         };
 
         if let Some(spec_script_path) = self.specifications.get(command) {
-            if !partial_input.ends_with(' ') {
-                if let Some(last_space) = partial_input.rfind(' ') {
-                    *pos = last_space + 1;
-                } else {
-                    *pos = 0;
-                }
-            }
+            let start_pos = if !partial_input.ends_with(' ') {
+                partial_input
+                    .rfind(' ')
+                    .map(|last_space| last_space + 1)
+                    .unwrap_or(0)
+            } else {
+                pos
+            };
+            let span = Span::new(start_pos, pos);
 
             if let Ok(output) = process::Command::new(spec_script_path)
                 .args([command, current_word, preceding_word])
@@ -202,9 +221,15 @@ impl Completions {
                 for line in stdout.lines() {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
-                        candidates.push(Pair {
-                            display: trimmed.to_string(),
-                            replacement: format!("{trimmed} "),
+                        suggestions.push(Suggestion {
+                            value: format!("{trimmed} "),
+                            display_override: Some(trimmed.to_string()),
+                            description: Some("Custom spec completion".to_string()),
+                            style: None,
+                            extra: None,
+                            match_indices: None,
+                            span,
+                            append_whitespace: false,
                         });
                     }
                 }

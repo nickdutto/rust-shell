@@ -1,14 +1,9 @@
 use crate::command::BUILTIN_COMMANDS;
 use crate::shell::shell_state::ShellState;
-use crate::shell::variables::Variables;
-use rustyline::completion::{Completer, Pair};
-use rustyline::error::ReadlineError;
-use rustyline::highlight::{CmdKind, Highlighter};
-use rustyline::hint::Hinter;
-use rustyline::validate::Validator;
-use rustyline::{Context, Helper};
-use std::borrow::Cow;
+use crate::system::env::get_env_path_executables;
+use reedline::{Completer, Suggestion};
 use std::sync::{Arc, RwLock};
+use std::thread;
 
 pub struct ShellHelper {
     builtin_commands: Vec<&'static str>,
@@ -17,141 +12,36 @@ pub struct ShellHelper {
 }
 
 impl ShellHelper {
-    pub fn new(
-        path_executables: Arc<RwLock<Vec<String>>>,
-        shell_state: Arc<RwLock<ShellState>>,
-    ) -> Self {
+    pub fn new(shell_state: Arc<RwLock<ShellState>>) -> Self {
         ShellHelper {
             builtin_commands: BUILTIN_COMMANDS.to_vec(),
-            path_executables,
+            path_executables: ShellHelper::get_path_executables(),
             shell_state,
         }
     }
-}
 
-impl Helper for ShellHelper {}
-impl Hinter for ShellHelper {
-    type Hint = String;
-}
-impl Highlighter for ShellHelper {
-    fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let mut output = String::new();
-        let mut in_quotes = false;
-        let mut quote_char = ' ';
+    fn get_path_executables() -> Arc<RwLock<Vec<String>>> {
+        let path_executables = Arc::new(RwLock::new(Vec::new()));
+        let path_executables_bg = Arc::clone(&path_executables);
 
-        let mut chars = line.chars().peekable();
-        while let Some(ch) = chars.next() {
-            match ch {
-                '"' | '\'' if !in_quotes || quote_char == ch => {
-                    if in_quotes {
-                        output.push_str(&format!("{ch}\x1b[0m"));
-                        in_quotes = false;
-                    } else {
-                        output.push_str(&format!("\x1b[32m{ch}"));
-                        in_quotes = true;
-                        quote_char = ch;
-                    }
-                }
-
-                _ if in_quotes => {
-                    output.push(ch);
-                }
-
-                '$' => {
-                    output.push_str("\x1b[31m$");
-
-                    if chars.peek() == Some(&'{') {
-                        output.extend(chars.next());
-
-                        let mut var_buffer = String::new();
-                        while let Some(&var_ch) = chars.peek() {
-                            var_buffer.extend(chars.next());
-                            if var_ch == '}' {
-                                break;
-                            }
-                        }
-
-                        let key_name = var_buffer.strip_suffix('}').unwrap_or(&var_buffer);
-
-                        if Variables::validate_key(key_name) {
-                            output.push_str(&var_buffer);
-                            output.push_str("\x1b[0m");
-                        } else {
-                            output.push_str("\x1b[1;38;2;255;45;85m");
-                            output.push_str(&var_buffer);
-                            output.push_str("\x1b[0m");
-                        }
-                    } else {
-                        let mut var_buffer = String::new();
-                        while let Some(&var_ch) = chars.peek() {
-                            if !var_ch.is_whitespace() {
-                                var_buffer.extend(chars.next());
-                            } else if !(var_ch.is_ascii_alphanumeric() || var_ch == '_') {
-                                break;
-                            }
-                        }
-
-                        if Variables::validate_key(&var_buffer) {
-                            output.push_str(&var_buffer);
-                            output.push_str("\x1b[0m");
-                        } else {
-                            output.push_str("\x1b[1;38;2;255;45;85m");
-                            output.push_str(&var_buffer);
-                            output.push_str("\x1b[0m");
-                        }
-                    }
-                }
-
-                _ => {
-                    let remaining_line = format!("{}{}", ch, chars.clone().collect::<String>());
-                    let mut matched_command = false;
-
-                    for command in &self.builtin_commands {
-                        if remaining_line.starts_with(command) {
-                            let next_ch = remaining_line.chars().nth(command.chars().count());
-                            if next_ch.is_none_or(|c| c.is_whitespace()) {
-                                output.push_str(&format!("\x1b[36m{command}\x1b[0m"));
-                                if command.chars().count() > 1 {
-                                    chars.nth(command.chars().count() - 2);
-                                }
-                                matched_command = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if !matched_command {
-                        output.push(ch);
-                    }
-                }
+        thread::spawn(move || {
+            let executables = get_env_path_executables("PATH");
+            if let Ok(mut guard) = path_executables_bg.write() {
+                *guard = executables;
             }
-        }
+        });
 
-        output.push_str("\x1b[0m");
-        Cow::Owned(output)
-    }
-
-    fn highlight_char(&self, _line: &str, _pos: usize, _kind: CmdKind) -> bool {
-        true
+        path_executables
     }
 }
 
-impl Validator for ShellHelper {}
 impl Completer for ShellHelper {
-    type Candidate = Pair;
-
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        _ctx: &Context<'_>,
-    ) -> Result<(usize, Vec<Pair>), ReadlineError> {
-        let mut pos = pos;
-        let mut candidates = Vec::new();
+    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let mut suggestions = Vec::new();
 
         let partial_input = &line[..pos];
         if partial_input.is_empty() {
-            return Ok((pos, candidates));
+            return suggestions;
         }
 
         {
@@ -160,8 +50,8 @@ impl Completer for ShellHelper {
             if !partial_input.contains(' ') {
                 guard.completions.complete_command(
                     partial_input,
-                    &mut pos,
-                    &mut candidates,
+                    pos,
+                    &mut suggestions,
                     &self.builtin_commands,
                     &self.path_executables,
                 );
@@ -169,22 +59,20 @@ impl Completer for ShellHelper {
                 let specification_found = guard.completions.complete_specification(
                     line,
                     partial_input,
-                    &mut pos,
-                    &mut candidates,
+                    pos,
+                    &mut suggestions,
                 );
                 if !specification_found {
                     guard
                         .completions
-                        .complete_filename(partial_input, &mut pos, &mut candidates);
+                        .complete_filename(partial_input, pos, &mut suggestions);
                 }
             }
         }
 
-        candidates.sort_by(|a, b| a.replacement.cmp(&b.replacement));
-        candidates.dedup_by(|a, b| a.replacement == b.replacement);
+        suggestions.sort_by(|a, b| a.value.cmp(&b.value));
+        suggestions.dedup_by(|a, b| a.value == b.value);
 
-        Ok((pos, candidates))
+        suggestions
     }
 }
-
-impl ShellHelper {}

@@ -1,4 +1,4 @@
-use crate::shell::background_jobs::BackgroundJobs;
+use crate::shell::background_jobs::{BackgroundJobStatus, BackgroundJobs};
 use crate::shell::completions::Completions;
 use crate::shell::history::History;
 use crate::shell::variables::Variables;
@@ -19,5 +19,17 @@ impl ShellState {
             history: History::new(),
             variables: Variables::new(),
         }
+    }
+
+    pub fn print_background_jobs(&mut self) {
+        let jobs_list = self
+            .background_jobs
+            .to_list_string(Some(BackgroundJobStatus::Done));
+
+        if !jobs_list.is_empty() {
+            println!("{jobs_list}");
+        }
+
+        self.background_jobs.remove_done_jobs();
     }
 }

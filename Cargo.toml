@@ -10,9 +10,9 @@ comfy-table = "7.2.2"
 # anyhow = "1.0.102"
 # bytes = "1.11.1"
 is_executable = "1.0.5"
-rustyline = "18.0.0"
+nu-ansi-term = "0.50.3"
+reedline = "0.48.0"
 thiserror = "2.0.18"
 
 [dev-dependencies]
 rexpect = "0.7.1"
-tempfile = "3.27.0"
