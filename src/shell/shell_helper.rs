@@ -1,7 +1,8 @@
 use crate::command::BUILTIN_COMMANDS;
+use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_path_executables;
-use nu_ansi_term::Style;
+use nu_ansi_term::{Color, Style};
 use reedline::{Completer, Highlighter, StyledText, Suggestion};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -9,14 +10,16 @@ use std::thread;
 #[derive(Clone)]
 pub struct ShellHelper {
     builtin_commands: Vec<&'static str>,
+    config: Config,
     path_executables: Arc<RwLock<Vec<String>>>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
 impl ShellHelper {
-    pub fn new(shell_state: Arc<RwLock<ShellState>>) -> Self {
+    pub fn new(config: Config, shell_state: Arc<RwLock<ShellState>>) -> Self {
         ShellHelper {
             builtin_commands: BUILTIN_COMMANDS.to_vec(),
+            config,
             path_executables: ShellHelper::get_path_executables(),
             shell_state,
         }
@@ -81,9 +84,11 @@ impl Completer for ShellHelper {
 
 impl Highlighter for ShellHelper {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
-        let mut styled_text = StyledText::new();
-        styled_text.push((Style::new(), line.to_string()));
+        let mut buffer = StyledText::new();
+        let style = Style::new().fg(Color::Fixed(self.config.theme.colors.input_base));
 
-        styled_text
+        buffer.push((style, line.into()));
+
+        buffer
     }
 }

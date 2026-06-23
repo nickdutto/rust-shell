@@ -1,11 +1,12 @@
 ﻿use crate::command::job::Job;
 use crate::shell::config::Config;
+use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
 use nu_ansi_term::{Color, Style};
 use reedline::{
-    ColumnarMenu, DefaultPrompt, DefaultPromptSegment, Emacs, KeyCode, KeyModifiers, MenuBuilder,
-    Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
+    ColumnarMenu, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
+    Signal, default_emacs_keybindings,
 };
 use std::sync::{Arc, RwLock};
 
@@ -35,7 +36,7 @@ impl Shell {
     }
 
     pub fn start_session(&mut self) {
-        let shell_helper = ShellHelper::new(Arc::clone(&self.shell_state));
+        let shell_helper = ShellHelper::new(self.config.clone(), Arc::clone(&self.shell_state));
 
         let mut keybindings = default_emacs_keybindings();
         keybindings.add_binding(
@@ -61,10 +62,7 @@ impl Shell {
                     .with_description_text_style(Style::new().dimmed().reset_before_style()),
             )));
 
-        let prompt = DefaultPrompt::new(
-            DefaultPromptSegment::WorkingDirectory,
-            DefaultPromptSegment::Empty,
-        );
+        let prompt = ShellPrompt::new(self.config.clone());
 
         loop {
             let sig = editor.read_line(&prompt);
