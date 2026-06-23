@@ -1,4 +1,5 @@
 ﻿use crate::command::job::Job;
+use crate::shell::config::Config;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
 use nu_ansi_term::{Color, Style};
@@ -10,6 +11,7 @@ use std::sync::{Arc, RwLock};
 
 pub struct Shell {
     shell_state: Arc<RwLock<ShellState>>,
+    config: Config,
 }
 
 impl Default for Shell {
@@ -20,8 +22,15 @@ impl Default for Shell {
 
 impl Shell {
     pub fn new() -> Self {
+        let mut config = Config::new();
+        match config.load() {
+            Ok(_) => {}
+            Err(e) => println!("{e}"),
+        }
+
         Self {
             shell_state: Arc::new(RwLock::new(ShellState::new())),
+            config,
         }
     }
 
