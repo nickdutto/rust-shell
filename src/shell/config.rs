@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{Error as IoError, ErrorKind, Write};
 use std::path::Path;
 use std::{env, fs};
@@ -29,6 +29,7 @@ pub enum ConfigError {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Config {
     pub theme: Theme,
 }
@@ -47,21 +48,30 @@ impl Config {
     }
 
     pub fn load(&mut self) -> Result<(), ConfigError> {
-        if let Some(path) = Config::init_file(self)? {
+        if let Some(path) = self.init_file()? {
             let config_content =
-                fs::read_to_string(path).map_err(|e| ConfigError::OpenFile { error: Some(e) })?;
+                fs::read_to_string(&path).map_err(|e| ConfigError::ReadFile { error: Some(e) })?;
+
+            if config_content.trim().is_empty() {
+                self.save()?;
+                return Ok(());
+            }
+
             let config: Config = toml::from_str(&config_content)
                 .map_err(|error| ConfigError::Deserialize { error })?;
 
             *self = config;
-            return Ok(());
+            self.save()?;
         }
 
         Ok(())
     }
 
     pub fn save(&mut self) -> Result<(), ConfigError> {
-        if let Some(path) = Config::init_file(self)? {
+        if let Some(path) = env::var_os(CONFIG_PATH_VAR) {
+            let config_toml =
+                toml::to_string_pretty(&self).map_err(|error| ConfigError::Serialize { error })?;
+
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
@@ -69,9 +79,8 @@ impl Config {
                 .open(&path)
                 .map_err(|e| ConfigError::CreateFile { error: Some(e) })?;
 
-            self.write_file(&mut file)?;
-
-            return Ok(());
+            file.write_all(config_toml.as_bytes())
+                .map_err(|e| ConfigError::WriteFile { error: Some(e) })?;
         }
 
         Ok(())
@@ -85,9 +94,7 @@ impl Config {
             }
 
             match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(mut file) => {
-                    self.write_file(&mut file)?;
-                }
+                Ok(_) => {}
                 Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
                 Err(e) => return Err(ConfigError::CreateFile { error: Some(e) }),
             }
@@ -97,19 +104,10 @@ impl Config {
 
         Ok(None)
     }
-
-    fn write_file(&mut self, file: &mut File) -> Result<(), ConfigError> {
-        let config_toml =
-            toml::to_string_pretty(&self).map_err(|error| ConfigError::Serialize { error })?;
-
-        file.write_all(config_toml.as_bytes())
-            .map_err(|e| ConfigError::WriteFile { error: Some(e) })?;
-
-        Ok(())
-    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Theme {
     pub colors: ThemeColors,
 }
@@ -129,6 +127,7 @@ impl Theme {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
 pub struct ThemeColors {
     pub input_base: u8,
     pub prompt_left: u8,
