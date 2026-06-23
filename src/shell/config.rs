@@ -9,6 +9,7 @@ use toml::de::Error as TomlDeError;
 use toml::ser::Error as TomlSerError;
 
 const CONFIG_PATH_VAR: &str = "RUST_SHELL_CONFIG_PATH";
+pub const DEFAULT_DATETIME_FORMAT: &str = "%d/%m/%Y %H:%M:%S";
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -32,6 +33,7 @@ pub enum ConfigError {
 #[serde(default)]
 pub struct Config {
     pub theme: Theme,
+    pub prompt: Prompt,
 }
 
 impl Default for Config {
@@ -44,6 +46,7 @@ impl Config {
     pub fn new() -> Self {
         Self {
             theme: Theme::new(),
+            prompt: Prompt::new(),
         }
     }
 
@@ -143,9 +146,83 @@ impl Default for ThemeColors {
 impl ThemeColors {
     pub fn new() -> Self {
         Self {
-            input_base: 15,
-            prompt_left: 15,
-            prompt_right: 15,
+            input_base: 34,
+            prompt_left: 33,
+            prompt_right: 33,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub enum PromptMode {
+    Basic,
+    CurrentDirectory,
+    DateTime,
+    Empty,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Prompt {
+    pub left: PromptSegment,
+    pub right: PromptSegment,
+}
+
+impl Default for Prompt {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Prompt {
+    pub fn new() -> Self {
+        Self {
+            left: PromptSegment::from_mode_current_directory(),
+            right: PromptSegment::from_mode_datetime(),
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct PromptSegment {
+    pub mode: PromptMode,
+    pub basic_value: Option<String>,
+    pub datetime_format: Option<String>,
+}
+
+impl Default for PromptSegment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PromptSegment {
+    pub fn new() -> Self {
+        PromptSegment::from_mode_empty()
+    }
+
+    pub fn from_mode_current_directory() -> Self {
+        Self {
+            mode: PromptMode::CurrentDirectory,
+            basic_value: None,
+            datetime_format: None,
+        }
+    }
+
+    pub fn from_mode_datetime() -> Self {
+        Self {
+            mode: PromptMode::DateTime,
+            basic_value: None,
+            datetime_format: Some(DEFAULT_DATETIME_FORMAT.into()),
+        }
+    }
+
+    pub fn from_mode_empty() -> Self {
+        Self {
+            mode: PromptMode::Empty,
+            basic_value: None,
+            datetime_format: None,
         }
     }
 }

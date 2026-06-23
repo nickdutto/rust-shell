@@ -1,8 +1,10 @@
-use crate::shell::config::Config;
+use crate::shell::config::{Config, DEFAULT_DATETIME_FORMAT, PromptMode, PromptSegment};
+use jiff::Zoned;
 use nu_ansi_term::{Color, Style};
 use reedline::DefaultPrompt;
 use reedline::{Prompt, PromptEditMode, PromptHistorySearch};
 use std::borrow::Cow;
+use std::env;
 
 pub struct ShellPrompt {
     config: Config,
@@ -16,18 +18,20 @@ impl ShellPrompt {
 
 impl Prompt for ShellPrompt {
     fn render_prompt_left(&self) -> Cow<'_, str> {
+        let prompt_value = ShellPrompt::get_prompt_mode_value(self.config.prompt.left.clone());
         let prompt = Style::new()
             .fg(Color::Fixed(self.config.theme.colors.prompt_left))
-            .paint("$")
+            .paint(prompt_value)
             .to_string();
 
         Cow::Owned(prompt)
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
+        let prompt_value = ShellPrompt::get_prompt_mode_value(self.config.prompt.right.clone());
         let prompt = Style::new()
             .fg(Color::Fixed(self.config.theme.colors.prompt_right))
-            .paint("")
+            .paint(prompt_value)
             .to_string();
 
         Cow::Owned(prompt)
@@ -58,5 +62,24 @@ impl Prompt for ShellPrompt {
                 .render_prompt_history_search_indicator(history_search)
                 .into_owned(),
         )
+    }
+}
+
+impl ShellPrompt {
+    fn get_prompt_mode_value(prompt_segment: PromptSegment) -> String {
+        match prompt_segment.mode {
+            PromptMode::Basic => prompt_segment.basic_value.clone().unwrap_or_default(),
+            PromptMode::CurrentDirectory => {
+                env::current_dir().unwrap_or_default().display().to_string()
+            }
+            PromptMode::DateTime => Zoned::now()
+                .strftime(
+                    &prompt_segment
+                        .datetime_format
+                        .unwrap_or(DEFAULT_DATETIME_FORMAT.into()),
+                )
+                .to_string(),
+            PromptMode::Empty => "".into(),
+        }
     }
 }
