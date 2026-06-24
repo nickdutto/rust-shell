@@ -45,7 +45,7 @@ pub struct Theme {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ThemeColors {
-    pub input_base: u8,
+    pub input_base: Option<u8>,
     pub builtin_command: u8,
     pub double_quote_strings: u8,
     pub single_quote_strings: u8,
@@ -139,7 +139,7 @@ impl Config {
 impl Default for ThemeColors {
     fn default() -> Self {
         Self {
-            input_base: 15,
+            input_base: None,
             builtin_command: 34,
             double_quote_strings: 130,
             single_quote_strings: 131,

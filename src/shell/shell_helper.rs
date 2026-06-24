@@ -88,7 +88,13 @@ impl Highlighter for ShellHelper {
         let mut in_quotes = false;
         let mut quote_char = ' ';
 
-        let base_style = Style::new().fg(Color::Fixed(self.config.theme.colors.input_base));
+        let base_style =
+            Style::new().fg(if let Some(color) = self.config.theme.colors.input_base {
+                Color::Fixed(color)
+            } else {
+                Color::Default
+            });
+
         let quote_style = |ch| match ch {
             '"' => Style::new().fg(Color::Fixed(self.config.theme.colors.double_quote_strings)),
             '\'' => Style::new().fg(Color::Fixed(self.config.theme.colors.single_quote_strings)),
