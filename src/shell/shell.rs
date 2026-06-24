@@ -23,7 +23,7 @@ impl Default for Shell {
 
 impl Shell {
     pub fn new() -> Self {
-        let mut config = Config::new();
+        let mut config = Config::default();
         match config.load() {
             Ok(_) => {}
             Err(e) => println!("{e}"),

@@ -18,7 +18,7 @@ impl ShellPrompt {
 
 impl Prompt for ShellPrompt {
     fn render_prompt_left(&self) -> Cow<'_, str> {
-        let prompt_value = ShellPrompt::get_prompt_mode_value(self.config.prompt.left.clone());
+        let prompt_value = ShellPrompt::get_prompt_mode_value(&self.config.prompt.left);
         let prompt = Style::new()
             .fg(Color::Fixed(self.config.theme.colors.prompt_left))
             .paint(prompt_value)
@@ -28,7 +28,7 @@ impl Prompt for ShellPrompt {
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
-        let prompt_value = ShellPrompt::get_prompt_mode_value(self.config.prompt.right.clone());
+        let prompt_value = ShellPrompt::get_prompt_mode_value(&self.config.prompt.right);
         let prompt = Style::new()
             .fg(Color::Fixed(self.config.theme.colors.prompt_right))
             .paint(prompt_value)
@@ -66,7 +66,7 @@ impl Prompt for ShellPrompt {
 }
 
 impl ShellPrompt {
-    fn get_prompt_mode_value(prompt_segment: PromptSegment) -> String {
+    fn get_prompt_mode_value(prompt_segment: &PromptSegment) -> String {
         match prompt_segment.mode {
             PromptMode::Basic => prompt_segment.basic_value.clone().unwrap_or_default(),
             PromptMode::CurrentDirectory => {
@@ -76,10 +76,12 @@ impl ShellPrompt {
                 .strftime(
                     &prompt_segment
                         .datetime_format
-                        .unwrap_or(DEFAULT_DATETIME_FORMAT.into()),
+                        .clone()
+                        .unwrap_or(DEFAULT_DATETIME_FORMAT.into())
+                        .to_string(),
                 )
                 .to_string(),
-            PromptMode::Empty => "".into(),
+            PromptMode::Empty => "".to_string(),
         }
     }
 }

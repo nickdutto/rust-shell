@@ -29,27 +29,51 @@ pub enum ConfigError {
     Serialize { error: TomlSerError },
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
     pub theme: Theme,
     pub prompt: Prompt,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
-    }
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Theme {
+    pub colors: ThemeColors,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ThemeColors {
+    pub input_base: u8,
+    pub prompt_left: u8,
+    pub prompt_right: u8,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Prompt {
+    pub left: PromptSegment,
+    pub right: PromptSegment,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub enum PromptMode {
+    Basic,
+    CurrentDirectory,
+    DateTime,
+    Empty,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct PromptSegment {
+    pub mode: PromptMode,
+    pub basic_value: Option<String>,
+    pub datetime_format: Option<String>,
 }
 
 impl Config {
-    pub fn new() -> Self {
-        Self {
-            theme: Theme::new(),
-            prompt: Prompt::new(),
-        }
-    }
-
     pub fn load(&mut self) -> Result<(), ConfigError> {
         if let Some(path) = self.init_file()? {
             let config_content =
@@ -109,42 +133,8 @@ impl Config {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct Theme {
-    pub colors: ThemeColors,
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Theme {
-    pub fn new() -> Self {
-        Self {
-            colors: ThemeColors::new(),
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct ThemeColors {
-    pub input_base: u8,
-    pub prompt_left: u8,
-    pub prompt_right: u8,
-}
-
 impl Default for ThemeColors {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ThemeColors {
-    pub fn new() -> Self {
         Self {
             input_base: 34,
             prompt_left: 33,
@@ -153,29 +143,8 @@ impl ThemeColors {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-pub enum PromptMode {
-    Basic,
-    CurrentDirectory,
-    DateTime,
-    Empty,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct Prompt {
-    pub left: PromptSegment,
-    pub right: PromptSegment,
-}
-
 impl Default for Prompt {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Prompt {
-    pub fn new() -> Self {
         Self {
             left: PromptSegment::from_mode_current_directory(),
             right: PromptSegment::from_mode_datetime(),
@@ -183,25 +152,13 @@ impl Prompt {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct PromptSegment {
-    pub mode: PromptMode,
-    pub basic_value: Option<String>,
-    pub datetime_format: Option<String>,
-}
-
 impl Default for PromptSegment {
     fn default() -> Self {
-        Self::new()
+        PromptSegment::from_mode_empty()
     }
 }
 
 impl PromptSegment {
-    pub fn new() -> Self {
-        PromptSegment::from_mode_empty()
-    }
-
     pub fn from_mode_current_directory() -> Self {
         Self {
             mode: PromptMode::CurrentDirectory,
