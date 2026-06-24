@@ -114,7 +114,30 @@ impl Highlighter for ShellHelper {
                 }
 
                 _ => {
-                    buffer.push((base_style, ch.to_string()));
+                    let mut matched_command = false;
+                    let current_word = format!("{}{}", ch, chars.clone().collect::<String>());
+
+                    for command in &self.builtin_commands {
+                        if current_word.starts_with(command) {
+                            let next_ch = current_word.chars().nth(command.chars().count());
+                            if next_ch.is_none_or(|c| c.is_whitespace()) {
+                                buffer.push((
+                                    Style::new()
+                                        .fg(Color::Fixed(self.config.theme.colors.builtin_command)),
+                                    command.to_string(),
+                                ));
+                                if command.chars().count() > 1 {
+                                    chars.nth(command.chars().count() - 2);
+                                }
+                                matched_command = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if !matched_command {
+                        buffer.push((base_style, ch.to_string()));
+                    }
                 }
             }
         }
