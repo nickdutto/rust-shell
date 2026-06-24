@@ -46,6 +46,8 @@ pub struct Theme {
 #[serde(default)]
 pub struct ThemeColors {
     pub input_base: u8,
+    pub double_quote_strings: u8,
+    pub single_quote_strings: u8,
     pub prompt_left: u8,
     pub prompt_right: u8,
 }
@@ -137,6 +139,8 @@ impl Default for ThemeColors {
     fn default() -> Self {
         Self {
             input_base: 34,
+            double_quote_strings: 130,
+            single_quote_strings: 131,
             prompt_left: 33,
             prompt_right: 33,
         }

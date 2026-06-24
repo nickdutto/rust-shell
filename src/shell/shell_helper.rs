@@ -85,9 +85,39 @@ impl Completer for ShellHelper {
 impl Highlighter for ShellHelper {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         let mut buffer = StyledText::new();
-        let style = Style::new().fg(Color::Fixed(self.config.theme.colors.input_base));
+        let mut in_quotes = false;
+        let mut quote_char = ' ';
 
-        buffer.push((style, line.into()));
+        let base_style = Style::new().fg(Color::Fixed(self.config.theme.colors.input_base));
+        let quote_style = |ch| match ch {
+            '"' => Style::new().fg(Color::Fixed(self.config.theme.colors.double_quote_strings)),
+            '\'' => Style::new().fg(Color::Fixed(self.config.theme.colors.single_quote_strings)),
+            _ => base_style,
+        };
+
+        let mut chars = line.chars().peekable();
+        while let Some(ch) = chars.next() {
+            match ch {
+                '"' | '\'' => {
+                    if !in_quotes {
+                        in_quotes = true;
+                        quote_char = ch;
+                    } else if in_quotes && ch == quote_char {
+                        in_quotes = false;
+                        quote_char = ch;
+                    }
+
+                    buffer.push((quote_style(quote_char), ch.to_string()));
+                }
+                _ if in_quotes => {
+                    buffer.push((quote_style(quote_char), ch.to_string()));
+                }
+
+                _ => {
+                    buffer.push((base_style, ch.to_string()));
+                }
+            }
+        }
 
         buffer
     }
