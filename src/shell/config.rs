@@ -49,6 +49,8 @@ pub struct ThemeColors {
     pub builtin_command: u8,
     pub double_quote_strings: u8,
     pub single_quote_strings: u8,
+    pub variable: u8,
+    pub variable_invalid: u8,
     pub prompt_left: u8,
     pub prompt_right: u8,
 }
@@ -143,6 +145,8 @@ impl Default for ThemeColors {
             builtin_command: 34,
             double_quote_strings: 130,
             single_quote_strings: 131,
+            variable: 9,
+            variable_invalid: 124,
             prompt_left: 33,
             prompt_right: 33,
         }

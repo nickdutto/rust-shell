@@ -1,6 +1,7 @@
 use crate::command::BUILTIN_COMMANDS;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
+use crate::shell::variables::Variables;
 use crate::system::env::get_env_path_executables;
 use nu_ansi_term::{Color, Style};
 use reedline::{Completer, Highlighter, StyledText, Suggestion};
@@ -101,6 +102,10 @@ impl Highlighter for ShellHelper {
             _ => base_style,
         };
 
+        let variable_style = Style::new().fg(Color::Fixed(self.config.theme.colors.variable));
+        let variable_invalid_style =
+            Style::new().fg(Color::Fixed(self.config.theme.colors.variable_invalid));
+
         let mut chars = line.chars().peekable();
         while let Some(ch) = chars.next() {
             match ch {
@@ -117,6 +122,45 @@ impl Highlighter for ShellHelper {
                 }
                 _ if in_quotes => {
                     buffer.push((quote_style(quote_char), ch.to_string()));
+                }
+
+                '$' => {
+                    let mut var_buffer = String::new();
+                    let mut in_braces = false;
+                    var_buffer.push(ch);
+
+                    while let Some(&var_ch) = chars.peek() {
+                        if var_ch == '{' {
+                            in_braces = true;
+                            var_buffer.extend(chars.next());
+                        } else if var_ch == '}' {
+                            var_buffer.extend(chars.next());
+                            break;
+                        } else if in_braces {
+                            var_buffer.extend(chars.next());
+                        } else {
+                            if !var_ch.is_whitespace() {
+                                var_buffer.extend(chars.next());
+                            } else if !(var_ch.is_ascii_alphanumeric() || var_ch == '_') {
+                                break;
+                            }
+                        }
+                    }
+
+                    let var_key = if in_braces {
+                        var_buffer
+                            .strip_prefix("${")
+                            .and_then(|s| s.strip_suffix('}'))
+                            .unwrap_or(&var_buffer)
+                    } else {
+                        var_buffer.strip_prefix('$').unwrap_or(&var_buffer)
+                    };
+
+                    if Variables::validate_key(var_key) {
+                        buffer.push((variable_style, var_buffer));
+                    } else {
+                        buffer.push((variable_invalid_style, var_buffer));
+                    }
                 }
 
                 _ => {
