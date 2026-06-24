@@ -89,22 +89,17 @@ impl Highlighter for ShellHelper {
         let mut in_quotes = false;
         let mut quote_char = ' ';
 
-        let base_style =
-            Style::new().fg(if let Some(color) = self.config.theme.colors.input_base {
-                Color::Fixed(color)
-            } else {
-                Color::Default
-            });
-
-        let quote_style = |ch| match ch {
-            '"' => Style::new().fg(Color::Fixed(self.config.theme.colors.double_quote_strings)),
-            '\'' => Style::new().fg(Color::Fixed(self.config.theme.colors.single_quote_strings)),
-            _ => base_style,
+        let base_style_color = match self.config.theme.colors.input_base {
+            Some(color) => Color::Fixed(color),
+            None => Color::Default,
         };
+        let base_style = Style::new().fg(base_style_color);
 
-        let variable_style = Style::new().fg(Color::Fixed(self.config.theme.colors.variable));
-        let variable_invalid_style =
-            Style::new().fg(Color::Fixed(self.config.theme.colors.variable_invalid));
+        let quote_style_color = |ch| match ch {
+            '"' => self.config.theme.colors.double_quote_strings,
+            '\'' => self.config.theme.colors.single_quote_strings,
+            _ => self.config.theme.colors.double_quote_strings,
+        };
 
         let mut chars = line.chars().peekable();
         while let Some(ch) = chars.next() {
@@ -118,10 +113,16 @@ impl Highlighter for ShellHelper {
                         quote_char = ch;
                     }
 
-                    buffer.push((quote_style(quote_char), ch.to_string()));
+                    buffer.push((
+                        Style::new().fg(Color::Fixed(quote_style_color(quote_char))),
+                        ch.to_string(),
+                    ));
                 }
                 _ if in_quotes => {
-                    buffer.push((quote_style(quote_char), ch.to_string()));
+                    buffer.push((
+                        Style::new().fg(Color::Fixed(quote_style_color(quote_char))),
+                        ch.to_string(),
+                    ));
                 }
 
                 '|' => {
@@ -208,11 +209,12 @@ impl Highlighter for ShellHelper {
                         var_buffer.strip_prefix('$').unwrap_or(&var_buffer)
                     };
 
-                    if Variables::validate_key(var_key) {
-                        buffer.push((variable_style, var_buffer));
-                    } else {
-                        buffer.push((variable_invalid_style, var_buffer));
-                    }
+                    let style_color = match Variables::validate_key(var_key) {
+                        true => self.config.theme.colors.variable,
+                        false => self.config.theme.colors.variable_invalid,
+                    };
+
+                    buffer.push((Style::new().fg(Color::Fixed(style_color)), var_buffer));
                 }
 
                 _ => {
