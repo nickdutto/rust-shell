@@ -51,6 +51,11 @@ pub struct ThemeColors {
     pub single_quote_strings: u8,
     pub variable: u8,
     pub variable_invalid: u8,
+    pub pipe: u8,
+    pub redirection_out: u8,
+    pub redirection_out_append: u8,
+    pub redirection_error: u8,
+    pub redirection_error_append: u8,
     pub prompt_left: u8,
     pub prompt_right: u8,
 }
@@ -147,6 +152,11 @@ impl Default for ThemeColors {
             single_quote_strings: 131,
             variable: 9,
             variable_invalid: 124,
+            pipe: 142,
+            redirection_out: 93,
+            redirection_out_append: 92,
+            redirection_error: 128,
+            redirection_error_append: 127,
             prompt_left: 33,
             prompt_right: 33,
         }

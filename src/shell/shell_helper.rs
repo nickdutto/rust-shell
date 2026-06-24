@@ -124,6 +124,58 @@ impl Highlighter for ShellHelper {
                     buffer.push((quote_style(quote_char), ch.to_string()));
                 }
 
+                '|' => {
+                    buffer.push((
+                        Style::new().fg(Color::Fixed(self.config.theme.colors.pipe)),
+                        ch.to_string(),
+                    ));
+                }
+
+                redirection_op @ ('>' | '1' | '2') => {
+                    let mut redirection_buffer = String::new();
+
+                    let mut append_mode = false;
+                    let peek_redirection_char = |c: Option<&char>| {
+                        if let Some(&'>') = c {
+                            return true;
+                        }
+                        false
+                    };
+
+                    if redirection_op == '>' {
+                        redirection_buffer.push(ch);
+                        if peek_redirection_char(chars.peek()) {
+                            redirection_buffer.extend(chars.next());
+                            append_mode = true;
+                        }
+                    } else {
+                        if peek_redirection_char(chars.peek()) {
+                            redirection_buffer.push(ch);
+                            redirection_buffer.extend(chars.next());
+
+                            if peek_redirection_char(chars.peek()) {
+                                redirection_buffer.extend(chars.next());
+                                append_mode = true;
+                            }
+                        } else {
+                            buffer.push((base_style, ch.to_string()));
+                        }
+                    }
+
+                    let style_color = match (redirection_op, append_mode) {
+                        ('>' | '1', true) => self.config.theme.colors.redirection_out,
+                        ('>' | '1', false) => self.config.theme.colors.redirection_out_append,
+                        ('2', true) => self.config.theme.colors.redirection_error,
+                        ('2', false) => self.config.theme.colors.redirection_error_append,
+                        _ => self.config.theme.colors.redirection_out,
+                    };
+
+                    buffer.push((
+                        Style::new().fg(Color::Fixed(style_color)),
+                        redirection_buffer,
+                    ));
+                }
+
                 '$' => {
                     let mut var_buffer = String::new();
                     let mut in_braces = false;
