@@ -22,7 +22,13 @@ pub fn get_env_paths(path_env_var: &str) -> Result<Vec<PathBuf>, String> {
 }
 
 pub fn get_env_path_executables(path_env_var: &str) -> Vec<String> {
-    let paths = match get_env_paths(path_env_var) {
+    let path_var = if cfg!(debug_assertions) {
+        "RUST_SHELL_DEBUG_PATH"
+    } else {
+        path_env_var
+    };
+
+    let paths = match get_env_paths(path_var) {
         Ok(paths) => paths,
         Err(_) => return vec![],
     };
