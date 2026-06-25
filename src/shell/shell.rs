@@ -3,6 +3,7 @@ use crate::shell::config::Config;
 use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
+use crate::system::os;
 use nu_ansi_term::{Color, Style};
 use reedline::{
     ColumnarMenu, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
@@ -62,7 +63,8 @@ impl Shell {
                     .with_description_text_style(Style::new().dimmed().reset_before_style()),
             )));
 
-        let prompt = ShellPrompt::new(self.config.clone());
+        let username = os::get_username().unwrap_or("user?".into());
+        let prompt = ShellPrompt::new(self.config.clone(), username);
 
         loop {
             let sig = editor.read_line(&prompt);

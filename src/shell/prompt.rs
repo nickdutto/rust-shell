@@ -8,11 +8,12 @@ use std::env;
 
 pub struct ShellPrompt {
     config: Config,
+    username: String,
 }
 
 impl ShellPrompt {
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    pub fn new(config: Config, username: String) -> Self {
+        Self { config, username }
     }
 }
 
