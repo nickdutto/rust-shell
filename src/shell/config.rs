@@ -56,31 +56,39 @@ pub struct ThemeColors {
     pub redirection_out_append: u8,
     pub redirection_error: u8,
     pub redirection_error_append: u8,
-    pub prompt_left: u8,
-    pub prompt_right: u8,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Prompt {
-    pub left: PromptSegment,
-    pub right: PromptSegment,
+    pub left: Vec<PromptSegment>,
+    pub right: Vec<PromptSegment>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Default, PartialEq, Deserialize, Serialize)]
 pub enum PromptMode {
     Basic,
     CurrentDirectory,
     DateTime,
+    #[default]
     Empty,
+    Username,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct PromptSegment {
     pub mode: PromptMode,
     pub basic_value: Option<String>,
     pub datetime_format: Option<String>,
+    pub background: u8,
+    pub foreground: u8,
+    pub bold: bool,
+    pub arrow_left: bool,
+    pub arrow_left_color: u8,
+    pub arrow_right: bool,
+    pub arrow_right_color: u8,
+    pub gap: bool,
 }
 
 impl Config {
@@ -157,8 +165,6 @@ impl Default for ThemeColors {
             redirection_out_append: 92,
             redirection_error: 128,
             redirection_error_append: 127,
-            prompt_left: 33,
-            prompt_right: 33,
         }
     }
 }
@@ -166,40 +172,62 @@ impl Default for ThemeColors {
 impl Default for Prompt {
     fn default() -> Self {
         Self {
-            left: PromptSegment::from_mode_current_directory(),
-            right: PromptSegment::from_mode_datetime(),
-        }
-    }
-}
-
-impl Default for PromptSegment {
-    fn default() -> Self {
-        PromptSegment::from_mode_empty()
-    }
-}
-
-impl PromptSegment {
-    pub fn from_mode_current_directory() -> Self {
-        Self {
-            mode: PromptMode::CurrentDirectory,
-            basic_value: None,
-            datetime_format: None,
-        }
-    }
-
-    pub fn from_mode_datetime() -> Self {
-        Self {
-            mode: PromptMode::DateTime,
-            basic_value: None,
-            datetime_format: Some(DEFAULT_DATETIME_FORMAT.into()),
-        }
-    }
-
-    pub fn from_mode_empty() -> Self {
-        Self {
-            mode: PromptMode::Empty,
-            basic_value: None,
-            datetime_format: None,
+            left: vec![
+                PromptSegment {
+                    mode: PromptMode::Username,
+                    basic_value: None,
+                    datetime_format: None,
+                    background: 33,
+                    foreground: 255,
+                    bold: false,
+                    arrow_left: false,
+                    arrow_left_color: 33,
+                    arrow_right: true,
+                    arrow_right_color: 33,
+                    gap: true,
+                },
+                PromptSegment {
+                    mode: PromptMode::CurrentDirectory,
+                    basic_value: None,
+                    datetime_format: None,
+                    background: 33,
+                    foreground: 255,
+                    bold: false,
+                    arrow_left: true,
+                    arrow_left_color: 33,
+                    arrow_right: true,
+                    arrow_right_color: 33,
+                    gap: true,
+                },
+            ],
+            right: vec![
+                PromptSegment {
+                    mode: PromptMode::DateTime,
+                    basic_value: None,
+                    datetime_format: Some("%d/%m/%Y".into()),
+                    background: 93,
+                    foreground: 255,
+                    bold: false,
+                    arrow_left: true,
+                    arrow_left_color: 93,
+                    arrow_right: true,
+                    arrow_right_color: 93,
+                    gap: true,
+                },
+                PromptSegment {
+                    mode: PromptMode::DateTime,
+                    basic_value: None,
+                    datetime_format: Some("%H:%M:%S".into()),
+                    background: 93,
+                    foreground: 255,
+                    bold: false,
+                    arrow_left: true,
+                    arrow_left_color: 93,
+                    arrow_right: false,
+                    arrow_right_color: 93,
+                    gap: true,
+                },
+            ],
         }
     }
 }
