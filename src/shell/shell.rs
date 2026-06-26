@@ -63,8 +63,7 @@ impl Shell {
                     .with_description_text_style(Style::new().dimmed().reset_before_style()),
             )));
 
-        let username = os::get_username().unwrap_or("user?".into());
-        let prompt = ShellPrompt::new(self.config.clone(), username);
+        let prompt = ShellPrompt::new(self.config.clone(), Arc::clone(&self.shell_state));
 
         loop {
             let sig = editor.read_line(&prompt);
