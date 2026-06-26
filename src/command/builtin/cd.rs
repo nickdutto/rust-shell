@@ -1,11 +1,13 @@
 use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
+use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::ErrorKind;
 use std::io::Write;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
-pub fn handle_cd(tokens: Tokens, mut io_streams: IoStreams) {
+pub fn handle_cd(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>, mut io_streams: IoStreams) {
     let target = tokens
         .arguments
         .first()
@@ -15,12 +17,12 @@ pub fn handle_cd(tokens: Tokens, mut io_streams: IoStreams) {
     let result = match target {
         "~" => {
             if let Some(home) = env::var_os("HOME") {
-                cd_set_dir(Path::new(&home))
+                cd_set_dir(Path::new(&home), shell_state)
             } else {
                 Ok(())
             }
         }
-        _ => cd_set_dir(Path::new(&target)),
+        _ => cd_set_dir(Path::new(&target), shell_state),
     };
 
     if let Err(e) = result {
@@ -28,9 +30,12 @@ pub fn handle_cd(tokens: Tokens, mut io_streams: IoStreams) {
     }
 }
 
-fn cd_set_dir(path: &Path) -> Result<(), String> {
+fn cd_set_dir(path: &Path, shell_state: Arc<RwLock<ShellState>>) -> Result<(), String> {
     match env::set_current_dir(path) {
-        Ok(_) => Ok(()),
+        Ok(_) => {
+            shell_state.write().unwrap().current_directory = env::current_dir().unwrap_or_default();
+            Ok(())
+        }
         Err(e) if e.kind() == ErrorKind::NotFound => Err(format!(
             "cd: {}: No such file or directory",
             path.to_str().unwrap()

@@ -54,7 +54,7 @@ impl Command {
 
         match self {
             Command::Cd(tokens) => {
-                handle_cd(tokens, io_streams);
+                handle_cd(tokens, shell_state, io_streams);
                 None
             }
             Command::Complete(tokens) => {
