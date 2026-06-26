@@ -3,7 +3,6 @@ use crate::shell::config::Config;
 use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
-use crate::system::os;
 use nu_ansi_term::{Color, Style};
 use reedline::{
     ColumnarMenu, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,

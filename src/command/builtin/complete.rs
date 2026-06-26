@@ -2,8 +2,13 @@ use crate::io::stream::IoStreams;
 use crate::io::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
+use std::sync::{Arc, RwLock};
 
-pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState, mut io_streams: IoStreams) {
+pub fn handle_complete(
+    tokens: Tokens,
+    shell_state: Arc<RwLock<ShellState>>,
+    mut io_streams: IoStreams,
+) {
     let mut args_iter = tokens.arguments.iter();
 
     while let Some(argument) = args_iter.next() {
@@ -13,13 +18,15 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState, mut io_stre
                     && let Some(name_arg) = args_iter.next()
                 {
                     shell_state
+                        .write()
+                        .unwrap()
                         .completions
                         .insert(name_arg.clone(), path_arg.clone());
                 }
             }
             "-r" => {
                 if let Some(name_arg) = args_iter.next() {
-                    shell_state.completions.remove(name_arg);
+                    shell_state.write().unwrap().completions.remove(name_arg);
                 }
             }
             "-p" => {
@@ -28,11 +35,16 @@ pub fn handle_complete(tokens: Tokens, shell_state: &mut ShellState, mut io_stre
                         io_streams.error,
                         "complete: missing specification name for -p",
                     )
-                        .unwrap();
+                    .unwrap();
                     return;
                 };
 
-                match shell_state.completions.get_key_value(name_arg) {
+                match shell_state
+                    .read()
+                    .unwrap()
+                    .completions
+                    .get_key_value(name_arg)
+                {
                     Ok((name, path)) => {
                         writeln!(io_streams.output, "complete -C '{}' {}", path, name).unwrap()
                     }

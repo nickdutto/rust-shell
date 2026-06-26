@@ -58,7 +58,7 @@ impl Command {
                 None
             }
             Command::Complete(tokens) => {
-                handle_complete(tokens, &mut shell_state.write().unwrap(), io_streams);
+                handle_complete(tokens, shell_state, io_streams);
                 None
             }
             Command::Declare(tokens) => {
