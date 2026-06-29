@@ -3,6 +3,7 @@ use crate::shell::config::Config;
 use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
+use crate::shell::suggestions::Suggestions;
 use nu_ansi_term::{Color, Style};
 use reedline::{
     ColumnarMenu, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
@@ -51,6 +52,7 @@ impl Shell {
         let mut editor = Reedline::create()
             .with_completer(Box::new(shell_helper.clone()))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
+            .with_hinter(Box::new(Suggestions::new(self.config.clone().suggestions)))
             .with_highlighter(Box::new(shell_helper))
             .with_menu(ReedlineMenu::EngineCompleter(Box::new(
                 ColumnarMenu::default()

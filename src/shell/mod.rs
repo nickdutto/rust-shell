@@ -7,6 +7,7 @@ pub mod prompt;
 mod shell;
 pub mod shell_helper;
 pub mod shell_state;
+pub mod suggestions;
 pub mod variables;
 
 pub use self::shell::*;

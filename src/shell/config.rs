@@ -32,8 +32,17 @@ pub enum ConfigError {
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
+    pub suggestions: Suggestions,
     pub theme: Theme,
     pub prompt: Prompt,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Suggestions {
+    pub cwd_aware: bool,
+    pub min_chars: usize,
+    pub color: u8,
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -148,6 +157,16 @@ impl Config {
         }
 
         Ok(None)
+    }
+}
+
+impl Default for Suggestions {
+    fn default() -> Self {
+        Self {
+            cwd_aware: false,
+            min_chars: 1,
+            color: 8,
+        }
     }
 }
 
