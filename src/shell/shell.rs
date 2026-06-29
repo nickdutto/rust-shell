@@ -1,19 +1,19 @@
 ﻿use crate::command::job::Job;
-use crate::shell::config::Config;
+use crate::shell::config::{Config, Menu as MenuConfig};
 use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
 use nu_ansi_term::{Color, Style};
 use reedline::{
-    ColumnarMenu, Emacs, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
-    Signal, default_emacs_keybindings,
+    ColumnarMenu, Emacs, KeyCode, KeyModifiers, Keybindings, Menu, MenuBuilder, Reedline,
+    ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
 };
 use std::sync::{Arc, RwLock};
 
 pub struct Shell {
-    shell_state: Arc<RwLock<ShellState>>,
     config: Config,
+    shell_state: Arc<RwLock<ShellState>>,
 }
 
 impl Default for Shell {
@@ -31,40 +31,35 @@ impl Shell {
         }
 
         Self {
-            shell_state: Arc::new(RwLock::new(ShellState::new())),
             config,
+            shell_state: Arc::new(RwLock::new(ShellState::new())),
         }
     }
 
     pub fn start_session(&mut self) {
+        let mut editor = Reedline::create();
+        let mut keybindings = default_emacs_keybindings();
+        let prompt = ShellPrompt::new(self.config.clone(), Arc::clone(&self.shell_state));
         let shell_helper = ShellHelper::new(self.config.clone(), Arc::clone(&self.shell_state));
 
-        let mut keybindings = default_emacs_keybindings();
-        keybindings.add_binding(
-            KeyModifiers::NONE,
-            KeyCode::Tab,
-            ReedlineEvent::UntilFound(vec![
-                ReedlineEvent::Menu("completion_menu".to_string()),
-                ReedlineEvent::MenuNext,
-            ]),
-        );
+        if self.config.menus.completions.enabled {
+            editor = editor.with_menu(ReedlineMenu::EngineCompleter(Self::configure_menu(
+                &self.config.menus.completions,
+                &mut keybindings,
+            )));
+        }
+        if self.config.menus.suggestions.enabled {
+            editor = editor.with_menu(ReedlineMenu::HistoryMenu(Self::configure_menu(
+                &self.config.menus.suggestions,
+                &mut keybindings,
+            )));
+        }
 
-        let mut editor = Reedline::create()
+        editor = editor
             .with_completer(Box::new(shell_helper.clone()))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
             .with_hinter(Box::new(Suggestions::new(self.config.clone().suggestions)))
-            .with_highlighter(Box::new(shell_helper))
-            .with_menu(ReedlineMenu::EngineCompleter(Box::new(
-                ColumnarMenu::default()
-                    .with_name("completion_menu")
-                    .with_text_style(Style::new())
-                    .with_selected_text_style(Style::new().fg(Color::Fixed(202)))
-                    .with_match_text_style(Style::new().underline())
-                    .with_selected_match_text_style(Style::new().fg(Color::Fixed(202)).underline())
-                    .with_description_text_style(Style::new().dimmed().reset_before_style()),
-            )));
-
-        let prompt = ShellPrompt::new(self.config.clone(), Arc::clone(&self.shell_state));
+            .with_highlighter(Box::new(shell_helper));
 
         loop {
             let sig = editor.read_line(&prompt);
@@ -93,5 +88,41 @@ impl Shell {
                 }
             }
         }
+    }
+
+    fn configure_menu(menu_config: &MenuConfig, keybindings: &mut Keybindings) -> Box<dyn Menu> {
+        let style = Style::new();
+        let selected_fg = Color::Fixed(menu_config.selected_foreground);
+
+        // TODO: support all key modifiers
+        let key_modifier = match menu_config.key_modifier.as_str() {
+            "control" => KeyModifiers::CONTROL,
+            _ => KeyModifiers::NONE,
+        };
+
+        // TODO: support more key code variants
+        let key_code = match menu_config.key_code.as_str() {
+            "tab" => KeyCode::Tab,
+            code => match code.parse::<char>() {
+                Ok(ch) => KeyCode::Char(ch),
+                Err(_) => KeyCode::Null,
+            },
+        };
+
+        keybindings.add_binding(
+            key_modifier,
+            key_code,
+            ReedlineEvent::Menu(menu_config.name.to_string()),
+        );
+
+        Box::new(
+            ColumnarMenu::default()
+                .with_name(menu_config.name.as_str())
+                .with_text_style(style)
+                .with_selected_text_style(style.fg(selected_fg))
+                .with_match_text_style(style.underline())
+                .with_selected_match_text_style(style.fg(selected_fg).underline())
+                .with_description_text_style(style.dimmed().reset_before_style()),
+        )
     }
 }

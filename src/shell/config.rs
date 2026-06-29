@@ -32,17 +32,10 @@ pub enum ConfigError {
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
-    pub suggestions: Suggestions,
     pub theme: Theme,
+    pub suggestions: Suggestions,
+    pub menus: Menus,
     pub prompt: Prompt,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct Suggestions {
-    pub cwd_aware: bool,
-    pub min_chars: usize,
-    pub color: u8,
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -65,6 +58,31 @@ pub struct ThemeColors {
     pub redirection_out_append: u8,
     pub redirection_error: u8,
     pub redirection_error_append: u8,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Suggestions {
+    pub cwd_aware: bool,
+    pub min_chars: usize,
+    pub color: u8,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Menus {
+    pub completions: Menu,
+    pub suggestions: Menu,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Menu {
+    pub name: String,
+    pub enabled: bool,
+    pub key_modifier: String,
+    pub key_code: String,
+    pub selected_foreground: u8,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -160,16 +178,6 @@ impl Config {
     }
 }
 
-impl Default for Suggestions {
-    fn default() -> Self {
-        Self {
-            cwd_aware: false,
-            min_chars: 1,
-            color: 8,
-        }
-    }
-}
-
 impl Default for ThemeColors {
     fn default() -> Self {
         Self {
@@ -184,6 +192,37 @@ impl Default for ThemeColors {
             redirection_out_append: 92,
             redirection_error: 128,
             redirection_error_append: 127,
+        }
+    }
+}
+
+impl Default for Suggestions {
+    fn default() -> Self {
+        Self {
+            cwd_aware: false,
+            min_chars: 1,
+            color: 8,
+        }
+    }
+}
+
+impl Default for Menus {
+    fn default() -> Self {
+        Self {
+            completions: Menu {
+                name: "completions_menu".into(),
+                enabled: true,
+                key_modifier: "none".into(),
+                key_code: "tab".into(),
+                selected_foreground: 202,
+            },
+            suggestions: Menu {
+                name: "suggestions_menu".into(),
+                enabled: true,
+                key_modifier: "control".into(),
+                key_code: "w".into(),
+                selected_foreground: 202,
+            },
         }
     }
 }
