@@ -12,7 +12,7 @@ comfy-table = "7.2.2"
 is_executable = "1.0.5"
 jiff = "0.2.29"
 nu-ansi-term = "0.50.3"
-reedline = "0.48.0"
+reedline = { version = "0.48.0", features = ["external_printer"] }
 serde = "1.0.228"
 thiserror = "2.0.18"
 toml = "1.1.2"

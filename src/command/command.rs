@@ -13,6 +13,7 @@ use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
 use crate::io::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
+use reedline::ExternalPrinter;
 use std::process::Child;
 use std::sync::{Arc, RwLock};
 
@@ -39,6 +40,7 @@ impl Command {
         self,
         shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
+        printer: ExternalPrinter<String>,
     ) -> Option<Child> {
         if let Some(tokens) = self.get_tokens()
             && let Some(redirection) = &tokens.redirection
@@ -71,7 +73,9 @@ impl Command {
                 handle_echo(tokens, io_streams);
                 None
             }
-            Command::Executable(tokens) => handle_executable(tokens, shell_state, io_streams),
+            Command::Executable(tokens) => {
+                handle_executable(tokens, shell_state, io_streams, printer)
+            }
             Command::Exit => {
                 handle_exit(shell_state, io_streams);
                 None

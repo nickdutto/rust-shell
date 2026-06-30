@@ -3,6 +3,7 @@ use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::io::tokenize::tokenize_arguments;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::Variables;
+use reedline::ExternalPrinter;
 use std::sync::{Arc, RwLock};
 
 pub enum Job {
@@ -43,7 +44,7 @@ impl Job {
         }
     }
 
-    pub fn run(self, shell_state: Arc<RwLock<ShellState>>) {
+    pub fn run(self, shell_state: Arc<RwLock<ShellState>>, printer: ExternalPrinter<String>) {
         match self {
             Job::Single(command) => {
                 let streams = IoStreams {
@@ -52,7 +53,7 @@ impl Job {
                     error: OutputStream::Stderr,
                 };
 
-                if let Some(mut child) = command.run_command(shell_state, streams) {
+                if let Some(mut child) = command.run_command(shell_state, streams, printer) {
                     let _ = child.wait();
                 }
             }
@@ -77,7 +78,9 @@ impl Job {
                         error: OutputStream::Stderr,
                     };
 
-                    if let Some(child) = command.run_command(Arc::clone(&shell_state), streams) {
+                    if let Some(child) =
+                        command.run_command(Arc::clone(&shell_state), streams, printer.clone())
+                    {
                         active_children.push(child);
                     }
 

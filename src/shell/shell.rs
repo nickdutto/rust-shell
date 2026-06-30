@@ -6,8 +6,8 @@ use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
 use nu_ansi_term::{Color, Style};
 use reedline::{
-    ColumnarMenu, Emacs, KeyCode, KeyModifiers, Keybindings, Menu, MenuBuilder, Reedline,
-    ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
+    ColumnarMenu, Emacs, ExternalPrinter, KeyCode, KeyModifiers, Keybindings, Menu, MenuBuilder,
+    Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
 };
 use std::sync::{Arc, RwLock};
 
@@ -39,6 +39,7 @@ impl Shell {
     pub fn start_session(&mut self) {
         let mut editor = Reedline::create();
         let mut keybindings = default_emacs_keybindings();
+        let printer = ExternalPrinter::default();
         let prompt = ShellPrompt::new(self.config.clone(), Arc::clone(&self.shell_state));
         let shell_helper = ShellHelper::new(self.config.clone(), Arc::clone(&self.shell_state));
 
@@ -58,6 +59,7 @@ impl Shell {
         editor = editor
             .with_completer(Box::new(shell_helper.clone()))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
+            .with_external_printer(printer.clone())
             .with_hinter(Box::new(Suggestions::new(self.config.clone().suggestions)))
             .with_highlighter(Box::new(shell_helper));
 
@@ -74,10 +76,14 @@ impl Shell {
                     if let Some(job) =
                         { Job::parse_line(&buffer, &self.shell_state.read().unwrap().variables) }
                     {
-                        job.run(Arc::clone(&self.shell_state));
+                        job.run(Arc::clone(&self.shell_state), printer.clone());
                     }
 
-                    self.shell_state.write().unwrap().print_background_jobs();
+                    self.shell_state
+                        .write()
+                        .unwrap()
+                        .background_jobs
+                        .remove_done_jobs();
                 }
                 Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
                     println!("\nAborted!");

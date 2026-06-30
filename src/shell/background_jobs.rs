@@ -81,7 +81,7 @@ impl BackgroundJob {
     }
 
     pub fn format_marker(idx: usize, len: usize) -> char {
-        match len - idx {
+        match len.saturating_sub(idx) {
             1 => '+',
             2 => '-',
             _ => ' ',
