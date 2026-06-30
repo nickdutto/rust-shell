@@ -7,6 +7,7 @@ use crate::command::builtin::exit::handle_exit;
 use crate::command::builtin::history::handle_history;
 use crate::command::builtin::jobs::handle_jobs;
 use crate::command::builtin::pwd::handle_pwd;
+use crate::command::builtin::theme::handle_theme;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
@@ -16,7 +17,7 @@ use std::process::Child;
 use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
-    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "type",
+    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type",
 ];
 
 pub enum Command {
@@ -29,6 +30,7 @@ pub enum Command {
     History(Tokens),
     Jobs(Tokens),
     Pwd,
+    Theme(Tokens),
     Type(Tokens),
 }
 
@@ -86,6 +88,10 @@ impl Command {
                 handle_pwd(io_streams);
                 None
             }
+            Command::Theme(tokens) => {
+                handle_theme(tokens, io_streams);
+                None
+            }
             Command::Type(tokens) => {
                 handle_type(tokens, io_streams);
                 None
@@ -102,6 +108,7 @@ impl Command {
             | Command::Executable(t)
             | Command::History(t)
             | Command::Jobs(t)
+            | Command::Theme(t)
             | Command::Type(t) => Some(t),
             Command::Pwd | Command::Exit => None,
         }

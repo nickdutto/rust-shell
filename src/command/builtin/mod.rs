@@ -7,4 +7,5 @@ pub mod exit;
 pub mod history;
 pub mod jobs;
 pub mod pwd;
+pub mod theme;
 pub mod type_cmd;

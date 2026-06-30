@@ -29,6 +29,7 @@ impl Job {
                 "history" => Command::History(tokens),
                 "jobs" => Command::Jobs(tokens),
                 "pwd" => Command::Pwd,
+                "theme" => Command::Theme(tokens),
                 "type" => Command::Type(tokens),
                 _ => Command::Executable(tokens),
             };
