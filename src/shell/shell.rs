@@ -67,6 +67,15 @@ impl Shell {
             .with_highlighter(Box::new(syntax_highlighter))
             .with_hinter(Box::new(suggestions));
 
+        self.repl(&mut editor, printer, prompt);
+    }
+
+    fn repl(
+        &mut self,
+        editor: &mut Reedline,
+        printer: ExternalPrinter<String>,
+        prompt: ShellPrompt,
+    ) {
         loop {
             let sig = editor.read_line(&prompt);
             match sig {
