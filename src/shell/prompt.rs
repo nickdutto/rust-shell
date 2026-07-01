@@ -53,6 +53,13 @@ impl ShellPrompt {
         }
     }
 
+    fn get_icon_slice<'a>(icon_unicode: &str, buffer: &'a mut [u8; 4]) -> Option<&'a str> {
+        let raw = u32::from_str_radix(icon_unicode, 16).ok()?;
+        let ch = char::from_u32(raw)?;
+
+        Some(ch.encode_utf8(buffer))
+    }
+
     fn render_segment(
         &self,
         shell_state: &ShellState,
@@ -86,19 +93,24 @@ impl ShellPrompt {
             buffer.push(' ');
         }
 
-        let segment_style = match segment.bold {
+        let style = match segment.bold {
             true => Style::new().fg(fg).on(bg).bold(),
             false => Style::new().fg(fg).on(bg),
         };
 
-        write!(
-            buffer,
-            "{}{}{}",
-            segment_style.paint(" "),
-            segment_style.paint(&*prompt_value),
-            segment_style.paint(" ")
-        )
-        .ok();
+        write!(buffer, "{}", style.paint(" ")).ok();
+
+        if self.config.theme.enable_icons
+            && let Some(icon_unicode) = &segment.icon_unicode
+        {
+            let mut icon_buffer = [0u8; 4];
+            if let Some(icon) = Self::get_icon_slice(icon_unicode, &mut icon_buffer) {
+                write!(buffer, "{}{}", style.paint(icon), style.paint(" ")).ok();
+            }
+        };
+
+        write!(buffer, "{}", style.paint(&*prompt_value)).ok();
+        write!(buffer, "{}", style.paint(" ")).ok();
 
         if segment.arrow_right {
             let mut style = Style::new().fg(Color::Fixed(segment.arrow_right_color));
@@ -130,7 +142,7 @@ impl ShellPrompt {
 
         while let Some((idx, segment)) = iter.next() {
             let is_edge = idx == 0 || iter.peek().is_none();
-            self.render_segment(&shell_state_guard, &mut buffer, &segment, side, is_edge);
+            self.render_segment(&shell_state_guard, &mut buffer, segment, side, is_edge);
         }
 
         buffer

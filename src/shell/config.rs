@@ -38,9 +38,10 @@ pub struct Config {
     pub prompt: Prompt,
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Theme {
+    pub enable_icons: bool,
     pub colors: ThemeColors,
 }
 
@@ -108,6 +109,7 @@ pub struct PromptSegment {
     pub mode: PromptMode,
     pub basic_value: Option<String>,
     pub datetime_format: Option<String>,
+    pub icon_unicode: Option<String>,
     pub background: u8,
     pub foreground: u8,
     pub bold: bool,
@@ -178,6 +180,15 @@ impl Config {
     }
 }
 
+impl Default for Theme {
+    fn default() -> Self {
+        Self {
+            enable_icons: true,
+            colors: ThemeColors::default(),
+        }
+    }
+}
+
 impl Default for ThemeColors {
     fn default() -> Self {
         Self {
@@ -235,6 +246,7 @@ impl Default for Prompt {
                     mode: PromptMode::Username,
                     basic_value: None,
                     datetime_format: None,
+                    icon_unicode: None,
                     background: 33,
                     foreground: 255,
                     bold: false,
@@ -248,6 +260,7 @@ impl Default for Prompt {
                     mode: PromptMode::CurrentDirectory,
                     basic_value: None,
                     datetime_format: None,
+                    icon_unicode: Some("ea83".into()),
                     background: 33,
                     foreground: 255,
                     bold: false,
@@ -258,34 +271,20 @@ impl Default for Prompt {
                     gap: true,
                 },
             ],
-            right: vec![
-                PromptSegment {
-                    mode: PromptMode::DateTime,
-                    basic_value: None,
-                    datetime_format: Some("%d/%m/%Y".into()),
-                    background: 93,
-                    foreground: 255,
-                    bold: false,
-                    arrow_left: true,
-                    arrow_left_color: 93,
-                    arrow_right: true,
-                    arrow_right_color: 93,
-                    gap: true,
-                },
-                PromptSegment {
-                    mode: PromptMode::DateTime,
-                    basic_value: None,
-                    datetime_format: Some("%H:%M:%S".into()),
-                    background: 93,
-                    foreground: 255,
-                    bold: false,
-                    arrow_left: true,
-                    arrow_left_color: 93,
-                    arrow_right: false,
-                    arrow_right_color: 93,
-                    gap: true,
-                },
-            ],
+            right: vec![PromptSegment {
+                mode: PromptMode::DateTime,
+                basic_value: None,
+                datetime_format: Some("%H:%M:%S".into()),
+                icon_unicode: Some("f017".into()),
+                background: 93,
+                foreground: 255,
+                bold: false,
+                arrow_left: true,
+                arrow_left_color: 93,
+                arrow_right: false,
+                arrow_right_color: 93,
+                gap: true,
+            }],
         }
     }
 }
