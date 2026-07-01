@@ -5,6 +5,12 @@ authors = ["nickdutto <5254128+nickdutto@users.noreply.github.com>"]
 edition = "2024"
 rust-version = "1.95"
 
+[profile.profiling]
+inherits = "release"
+debug = true
+split-debuginfo = "off"
+strip = "none"
+
 [dependencies]
 comfy-table = "7.2.2"
 # anyhow = "1.0.102"
