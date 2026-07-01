@@ -12,7 +12,7 @@ use reedline::{
 use std::sync::{Arc, RwLock};
 
 pub struct Shell {
-    config: Config,
+    config: Arc<Config>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
@@ -31,7 +31,7 @@ impl Shell {
         }
 
         Self {
-            config,
+            config: Arc::new(config),
             shell_state: Arc::new(RwLock::new(ShellState::new())),
         }
     }
@@ -40,8 +40,10 @@ impl Shell {
         let mut editor = Reedline::create();
         let mut keybindings = default_emacs_keybindings();
         let printer = ExternalPrinter::default();
-        let prompt = ShellPrompt::new(self.config.clone(), Arc::clone(&self.shell_state));
-        let shell_helper = ShellHelper::new(self.config.clone(), Arc::clone(&self.shell_state));
+        let prompt = ShellPrompt::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
+        let shell_helper =
+            ShellHelper::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
+        let suggestions = Suggestions::new(Arc::clone(&self.config));
 
         if self.config.menus.completions.enabled {
             editor = editor.with_menu(ReedlineMenu::EngineCompleter(Self::configure_menu(
@@ -60,7 +62,7 @@ impl Shell {
             .with_completer(Box::new(shell_helper.clone()))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
             .with_external_printer(printer.clone())
-            .with_hinter(Box::new(Suggestions::new(self.config.clone().suggestions)))
+            .with_hinter(Box::new(suggestions))
             .with_highlighter(Box::new(shell_helper));
 
         loop {

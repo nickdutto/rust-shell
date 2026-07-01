@@ -15,12 +15,12 @@ enum PromptSide {
 }
 
 pub struct ShellPrompt {
-    config: Config,
+    config: Arc<Config>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
 impl ShellPrompt {
-    pub fn new(config: Config, shell_state: Arc<RwLock<ShellState>>) -> Self {
+    pub fn new(config: Arc<Config>, shell_state: Arc<RwLock<ShellState>>) -> Self {
         Self {
             config,
             shell_state,

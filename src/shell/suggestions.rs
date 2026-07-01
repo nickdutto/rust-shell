@@ -1,8 +1,9 @@
-use crate::shell::config::Suggestions as SuggestionsConfig;
+use crate::shell::config::Config;
 use nu_ansi_term::{Color, Style};
 use reedline::ReedlineError;
 use reedline::ReedlineErrorVariants::HistoryFeatureUnsupported;
 use reedline::{History, SearchQuery};
+use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -14,12 +15,12 @@ pub struct Suggestions {
 }
 
 impl Suggestions {
-    pub fn new(config: SuggestionsConfig) -> Self {
+    pub fn new(config: Arc<Config>) -> Self {
         Self {
             current_suggestion: String::new(),
-            cwd_aware: config.cwd_aware,
-            min_chars: config.min_chars,
-            style: Style::new().fg(Color::Fixed(config.color)),
+            cwd_aware: config.suggestions.cwd_aware,
+            min_chars: config.suggestions.min_chars,
+            style: Style::new().fg(Color::Fixed(config.suggestions.color)),
         }
     }
 

@@ -29,7 +29,7 @@ pub enum ConfigError {
     Serialize { error: TomlSerError },
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
     pub theme: Theme,
@@ -38,14 +38,14 @@ pub struct Config {
     pub prompt: Prompt,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct Theme {
     pub enable_icons: bool,
     pub colors: ThemeColors,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct ThemeColors {
     pub input_base: Option<u8>,
@@ -61,7 +61,7 @@ pub struct ThemeColors {
     pub redirection_error_append: u8,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct Suggestions {
     pub cwd_aware: bool,
@@ -69,14 +69,14 @@ pub struct Suggestions {
     pub color: u8,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct Menus {
     pub completions: Menu,
     pub suggestions: Menu,
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Menu {
     pub name: String,
@@ -86,14 +86,14 @@ pub struct Menu {
     pub selected_foreground: u8,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct Prompt {
     pub left: Vec<PromptSegment>,
     pub right: Vec<PromptSegment>,
 }
 
-#[derive(Clone, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Default, PartialEq, Deserialize, Serialize)]
 pub enum PromptMode {
     Basic,
     CurrentDirectory,
@@ -103,7 +103,7 @@ pub enum PromptMode {
     Username,
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct PromptSegment {
     pub mode: PromptMode,

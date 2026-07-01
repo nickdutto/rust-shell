@@ -11,13 +11,13 @@ use std::thread;
 #[derive(Clone)]
 pub struct ShellHelper {
     builtin_commands: Vec<&'static str>,
-    config: Config,
+    config: Arc<Config>,
     path_executables: Arc<RwLock<Vec<String>>>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
 impl ShellHelper {
-    pub fn new(config: Config, shell_state: Arc<RwLock<ShellState>>) -> Self {
+    pub fn new(config: Arc<Config>, shell_state: Arc<RwLock<ShellState>>) -> Self {
         ShellHelper {
             builtin_commands: BUILTIN_COMMANDS.to_vec(),
             config,
