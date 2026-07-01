@@ -1,7 +1,9 @@
-﻿use crate::command::job::Job;
+﻿use crate::command::BUILTIN_COMMANDS;
+use crate::command::job::Job;
+use crate::shell::completer::Completer;
 use crate::shell::config::{Config, Menu as MenuConfig};
+use crate::shell::highlighter::SyntaxHighlighter;
 use crate::shell::prompt::ShellPrompt;
-use crate::shell::shell_helper::ShellHelper;
 use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
 use nu_ansi_term::{Color, Style};
@@ -41,9 +43,9 @@ impl Shell {
         let mut keybindings = default_emacs_keybindings();
         let printer = ExternalPrinter::default();
         let prompt = ShellPrompt::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
-        let shell_helper =
-            ShellHelper::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
+        let completer = Completer::new(Arc::clone(&self.shell_state), BUILTIN_COMMANDS);
         let suggestions = Suggestions::new(Arc::clone(&self.config));
+        let syntax_highlighter = SyntaxHighlighter::new(Arc::clone(&self.config), BUILTIN_COMMANDS);
 
         if self.config.menus.completions.enabled {
             editor = editor.with_menu(ReedlineMenu::EngineCompleter(Self::configure_menu(
@@ -59,11 +61,11 @@ impl Shell {
         }
 
         editor = editor
-            .with_completer(Box::new(shell_helper.clone()))
+            .with_completer(Box::new(completer))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
             .with_external_printer(printer.clone())
-            .with_hinter(Box::new(suggestions))
-            .with_highlighter(Box::new(shell_helper));
+            .with_highlighter(Box::new(syntax_highlighter))
+            .with_hinter(Box::new(suggestions));
 
         loop {
             let sig = editor.read_line(&prompt);

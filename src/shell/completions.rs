@@ -54,15 +54,13 @@ impl Completions {
     pub fn iter(&self) -> Iter<'_, String, String> {
         self.specifications.iter()
     }
-}
 
-impl Completions {
     pub fn complete_command(
         &self,
         partial_input: &str,
         pos: usize,
         suggestions: &mut Vec<Suggestion>,
-        builtin_commands: &Vec<&'static str>,
+        builtin_commands: &'static [&'static str],
         path_executables: &Arc<RwLock<Vec<String>>>,
     ) {
         let span = Span::new(0, pos);

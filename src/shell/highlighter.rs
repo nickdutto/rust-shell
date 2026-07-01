@@ -1,90 +1,23 @@
-use crate::command::BUILTIN_COMMANDS;
 use crate::shell::config::Config;
-use crate::shell::shell_state::ShellState;
 use crate::shell::variables::Variables;
-use crate::system::env::get_env_path_executables;
 use nu_ansi_term::{Color, Style};
-use reedline::{Completer, Highlighter, StyledText, Suggestion};
-use std::sync::{Arc, RwLock};
-use std::thread;
+use reedline::{Highlighter, StyledText};
+use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct ShellHelper {
-    builtin_commands: Vec<&'static str>,
+pub struct SyntaxHighlighter {
+    builtin_commands: &'static [&'static str],
     config: Arc<Config>,
-    path_executables: Arc<RwLock<Vec<String>>>,
-    shell_state: Arc<RwLock<ShellState>>,
 }
 
-impl ShellHelper {
-    pub fn new(config: Arc<Config>, shell_state: Arc<RwLock<ShellState>>) -> Self {
-        ShellHelper {
-            builtin_commands: BUILTIN_COMMANDS.to_vec(),
+impl SyntaxHighlighter {
+    pub fn new(config: Arc<Config>, builtin_commands: &'static [&'static str]) -> Self {
+        Self {
+            builtin_commands,
             config,
-            path_executables: ShellHelper::get_path_executables(),
-            shell_state,
         }
     }
 
-    fn get_path_executables() -> Arc<RwLock<Vec<String>>> {
-        let path_executables = Arc::new(RwLock::new(Vec::new()));
-        let path_executables_bg = Arc::clone(&path_executables);
-
-        thread::spawn(move || {
-            let executables = get_env_path_executables("PATH");
-            if let Ok(mut guard) = path_executables_bg.write() {
-                *guard = executables;
-            }
-        });
-
-        path_executables
-    }
-}
-
-impl Completer for ShellHelper {
-    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let mut suggestions = Vec::new();
-
-        let partial_input = &line[..pos];
-        if partial_input.is_empty() {
-            return suggestions;
-        }
-
-        {
-            let guard = self.shell_state.read().unwrap();
-
-            if !partial_input.contains(' ') {
-                guard.completions.complete_command(
-                    partial_input,
-                    pos,
-                    &mut suggestions,
-                    &self.builtin_commands,
-                    &self.path_executables,
-                );
-            } else {
-                let specification_found = guard.completions.complete_specification(
-                    line,
-                    partial_input,
-                    pos,
-                    &mut suggestions,
-                );
-                if !specification_found {
-                    guard
-                        .completions
-                        .complete_filename(partial_input, pos, &mut suggestions);
-                }
-            }
-        }
-
-        suggestions.sort_by(|a, b| a.value.cmp(&b.value));
-        suggestions.dedup_by(|a, b| a.value == b.value);
-
-        suggestions
-    }
-}
-
-impl Highlighter for ShellHelper {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+    fn highlight_tokens(&self, line: &str) -> StyledText {
         let mut buffer = StyledText::new();
         let mut in_quotes = false;
         let mut quote_char = ' ';
@@ -221,7 +154,7 @@ impl Highlighter for ShellHelper {
                     let mut matched_command = false;
                     let current_word = format!("{}{}", ch, chars.clone().collect::<String>());
 
-                    for command in &self.builtin_commands {
+                    for command in self.builtin_commands {
                         if current_word.starts_with(command) {
                             let next_ch = current_word.chars().nth(command.chars().count());
                             if next_ch.is_none_or(|c| c.is_whitespace()) {
@@ -247,5 +180,11 @@ impl Highlighter for ShellHelper {
         }
 
         buffer
+    }
+}
+
+impl Highlighter for SyntaxHighlighter {
+    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+        self.highlight_tokens(line)
     }
 }
