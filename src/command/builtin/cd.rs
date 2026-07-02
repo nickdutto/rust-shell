@@ -1,5 +1,5 @@
 use crate::io::stream::IoStreams;
-use crate::parser::tokenize::Tokens;
+use crate::parser::CommandNode;
 use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::ErrorKind;
@@ -7,7 +7,11 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_cd(tokens: Tokens, shell_state: Arc<RwLock<ShellState>>, mut io_streams: IoStreams) {
+pub fn handle_cd(
+    tokens: CommandNode,
+    shell_state: Arc<RwLock<ShellState>>,
+    mut io_streams: IoStreams,
+) {
     let target = tokens
         .arguments
         .first()

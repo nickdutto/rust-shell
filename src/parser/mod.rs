@@ -1,2 +1,6 @@
+#[allow(clippy::module_inception)]
+mod parser;
+pub mod statement;
 pub mod token_scanner;
-pub mod tokenize;
+
+pub use self::parser::*;

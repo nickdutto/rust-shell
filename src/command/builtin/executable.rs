@@ -1,5 +1,5 @@
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::parser::tokenize::Tokens;
+use crate::parser::CommandNode;
 use crate::shell::background_jobs::{BackgroundJob, BackgroundJobStatus};
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
@@ -9,7 +9,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, RwLock};
 
 pub fn handle_executable(
-    tokens: Tokens,
+    tokens: CommandNode,
     shell_state: Arc<RwLock<ShellState>>,
     io_streams: IoStreams,
     printer: ExternalPrinter<String>,

@@ -16,14 +16,23 @@ enum TokenState {
 }
 
 #[derive(Debug)]
-pub struct Tokens {
+pub struct CommandNode {
     pub command: String,
     pub arguments: Vec<String>,
     pub redirection: Option<Redirection>,
 }
 
-pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
-    let mut pipelines = vec![];
+pub enum ControlOperator {
+    Pipe,
+}
+
+pub enum AstElement {
+    Command(CommandNode),
+    Operation(ControlOperator),
+}
+
+pub fn parse_ast_elements(input: &str, variables: &Variables) -> Vec<AstElement> {
+    let mut elements = vec![];
 
     let mut tokens = vec![];
     let mut token_buffer = String::new();
@@ -43,17 +52,17 @@ pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
                     tokens.push(std::mem::take(&mut token_buffer));
                 }
 
-                pipelines.push(Tokens {
+                elements.push(AstElement::Command(CommandNode {
                     command: tokens.first().unwrap_or(&String::new()).trim().to_string(),
                     arguments: tokens.get(1..).unwrap_or(&[]).to_vec(),
                     redirection: redirection_mode.take().map(|mode| Redirection {
                         mode,
                         location: std::mem::take(&mut redirection_location).trim().to_string(),
                     }),
-                });
+                }));
 
+                elements.push(AstElement::Operation(ControlOperator::Pipe));
                 tokens.clear();
-
                 state = TokenState::Normal;
             }
             ('\\', TokenState::Normal) => state = TokenState::EscapeNormal,
@@ -169,16 +178,16 @@ pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
         tokens.push(token_buffer);
     }
 
-    pipelines.push(Tokens {
+    elements.push(AstElement::Command(CommandNode {
         command: tokens.first().unwrap_or(&String::new()).trim().to_string(),
         arguments: tokens.get(1..).unwrap_or(&[]).to_vec(),
         redirection: redirection_mode.map(|mode| Redirection {
             mode,
             location: redirection_location.trim().into(),
         }),
-    });
+    }));
 
-    pipelines
+    elements
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 ﻿use crate::command::BUILTIN_COMMANDS;
-use crate::command::job::Job;
+use crate::parser::statement::Statement;
 use crate::shell::completer::Completer;
 use crate::shell::config::{Config, Menu as MenuConfig};
 use crate::shell::highlighter::SyntaxHighlighter;
@@ -86,9 +86,9 @@ impl Shell {
 
                     editor.history_mut().sync().unwrap();
 
-                    if let Some(job) =
-                        { Job::parse_line(&buffer, &self.shell_state.read().unwrap().variables) }
-                    {
+                    if let Some(job) = {
+                        Statement::parse_line(&buffer, &self.shell_state.read().unwrap().variables)
+                    } {
                         job.run(
                             Arc::clone(&self.config),
                             Arc::clone(&self.shell_state),

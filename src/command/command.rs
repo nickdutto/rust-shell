@@ -11,7 +11,7 @@ use crate::command::builtin::theme::handle_theme;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::parser::tokenize::Tokens;
+use crate::parser::CommandNode;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
@@ -23,20 +23,36 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
 ];
 
 pub enum Command {
-    Cd(Tokens),
-    Complete(Tokens),
-    Declare(Tokens),
-    Echo(Tokens),
-    Executable(Tokens),
+    Cd(CommandNode),
+    Complete(CommandNode),
+    Declare(CommandNode),
+    Echo(CommandNode),
+    Executable(CommandNode),
     Exit,
-    History(Tokens),
-    Jobs(Tokens),
+    History(CommandNode),
+    Jobs(CommandNode),
     Pwd,
-    Theme(Tokens),
-    Type(Tokens),
+    Theme(CommandNode),
+    Type(CommandNode),
 }
 
 impl Command {
+    pub fn from_command_node(command_node: CommandNode) -> Self {
+        match command_node.command.as_str() {
+            "cd" => Command::Cd(command_node),
+            "complete" => Command::Complete(command_node),
+            "declare" => Command::Declare(command_node),
+            "echo" => Command::Echo(command_node),
+            "exit" => Command::Exit,
+            "history" => Command::History(command_node),
+            "jobs" => Command::Jobs(command_node),
+            "pwd" => Command::Pwd,
+            "theme" => Command::Theme(command_node),
+            "type" => Command::Type(command_node),
+            _ => Command::Executable(command_node),
+        }
+    }
+
     pub fn run_command(
         self,
         config: Arc<Config>,
@@ -105,7 +121,7 @@ impl Command {
         }
     }
 
-    fn get_tokens(&self) -> Option<&Tokens> {
+    fn get_tokens(&self) -> Option<&CommandNode> {
         match self {
             Command::Cd(t)
             | Command::Complete(t)

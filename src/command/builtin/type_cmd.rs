@@ -1,11 +1,11 @@
 use crate::command::command::BUILTIN_COMMANDS;
 use crate::io::stream::IoStreams;
-use crate::parser::tokenize::Tokens;
+use crate::parser::CommandNode;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
 use std::io::Write;
 
-pub fn handle_type(tokens: Tokens, mut io_streams: IoStreams) {
+pub fn handle_type(tokens: CommandNode, mut io_streams: IoStreams) {
     let command_name = match tokens.arguments.first() {
         Some(command) => command.as_str().trim(),
         None => {

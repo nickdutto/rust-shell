@@ -1,12 +1,12 @@
 use crate::io::stream::IoStreams;
-use crate::parser::tokenize::Tokens;
+use crate::parser::CommandNode;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_history(
-    tokens: Tokens,
+    tokens: CommandNode,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {

@@ -1,47 +1,39 @@
 use crate::command::Command;
 use crate::io::stream::{InputStream, IoStreams, OutputStream};
-use crate::parser::tokenize::tokenize_arguments;
+use crate::parser::parser::{AstElement, parse_ast_elements};
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::Variables;
 use reedline::ExternalPrinter;
 use std::sync::{Arc, RwLock};
 
-pub enum Job {
-    Single(Command),
+pub enum Statement {
     Pipeline(Vec<Command>),
 }
 
-impl Job {
-    pub fn parse_line(input: &str, variables: &Variables) -> Option<Job> {
-        let pipeline_tokens = tokenize_arguments(input.trim(), variables);
+impl Statement {
+    pub fn parse_line(line: &str, variables: &Variables) -> Option<Statement> {
+        let elements = parse_ast_elements(line.trim(), variables);
+        Self::parse_elements(elements)
+    }
 
-        if pipeline_tokens.is_empty() {
+    fn parse_elements(elements: Vec<AstElement>) -> Option<Statement> {
+        if elements.is_empty() {
             return None;
         }
 
         let mut commands = vec![];
-        for tokens in pipeline_tokens {
-            let command = match tokens.command.as_str() {
-                "cd" => Command::Cd(tokens),
-                "complete" => Command::Complete(tokens),
-                "declare" => Command::Declare(tokens),
-                "echo" => Command::Echo(tokens),
-                "exit" => Command::Exit,
-                "history" => Command::History(tokens),
-                "jobs" => Command::Jobs(tokens),
-                "pwd" => Command::Pwd,
-                "theme" => Command::Theme(tokens),
-                "type" => Command::Type(tokens),
-                _ => Command::Executable(tokens),
-            };
-            commands.push(command);
+        for element in elements {
+            if let AstElement::Command(command_node) = element {
+                let command = Command::from_command_node(command_node);
+                commands.push(command);
+            }
         }
 
-        if commands.len() == 1 {
-            Some(Job::Single(commands.pop().unwrap()))
+        if commands.is_empty() {
+            None
         } else {
-            Some(Job::Pipeline(commands))
+            Some(Statement::Pipeline(commands))
         }
     }
 
@@ -52,19 +44,7 @@ impl Job {
         printer: ExternalPrinter<String>,
     ) {
         match self {
-            Job::Single(command) => {
-                let streams = IoStreams {
-                    input: InputStream::Stdin,
-                    output: OutputStream::Stdout,
-                    error: OutputStream::Stderr,
-                };
-
-                if let Some(mut child) = command.run_command(config, shell_state, printer, streams)
-                {
-                    let _ = child.wait();
-                }
-            }
-            Job::Pipeline(commands) => {
+            Statement::Pipeline(commands) => {
                 let mut current_input = InputStream::Stdin;
                 let mut active_children = vec![];
                 let mut iter = commands.into_iter().peekable();
