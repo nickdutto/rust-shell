@@ -11,7 +11,7 @@ use crate::command::builtin::theme::handle_theme;
 use crate::command::builtin::type_cmd::handle_type;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;

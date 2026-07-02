@@ -1,6 +1,6 @@
 use crate::command::command::BUILTIN_COMMANDS;
 use crate::io::stream::IoStreams;
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
 use std::io::Write;

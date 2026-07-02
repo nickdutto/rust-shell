@@ -1,5 +1,5 @@
 use crate::io::stream::IoStreams;
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::config::Config;
 use comfy_table::Table;
 use comfy_table::presets::NOTHING;

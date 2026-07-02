@@ -1,5 +1,5 @@
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::background_jobs::{BackgroundJob, BackgroundJobStatus};
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;

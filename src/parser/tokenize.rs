@@ -1,7 +1,6 @@
 use crate::io::redirection::{Redirection, RedirectionMode};
+use crate::parser::token_scanner::TokenScanner;
 use crate::shell::variables::Variables;
-use std::iter::Peekable;
-use std::str::Chars;
 
 #[derive(Clone, Copy)]
 enum TokenState {
@@ -23,35 +22,6 @@ pub struct Tokens {
     pub redirection: Option<Redirection>,
 }
 
-struct TokenScanner<'a> {
-    chars: Peekable<Chars<'a>>,
-}
-
-impl<'a> TokenScanner<'a> {
-    fn new(input: &'a str) -> Self {
-        Self {
-            chars: input.chars().peekable(),
-        }
-    }
-
-    fn peek(&mut self) -> Option<&char> {
-        self.chars.peek()
-    }
-
-    fn next(&mut self) -> Option<char> {
-        self.chars.next()
-    }
-
-    fn next_if_matches(&mut self, expected: char) -> bool {
-        if self.peek() == Some(&expected) {
-            self.next();
-            true
-        } else {
-            false
-        }
-    }
-}
-
 pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
     let mut pipelines = vec![];
 
@@ -66,7 +36,7 @@ pub fn tokenize_arguments(input: &str, variables: &Variables) -> Vec<Tokens> {
     let mut state: TokenState = TokenState::Normal;
 
     let mut scanner = TokenScanner::new(input);
-    while let Some(ch) = scanner.next() {
+    while let Some(ch) = scanner.next_char() {
         match (ch, state) {
             ('|', TokenState::Normal | TokenState::RedirectOut | TokenState::RedirectError) => {
                 if !token_buffer.is_empty() {

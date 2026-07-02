@@ -1,6 +1,6 @@
 use crate::command::Command;
 use crate::io::stream::{InputStream, IoStreams, OutputStream};
-use crate::io::tokenize::tokenize_arguments;
+use crate::parser::tokenize::tokenize_arguments;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::Variables;

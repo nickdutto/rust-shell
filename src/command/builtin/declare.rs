@@ -1,5 +1,5 @@
 use crate::io::stream::IoStreams;
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::VariableError;
 use std::io::Write;
@@ -41,17 +41,17 @@ pub fn handle_declare(
             variable_arg => {
                 if let Some((key, value)) = variable_arg.split_once('=')
                     && let Err(VariableError::InvalidIdentifier { key, value }) = shell_state
-                    .write()
-                    .unwrap()
-                    .variables
-                    .insert(key.to_string(), value.to_string())
+                        .write()
+                        .unwrap()
+                        .variables
+                        .insert(key.to_string(), value.to_string())
                 {
                     writeln!(
                         io_streams.error,
                         "declare: `{}={}': not a valid identifier",
                         key, value,
                     )
-                        .unwrap();
+                    .unwrap();
                 }
             }
         }

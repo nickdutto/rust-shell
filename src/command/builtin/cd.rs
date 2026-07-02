@@ -1,5 +1,5 @@
 use crate::io::stream::IoStreams;
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::ErrorKind;

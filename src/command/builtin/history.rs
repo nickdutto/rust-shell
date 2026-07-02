@@ -1,5 +1,5 @@
 use crate::io::stream::IoStreams;
-use crate::io::tokenize::Tokens;
+use crate::parser::tokenize::Tokens;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;

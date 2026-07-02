@@ -1,5 +1,6 @@
 pub mod command;
 pub mod io;
+pub mod parser;
 pub mod shell;
 pub mod system;
 
