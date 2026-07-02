@@ -12,6 +12,7 @@ use crate::command::builtin::type_cmd::handle_type;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
 use crate::io::tokenize::Tokens;
+use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
 use std::process::Child;
@@ -38,9 +39,10 @@ pub enum Command {
 impl Command {
     pub fn run_command(
         self,
+        config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
-        mut io_streams: IoStreams,
         printer: ExternalPrinter<String>,
+        mut io_streams: IoStreams,
     ) -> Option<Child> {
         if let Some(tokens) = self.get_tokens()
             && let Some(redirection) = &tokens.redirection
@@ -93,7 +95,7 @@ impl Command {
                 None
             }
             Command::Theme(tokens) => {
-                handle_theme(tokens, io_streams);
+                handle_theme(tokens, config, io_streams);
                 None
             }
             Command::Type(tokens) => {

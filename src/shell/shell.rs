@@ -89,7 +89,11 @@ impl Shell {
                     if let Some(job) =
                         { Job::parse_line(&buffer, &self.shell_state.read().unwrap().variables) }
                     {
-                        job.run(Arc::clone(&self.shell_state), printer.clone());
+                        job.run(
+                            Arc::clone(&self.config),
+                            Arc::clone(&self.shell_state),
+                            printer.clone(),
+                        );
                     }
 
                     self.shell_state

@@ -1,6 +1,7 @@
 use crate::command::Command;
 use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::io::tokenize::tokenize_arguments;
+use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::Variables;
 use reedline::ExternalPrinter;
@@ -44,7 +45,12 @@ impl Job {
         }
     }
 
-    pub fn run(self, shell_state: Arc<RwLock<ShellState>>, printer: ExternalPrinter<String>) {
+    pub fn run(
+        self,
+        config: Arc<Config>,
+        shell_state: Arc<RwLock<ShellState>>,
+        printer: ExternalPrinter<String>,
+    ) {
         match self {
             Job::Single(command) => {
                 let streams = IoStreams {
@@ -53,7 +59,8 @@ impl Job {
                     error: OutputStream::Stderr,
                 };
 
-                if let Some(mut child) = command.run_command(shell_state, streams, printer) {
+                if let Some(mut child) = command.run_command(config, shell_state, printer, streams)
+                {
                     let _ = child.wait();
                 }
             }
@@ -78,9 +85,12 @@ impl Job {
                         error: OutputStream::Stderr,
                     };
 
-                    if let Some(child) =
-                        command.run_command(Arc::clone(&shell_state), streams, printer.clone())
-                    {
+                    if let Some(child) = command.run_command(
+                        Arc::clone(&config),
+                        Arc::clone(&shell_state),
+                        printer.clone(),
+                        streams,
+                    ) {
                         active_children.push(child);
                     }
 
