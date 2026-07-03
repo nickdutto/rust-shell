@@ -1,0 +1,11 @@
+[
+    {
+        "label": "Attach Debugger",
+        "adapter": "CodeLLDB",
+        "request": "attach",
+        "program": "./target/debug/rust-shell",
+        "postRunCommands": [
+            "process handle SIGCHLD --stop false --pass true --notify false"
+        ]
+    }
+]

@@ -1,0 +1,8 @@
+[
+    {
+        "label": "Rust Shell: Dev Loop",
+        "command": "cd /home/wdelta/dev/rs-shell && while true; do cargo build && ./target/debug/rust-shell; echo -e '\\n--- Shell exited. Rebuilding & Restarting... ---'; sleep 0.5; done",
+        "use_new_terminal": false,
+        "allow_concurrent_runs": false
+    }
+]
