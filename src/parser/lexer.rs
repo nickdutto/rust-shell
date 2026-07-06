@@ -14,6 +14,9 @@ pub enum Token {
     Word(Vec<Word>),
     Redirection(RedirectionMode),
     Pipe,
+    Sequential,
+    And,
+    Background,
 }
 
 pub fn lex(input: &str) -> Vec<Token> {
@@ -29,6 +32,19 @@ pub fn lex(input: &str) -> Vec<Token> {
             '|' => {
                 scanner.next_char();
                 tokens.push(Token::Pipe);
+            }
+
+            ';' => {
+                scanner.next_char();
+                tokens.push(Token::Sequential);
+            }
+
+            '&' => {
+                scanner.next_char();
+                match scanner.next_if_matches('&') {
+                    true => tokens.push(Token::And),
+                    false => tokens.push(Token::Background),
+                }
             }
 
             '>' => {
@@ -73,7 +89,7 @@ mod tests {
 
     #[test]
     fn lex_tokens() {
-        let tokens = lex("hello 'single' \"double\" | $abc ${efg} > >> 1> 1>> 2> 2>>");
+        let tokens = lex("hello 'single' \"double\" | ; && & $abc ${efg} > >> 1> 1>> 2> 2>>");
         assert_eq!(
             tokens,
             vec![
@@ -81,6 +97,9 @@ mod tests {
                 Token::Word(vec![Word::SingleQuoted("single".into())]),
                 Token::Word(vec![Word::DoubleQuoted("double".into())]),
                 Token::Pipe,
+                Token::Sequential,
+                Token::And,
+                Token::Background,
                 Token::Word(vec![Word::Variable("abc".into())]),
                 Token::Word(vec![Word::Variable("efg".into())]),
                 Token::Redirection(RedirectionMode::Out),
@@ -91,5 +110,17 @@ mod tests {
                 Token::Redirection(RedirectionMode::ErrorAppend),
             ]
         );
+    }
+
+    #[test]
+    fn lex_tokens_4() {
+        let tokens = lex("| ; && &");
+        let expected = vec![
+            Token::Pipe,
+            Token::Sequential,
+            Token::And,
+            Token::Background,
+        ];
+        assert_eq!(tokens, expected);
     }
 }
