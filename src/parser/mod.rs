@@ -3,5 +3,6 @@ pub mod lexer;
 mod parser;
 pub mod statement;
 pub mod token_scanner;
+pub mod word;
 
 pub use self::parser::*;
