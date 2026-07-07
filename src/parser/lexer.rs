@@ -86,41 +86,142 @@ pub fn lex(input: &str) -> Vec<Token> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::error::{ParserError, ParserErrorKind};
+    use crate::parser::span::Span;
 
-    #[test]
-    fn lex_tokens() {
-        let tokens = lex("hello 'single' \"double\" | ; && & $abc ${efg} > >> 1> 1>> 2> 2>>");
-        assert_eq!(
-            tokens,
-            vec![
-                Token::Word(vec![Word::Literal("hello".into())]),
-                Token::Word(vec![Word::SingleQuoted("single".into())]),
-                Token::Word(vec![Word::DoubleQuoted("double".into())]),
-                Token::Pipe,
-                Token::Sequential,
-                Token::And,
-                Token::Background,
-                Token::Word(vec![Word::Variable("abc".into())]),
-                Token::Word(vec![Word::Variable("efg".into())]),
-                Token::Redirection(RedirectionMode::Out),
-                Token::Redirection(RedirectionMode::OutAppend),
-                Token::Redirection(RedirectionMode::Out),
-                Token::Redirection(RedirectionMode::OutAppend),
-                Token::Redirection(RedirectionMode::Error),
-                Token::Redirection(RedirectionMode::ErrorAppend),
-            ]
-        );
+    struct Case<I, E> {
+        input: I,
+        expected: E,
     }
 
     #[test]
-    fn lex_tokens_4() {
-        let tokens = lex("| ; && &");
-        let expected = vec![
-            Token::Pipe,
-            Token::Sequential,
-            Token::And,
-            Token::Background,
+    fn lex_operators_return_correct_tokens() {
+        let cases = vec![
+            Case {
+                input: "|",
+                expected: vec![Token::Pipe],
+            },
+            Case {
+                input: ";",
+                expected: vec![Token::Sequential],
+            },
+            Case {
+                input: "&&",
+                expected: vec![Token::And],
+            },
+            Case {
+                input: "&",
+                expected: vec![Token::Background],
+            },
         ];
-        assert_eq!(tokens, expected);
+
+        for case in cases {
+            assert_eq!(lex(case.input), case.expected);
+        }
+    }
+
+    #[test]
+    fn lex_redirections_return_correct_tokens() {
+        let cases = vec![
+            Case {
+                input: ">",
+                expected: vec![Token::Redirection(RedirectionMode::Out)],
+            },
+            Case {
+                input: ">>",
+                expected: vec![Token::Redirection(RedirectionMode::OutAppend)],
+            },
+            Case {
+                input: "1>",
+                expected: vec![Token::Redirection(RedirectionMode::Out)],
+            },
+            Case {
+                input: "1>>",
+                expected: vec![Token::Redirection(RedirectionMode::OutAppend)],
+            },
+            Case {
+                input: "2>",
+                expected: vec![Token::Redirection(RedirectionMode::Error)],
+            },
+            Case {
+                input: "2>>",
+                expected: vec![Token::Redirection(RedirectionMode::ErrorAppend)],
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(lex(case.input), case.expected);
+        }
+    }
+
+    #[test]
+    fn lex_words_return_correct_tokens() {
+        let cases = vec![
+            Case {
+                input: "literal",
+                expected: vec![Token::Word(vec![Word::Literal("literal".to_string())])],
+            },
+            Case {
+                input: "'single'",
+                expected: vec![Token::Word(vec![Word::SingleQuoted("single".to_string())])],
+            },
+            Case {
+                input: "\"double\"",
+                expected: vec![Token::Word(vec![Word::DoubleQuoted("double".to_string())])],
+            },
+            Case {
+                input: "$var",
+                expected: vec![Token::Word(vec![Word::Variable("var".to_string())])],
+            },
+            Case {
+                input: "${var_b}",
+                expected: vec![Token::Word(vec![Word::Variable("var_b".to_string())])],
+            },
+            Case {
+                input: "1",
+                expected: vec![Token::Word(vec![Word::Literal("1".to_string())])],
+            },
+            Case {
+                input: "2",
+                expected: vec![Token::Word(vec![Word::Literal("2".to_string())])],
+            },
+            Case {
+                input: "1abc",
+                expected: vec![Token::Word(vec![Word::Literal("1abc".to_string())])],
+            },
+            Case {
+                input: "literal 'single' \"double\" 1 2 1abc $ $var ${var_b} $! ${1} ${ }",
+                expected: vec![
+                    Token::Word(vec![Word::Literal("literal".to_string())]),
+                    Token::Word(vec![Word::SingleQuoted("single".to_string())]),
+                    Token::Word(vec![Word::DoubleQuoted("double".to_string())]),
+                    Token::Word(vec![Word::Literal("1".to_string())]),
+                    Token::Word(vec![Word::Literal("2".to_string())]),
+                    Token::Word(vec![Word::Literal("1abc".to_string())]),
+                    Token::Word(vec![Word::Literal("$".to_string())]),
+                    Token::Word(vec![Word::Variable("var".to_string())]),
+                    Token::Word(vec![Word::Variable("var_b".to_string())]),
+                    Token::Word(vec![Word::Error(ParserError {
+                        kind: ParserErrorKind::InvalidVariableName,
+                        span: Span::new(51, 53),
+                        raw_string: "$!".to_string(),
+                    })]),
+                    Token::Word(vec![Word::Error(ParserError {
+                        kind: ParserErrorKind::InvalidVariableName,
+                        span: Span::new(54, 57),
+                        raw_string: "${1}".to_string(),
+                    })]),
+                    Token::Word(vec![Word::Error(ParserError {
+                        kind: ParserErrorKind::InvalidVariableName,
+                        span: Span::new(59, 62),
+                        raw_string: "${ }".to_string(),
+                    })]),
+                ],
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(lex(case.input), case.expected);
+        }
     }
 }

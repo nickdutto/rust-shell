@@ -1,3 +1,5 @@
+use crate::parser::error::{ParserError, ParserErrorKind};
+use crate::parser::span::Span;
 use crate::parser::token_scanner::TokenScanner;
 
 #[derive(Debug, PartialEq)]
@@ -6,37 +8,42 @@ pub enum Word {
     SingleQuoted(String),
     DoubleQuoted(String),
     Variable(String),
+    Error(ParserError),
 }
 
-pub fn scan_word(scanner: &mut TokenScanner, initial: Option<char>) -> Vec<Word> {
+pub fn scan_word(scanner: &mut TokenScanner, initial_char: Option<char>) -> Vec<Word> {
     let mut word = vec![];
-    let mut initial_content = initial.map(|c| c.to_string());
+
+    if let Some(initial_ch) = initial_char
+        && scanner.peek().is_none_or(|ch| ch.is_whitespace())
+    {
+        word.push(Word::Literal(initial_ch.to_string()));
+        return word;
+    }
 
     while let Some(&ch) = scanner.peek() {
         if matches!(ch, ' ' | '\t' | '&' | '|' | ';' | '>') {
             break;
         }
 
+        if matches!(ch, '\'' | '"' | '$')
+            && let Some(initial_ch) = initial_char
+        {
+            word.push(Word::Literal(initial_ch.to_string()));
+        }
+
         match ch {
             '\'' => {
-                let single_quoted = scan_single_quoted(scanner, initial_content.take());
-                word.push(single_quoted);
+                word.push(scan_single_quoted(scanner));
             }
-
             '"' => {
-                let double_quoted = scan_double_quoted(scanner, initial_content.take());
-                word.push(double_quoted);
+                word.push(scan_double_quoted(scanner));
             }
-
-            // TODO: handle positional and special parameters
             '$' => {
-                let variable = scan_variable(scanner, initial_content.take());
-                word.push(variable);
+                word.push(scan_variable(scanner));
             }
-
             _ => {
-                let literal = scan_literal(scanner, initial_content.take());
-                word.push(literal);
+                word.push(scan_literal(scanner, initial_char));
             }
         }
     }
@@ -44,8 +51,8 @@ pub fn scan_word(scanner: &mut TokenScanner, initial: Option<char>) -> Vec<Word>
     word
 }
 
-fn scan_single_quoted(scanner: &mut TokenScanner, initial_content: Option<String>) -> Word {
-    let mut content = initial_content.unwrap_or_default();
+fn scan_single_quoted(scanner: &mut TokenScanner) -> Word {
+    let mut content = String::new();
 
     scanner.next_char();
 
@@ -59,8 +66,8 @@ fn scan_single_quoted(scanner: &mut TokenScanner, initial_content: Option<String
     Word::SingleQuoted(content)
 }
 
-fn scan_double_quoted(scanner: &mut TokenScanner, initial_content: Option<String>) -> Word {
-    let mut content = initial_content.unwrap_or_default();
+fn scan_double_quoted(scanner: &mut TokenScanner) -> Word {
+    let mut content = String::new();
 
     scanner.next_char();
 
@@ -96,28 +103,69 @@ fn scan_double_quoted(scanner: &mut TokenScanner, initial_content: Option<String
     Word::DoubleQuoted(content)
 }
 
-fn scan_variable(scanner: &mut TokenScanner, initial_content: Option<String>) -> Word {
-    let mut content = initial_content.unwrap_or_default();
+fn scan_variable(scanner: &mut TokenScanner) -> Word {
+    let mut content = String::new();
+    let mut invalid_in_brace = false;
+    let start_index = scanner.current_index();
 
     scanner.next_char();
-    scanner.next_if_matches('{');
+    let has_start_brace = scanner.next_if_matches('{');
+    let first_ch = scanner.peek();
+    if !has_start_brace && first_ch.is_none_or(|first_c| first_c.is_whitespace()) {
+        return Word::Literal("$".to_string());
+    }
 
-    while let Some(&ch) = scanner.peek() {
-        // TODO: Handle full expected variable format
-        if ch.is_ascii_alphanumeric() || ch == '_' {
-            content.extend(scanner.next_char());
-        } else {
-            break;
+    if let Some(&ch) = first_ch
+        && (ch.is_ascii_alphabetic() || ch == '_')
+    {
+        content.extend(scanner.next_char());
+
+        while let Some(&c) = scanner.peek() {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                content.extend(scanner.next_char());
+            } else {
+                if has_start_brace && c != '}' {
+                    invalid_in_brace = true;
+                }
+                break;
+            }
         }
     }
 
-    scanner.next_if_matches('}');
+    if content.is_empty() || invalid_in_brace {
+        while let Some(&ch) = scanner.peek() {
+            if has_start_brace && ch == '}' || !has_start_brace && ch.is_whitespace() {
+                break;
+            }
+            content.extend(scanner.next_char());
+        }
+
+        return Word::Error(ParserError {
+            kind: ParserErrorKind::InvalidVariableName,
+            span: Span::new(start_index, scanner.current_index()),
+            raw_string: if scanner.next_if_matches('}') {
+                format!("${{{}}}", content)
+            } else if has_start_brace {
+                format!("${{{}", content)
+            } else {
+                format!("${}", content)
+            },
+        });
+    };
+
+    if has_start_brace && !scanner.next_if_matches('}') {
+        return Word::Error(ParserError {
+            kind: ParserErrorKind::UnclosedVariableBrace,
+            span: Span::new(start_index, scanner.current_index()),
+            raw_string: format!("${{{}", content),
+        });
+    }
 
     Word::Variable(content)
 }
 
-fn scan_literal(scanner: &mut TokenScanner, initial_content: Option<String>) -> Word {
-    let mut content = initial_content.unwrap_or_default();
+fn scan_literal(scanner: &mut TokenScanner, initial_char: Option<char>) -> Word {
+    let mut content = initial_char.map(|c| c.to_string()).unwrap_or_default();
 
     while let Some(&ch) = scanner.peek() {
         if matches!(
@@ -141,49 +189,244 @@ fn scan_literal(scanner: &mut TokenScanner, initial_content: Option<String>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::error::ParserErrorKind;
+
+    struct Case<I, E> {
+        input: I,
+        expected: E,
+    }
+
+    #[test]
+    fn scan_word_returns_correct_words() {
+        let cases = vec![
+            Case {
+                input: "literal",
+                expected: vec![Word::Literal("literal".to_string())],
+            },
+            Case {
+                input: "'single'",
+                expected: vec![Word::SingleQuoted("single".to_string())],
+            },
+            Case {
+                input: "\"double\"",
+                expected: vec![Word::DoubleQuoted("double".to_string())],
+            },
+            Case {
+                input: "$var",
+                expected: vec![Word::Variable("var".to_string())],
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(
+                scan_word(&mut TokenScanner::new(case.input), None),
+                case.expected
+            );
+        }
+    }
+
+    #[test]
+    fn scan_word_with_initial_char_returns_correct_words() {
+        let cases = vec![
+            Case {
+                input: "literal",
+                expected: vec![Word::Literal("1literal".to_string())],
+            },
+            Case {
+                input: "'single'",
+                expected: vec![
+                    Word::Literal("1".to_string()),
+                    Word::SingleQuoted("single".to_string()),
+                ],
+            },
+            Case {
+                input: "\"double\"",
+                expected: vec![
+                    Word::Literal("1".to_string()),
+                    Word::DoubleQuoted("double".to_string()),
+                ],
+            },
+            Case {
+                input: "$var",
+                expected: vec![
+                    Word::Literal("1".to_string()),
+                    Word::Variable("var".to_string()),
+                ],
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(
+                scan_word(&mut TokenScanner::new(case.input), Some('1')),
+                case.expected
+            );
+        }
+    }
 
     #[test]
     fn scan_single_quoted_returns_on_single_quote_char() {
-        let mut scanner = TokenScanner::new("'hello'w'orld'");
         assert_eq!(
-            scan_single_quoted(&mut scanner, None),
-            Word::SingleQuoted("hello".into())
+            scan_single_quoted(&mut TokenScanner::new("'hello'w'orld'")),
+            Word::SingleQuoted("hello".to_string())
         )
     }
 
     #[test]
     fn scan_double_quoted_returns_on_double_quote_char() {
-        let mut scanner = TokenScanner::new("\"hello\"w\"orld\"");
         assert_eq!(
-            scan_double_quoted(&mut scanner, None),
-            Word::DoubleQuoted("hello".into())
+            scan_double_quoted(&mut TokenScanner::new("\"hello\"w\"orld\"")),
+            Word::DoubleQuoted("hello".to_string())
         )
     }
 
     #[test]
     fn scan_double_quoted_handles_escaping() {
-        let mut scanner = TokenScanner::new("\"hello \\$ \\` \\\" \\\\ \\\n world\"");
         assert_eq!(
-            scan_double_quoted(&mut scanner, None),
-            Word::DoubleQuoted("hello $ ` \" \\  world".into())
+            scan_double_quoted(&mut TokenScanner::new(
+                "\"hello \\$ \\` \\\" \\\\ \\\n world\""
+            )),
+            Word::DoubleQuoted("hello $ ` \" \\  world".to_string())
         )
     }
 
     #[test]
-    fn scan_variable_handles_no_braces() {
-        let mut scanner = TokenScanner::new("$abc");
-        assert_eq!(
-            scan_variable(&mut scanner, None),
-            Word::Variable("abc".into())
-        )
+    fn scan_variable_empty_trailing_returns_literal() {
+        let cases = vec![
+            Case {
+                input: "$",
+                expected: Word::Literal("$".to_string()),
+            },
+            Case {
+                input: "$ ",
+                expected: Word::Literal("$".to_string()),
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(
+                scan_variable(&mut TokenScanner::new(case.input)),
+                case.expected
+            );
+        }
     }
 
     #[test]
-    fn scan_variable_handles_with_braces() {
-        let mut scanner = TokenScanner::new("${abc}");
+    fn scan_variable_valid_format_returns_variable() {
+        let mut cases = vec![
+            Case {
+                input: TokenScanner::new("$abc"),
+                expected: Word::Variable("abc".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("${abc}"),
+                expected: Word::Variable("abc".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("$_abc"),
+                expected: Word::Variable("_abc".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("${_abc}"),
+                expected: Word::Variable("_abc".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("$a_1"),
+                expected: Word::Variable("a_1".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("${a_1}"),
+                expected: Word::Variable("a_1".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("$_"),
+                expected: Word::Variable("_".to_string()),
+            },
+            Case {
+                input: TokenScanner::new("${_}"),
+                expected: Word::Variable("_".to_string()),
+            },
+        ];
+
+        for case in &mut cases {
+            assert_eq!(scan_variable(&mut case.input), case.expected)
+        }
+    }
+
+    #[test]
+    fn scan_variable_invalid_format_returns_error() {
+        let mut cases = vec![
+            Case {
+                input: TokenScanner::new("${a-1@b}"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 7),
+                    raw_string: "${a-1@b}".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("$1"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 2),
+                    raw_string: "$1".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("${1}"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 3),
+                    raw_string: "${1}".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("$!"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 2),
+                    raw_string: "$!".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("${!}"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 3),
+                    raw_string: "${!}".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("${}"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 2),
+                    raw_string: "${}".to_string(),
+                }),
+            },
+            Case {
+                input: TokenScanner::new("${ }"),
+                expected: Word::Error(ParserError {
+                    kind: ParserErrorKind::InvalidVariableName,
+                    span: Span::new(0, 3),
+                    raw_string: "${ }".to_string(),
+                }),
+            },
+        ];
+
+        for case in &mut cases {
+            assert_eq!(scan_variable(&mut case.input), case.expected)
+        }
+    }
+
+    #[test]
+    fn scan_variable_missing_close_brace_returns_error() {
         assert_eq!(
-            scan_variable(&mut scanner, None),
-            Word::Variable("abc".into())
+            scan_variable(&mut TokenScanner::new("${abc")),
+            Word::Error(ParserError {
+                kind: ParserErrorKind::UnclosedVariableBrace,
+                span: Span::new(0, 5),
+                raw_string: "${abc".to_string()
+            })
         )
     }
 }
