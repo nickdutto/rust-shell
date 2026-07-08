@@ -12,12 +12,6 @@ pub enum RedirectionMode {
     ErrorAppend,
 }
 
-#[derive(Debug)]
-pub struct Redirection {
-    pub mode: RedirectionMode,
-    pub location: String,
-}
-
 pub fn initialise_writer_file(mode: RedirectionMode, path: &str) -> File {
     if let Some(parent) = Path::new(path).parent() {
         fs::create_dir_all(parent).ok();

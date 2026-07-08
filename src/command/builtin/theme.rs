@@ -1,5 +1,4 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::config::Config;
 use comfy_table::Table;
 use comfy_table::presets::NOTHING;
@@ -8,10 +7,10 @@ use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::sync::Arc;
 
-pub fn handle_theme(tokens: CommandNode, config: Arc<Config>, mut io_streams: IoStreams) {
+pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoStreams) {
     let mut buffer = String::with_capacity(8192);
 
-    for arg in tokens.arguments.iter() {
+    for arg in args.iter() {
         match arg.as_str() {
             "-fg" => {
                 let style = Style::new();

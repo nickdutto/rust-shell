@@ -1,8 +1,6 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
-use std::io::Write;
+use std::io::Write as IoWrite;
 
-pub fn handle_echo(tokens: CommandNode, mut io_streams: IoStreams) {
-    let output = tokens.arguments.join(" ");
-    writeln!(io_streams.output, "{}", output.trim()).unwrap();
+pub fn handle_echo(args: Vec<String>, mut io_streams: IoStreams) {
+    writeln!(io_streams.output, "{}", args.join(" ").trim()).unwrap();
 }

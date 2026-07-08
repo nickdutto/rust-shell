@@ -1,20 +1,20 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::VariableError;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_declare(
-    tokens: CommandNode,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {
-    let mut arguments_iter = tokens.arguments.iter().peekable();
-    while let Some(argument) = arguments_iter.next() {
-        match argument.as_str() {
+    let mut args_iter = args.iter().peekable();
+
+    while let Some(arg) = args_iter.next() {
+        match arg.as_str() {
             "-p" => {
-                if let Some(variable_key) = arguments_iter.peek() {
+                if let Some(variable_key) = args_iter.peek() {
                     if let Ok(Some((key, value))) = shell_state
                         .read()
                         .unwrap()

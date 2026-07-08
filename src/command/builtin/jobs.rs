@@ -1,17 +1,16 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_jobs(
-    tokens: CommandNode,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {
     let mut executed = false;
 
-    for arg in tokens.arguments.iter() {
+    for arg in args.iter() {
         if arg.as_str() == "-t" {
             let table = shell_state.read().unwrap().background_jobs.to_table();
             writeln!(io_streams.output, "{}", table).unwrap();

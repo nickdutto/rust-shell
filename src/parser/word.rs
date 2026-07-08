@@ -1,14 +1,18 @@
 use crate::parser::error::{ParserError, ParserErrorKind};
 use crate::parser::span::Span;
 use crate::parser::token_scanner::TokenScanner;
+use crate::shell::variables::Variables;
+use std::fmt::Write;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum Word {
     Literal(String),
     SingleQuoted(String),
     DoubleQuoted(String),
     Variable(String),
     Error(ParserError),
+    #[default]
+    Nothing,
 }
 
 pub fn scan_word(scanner: &mut TokenScanner, initial_char: Option<char>) -> Vec<Word> {
@@ -184,6 +188,31 @@ fn scan_literal(scanner: &mut TokenScanner, initial_char: Option<char>) -> Word 
     }
 
     Word::Literal(content)
+}
+
+pub fn words_to_string(words: Vec<Word>, variables: &Variables) -> String {
+    let mut word_buffer = String::new();
+
+    for word in words {
+        match word {
+            Word::Literal(w) | Word::SingleQuoted(w) | Word::DoubleQuoted(w) => {
+                let _ = write!(word_buffer, "{}", w);
+            }
+            Word::Variable(w) => {
+                if let Ok(Some(variable)) = variables.get(&w) {
+                    let _ = write!(word_buffer, "{}", variable);
+                }
+            }
+            Word::Error(_) => {
+                todo!()
+            }
+            Word::Nothing => {
+                continue;
+            }
+        }
+    }
+
+    word_buffer
 }
 
 #[cfg(test)]

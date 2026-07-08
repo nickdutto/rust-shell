@@ -1,5 +1,4 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::ErrorKind;
@@ -8,15 +7,11 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_cd(
-    tokens: CommandNode,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {
-    let target = tokens
-        .arguments
-        .first()
-        .map(|s| s.as_str().trim())
-        .unwrap_or("~");
+    let target = args.first().map(|s| s.as_str().trim()).unwrap_or("~");
 
     let result = match target {
         "~" => {

@@ -1,23 +1,19 @@
-use crate::command::command::BUILTIN_COMMANDS;
+use crate::engine::command::BUILTIN_COMMANDS;
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
 use std::io::Write;
 
-pub fn handle_type(tokens: CommandNode, mut io_streams: IoStreams) {
-    let command_name = match tokens.arguments.first() {
-        Some(command) => command.as_str().trim(),
-        None => {
-            writeln!(io_streams.error, "type: missing operand").unwrap();
-            return;
-        }
-    };
+pub fn handle_type(cmd: &str, mut io_streams: IoStreams) {
+    if cmd.is_empty() {
+        writeln!(io_streams.error, "type: missing operand").unwrap();
+        return;
+    }
 
     let mut output = String::new();
 
-    if BUILTIN_COMMANDS.contains(&command_name) {
-        output = format!("{} is a shell builtin", command_name);
+    if BUILTIN_COMMANDS.contains(&cmd) {
+        output = format!("{} is a shell builtin", cmd);
     } else {
         let paths = match get_env_paths("PATH") {
             Ok(paths) => paths,
@@ -43,17 +39,17 @@ pub fn handle_type(tokens: CommandNode, mut io_streams: IoStreams) {
 
         let mut found = false;
         for entry in entries {
-            if entry.file_name().unwrap().to_str().unwrap() != command_name {
+            if entry.file_name().unwrap().to_str().unwrap() != cmd {
                 continue;
             }
 
-            output = format!("{} is {}", command_name, entry.to_str().unwrap());
+            output = format!("{} is {}", cmd, entry.to_str().unwrap());
             found = true;
             break;
         }
 
         if !found {
-            output = format!("{}: not found", command_name);
+            output = format!("{}: not found", cmd);
         }
     }
 

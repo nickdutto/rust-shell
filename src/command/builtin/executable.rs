@@ -1,5 +1,4 @@
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::parser::CommandNode;
 use crate::shell::background_jobs::{BackgroundJob, BackgroundJobStatus};
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
@@ -9,22 +8,23 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, RwLock};
 
 pub fn handle_executable(
-    tokens: CommandNode,
+    cmd: &str,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     io_streams: IoStreams,
     printer: ExternalPrinter<String>,
 ) -> Option<Child> {
-    if tokens.command.is_empty() {
+    if cmd.is_empty() {
         return None;
     }
 
     let mut fallback_error = OutputStream::fallback_output_stream(&io_streams.error);
 
-    let is_background = tokens.arguments.last().map(|s| s.as_str()) == Some("&");
-    let args = if is_background {
-        &tokens.arguments[..tokens.arguments.len() - 1]
+    let is_background = args.last().map(|s| s.as_str()) == Some("&");
+    let cmd_args = if is_background {
+        &args[..args.len() - 1]
     } else {
-        &tokens.arguments
+        &args
     };
 
     let is_background_redirect_stdout =
@@ -44,13 +44,13 @@ pub fn handle_executable(
         io_streams.error.into_stdio()
     };
 
-    let mut command_binding = Command::new(&tokens.command);
+    let mut command_binding = Command::new(cmd);
     let command = command_binding
         .stdin(io_streams.input.into_stdio())
         .stdout(stdout_cfg)
         .stderr(stderr_cfg);
 
-    match command.args(args).spawn() {
+    match command.args(cmd_args).spawn() {
         Ok(mut child) => {
             if is_background {
                 let shell_state_clone = Arc::clone(&shell_state);
@@ -67,7 +67,7 @@ pub fn handle_executable(
                     guard.background_jobs.push(BackgroundJob::new(
                         id,
                         pid,
-                        format!("{} {}", tokens.command, tokens.arguments.join(" ")),
+                        format!("{} {}", cmd, args.join(" ")),
                         BackgroundJobStatus::Running,
                     ));
                     id
@@ -108,16 +108,11 @@ pub fn handle_executable(
             }
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {
-            writeln!(fallback_error, "{}: command not found", tokens.command).ok();
+            writeln!(fallback_error, "{}: command not found", cmd).ok();
             None
         }
         Err(e) => {
-            writeln!(
-                fallback_error,
-                "{}: error executing command: {}",
-                tokens.command, e
-            )
-            .ok();
+            writeln!(fallback_error, "{}: error executing command: {}", cmd, e).ok();
             None
         }
     }

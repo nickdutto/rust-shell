@@ -1,18 +1,17 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_complete(
-    tokens: CommandNode,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {
-    let mut args_iter = tokens.arguments.iter();
+    let mut args_iter = args.iter();
 
-    while let Some(argument) = args_iter.next() {
-        match argument.as_str() {
+    while let Some(arg) = args_iter.next() {
+        match arg.as_str() {
             "-C" => {
                 if let Some(path_arg) = args_iter.next()
                     && let Some(name_arg) = args_iter.next()

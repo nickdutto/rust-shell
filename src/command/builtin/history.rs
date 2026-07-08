@@ -1,26 +1,25 @@
 use crate::io::stream::IoStreams;
-use crate::parser::CommandNode;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub fn handle_history(
-    tokens: CommandNode,
+    args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) {
     let history_len = shell_state.read().unwrap().history.entries.len();
     let mut limit: usize = history_len;
     let mut output_history = true;
+    let mut args_iter = args.iter().peekable();
 
-    let mut arguments_iter = tokens.arguments.iter().peekable();
-    while let Some(argument) = arguments_iter.next() {
-        match argument.as_str() {
+    while let Some(arg) = args_iter.next() {
+        match arg.as_str() {
             flag @ ("-r" | "-w" | "-a") => {
                 output_history = false;
 
-                if let Some(path) = arguments_iter.peek() {
+                if let Some(path) = args_iter.peek() {
                     let mut guard = shell_state.write().unwrap();
 
                     let result = match flag {
@@ -36,8 +35,7 @@ pub fn handle_history(
                 }
             }
             _ => {
-                limit = tokens
-                    .arguments
+                limit = args
                     .first()
                     .and_then(|arg| arg.parse::<usize>().ok())
                     .unwrap_or(history_len);

@@ -1,4 +1,5 @@
 pub mod command;
+pub mod engine;
 pub mod io;
 pub mod parser;
 pub mod shell;
