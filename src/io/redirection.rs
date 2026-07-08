@@ -2,10 +2,12 @@
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum RedirectionMode {
-    Output,
-    OutputAppend,
+    #[default]
+    Nothing,
+    Out,
+    OutAppend,
     Error,
     ErrorAppend,
 }
@@ -16,22 +18,16 @@ pub struct Redirection {
     pub location: String,
 }
 
-pub fn initialise_writer_file(redirection: &Redirection) -> File {
-    if let Some(parent) = Path::new(&redirection.location).parent() {
+pub fn initialise_writer_file(mode: RedirectionMode, path: &str) -> File {
+    if let Some(parent) = Path::new(path).parent() {
         fs::create_dir_all(parent).ok();
     }
 
     OpenOptions::new()
         .write(true)
         .create(true)
-        .truncate(
-            redirection.mode == RedirectionMode::Output
-                || redirection.mode == RedirectionMode::Error,
-        )
-        .append(
-            redirection.mode == RedirectionMode::OutputAppend
-                || redirection.mode == RedirectionMode::ErrorAppend,
-        )
-        .open(&redirection.location)
+        .truncate(mode == RedirectionMode::Out || mode == RedirectionMode::Error)
+        .append(mode == RedirectionMode::OutAppend || mode == RedirectionMode::ErrorAppend)
+        .open(path)
         .unwrap()
 }

@@ -1,15 +1,8 @@
+use crate::io::redirection::RedirectionMode;
 use crate::parser::token_scanner::TokenScanner;
 use crate::parser::word::{Word, scan_word};
 
-#[derive(Debug, PartialEq)]
-pub enum RedirectionMode {
-    Out,
-    OutAppend,
-    Error,
-    ErrorAppend,
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Word(Vec<Word>),
     Redirection(RedirectionMode),

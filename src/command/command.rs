@@ -63,13 +63,17 @@ impl Command {
         if let Some(tokens) = self.get_tokens()
             && let Some(redirection) = &tokens.redirection
         {
-            let file = initialise_writer_file(redirection);
+            let file = initialise_writer_file(redirection.mode.clone(), &redirection.location);
             match redirection.mode {
-                RedirectionMode::Output | RedirectionMode::OutputAppend => {
+                RedirectionMode::Out | RedirectionMode::OutAppend => {
                     io_streams.output = OutputStream::File(file);
                 }
                 RedirectionMode::Error | RedirectionMode::ErrorAppend => {
                     io_streams.error = OutputStream::File(file);
+                }
+                RedirectionMode::Nothing => {
+                    io_streams.output = OutputStream::Stdout;
+                    io_streams.error = OutputStream::Stderr;
                 }
             }
         }
