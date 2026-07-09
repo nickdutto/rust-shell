@@ -19,23 +19,36 @@ impl Parser {
         let mut statements = vec![];
 
         while self.tokens.peek().is_some() {
-            let Some(mut statement) = self.parse_and_or() else {
-                continue;
+            if let Some(statement) = self.parse_sequential() {
+                statements.push(statement);
+            } else {
+                break;
             };
-
-            if let Some(Token::Background) = self.tokens.peek() {
-                self.tokens.next();
-                statement = Statement::Background(Box::new(statement));
-            }
-
-            if let Some(Token::Sequential) = self.tokens.peek() {
-                self.tokens.next();
-            }
-
-            statements.push(statement);
         }
 
         statements
+    }
+
+    fn parse_sequential(&mut self) -> Option<Statement> {
+        let mut left = self.parse_and_or()?;
+
+        if let Some(Token::Background) = self.tokens.peek() {
+            self.tokens.next();
+            left = Statement::Background(Box::new(left));
+        }
+
+        if let Some(Token::Sequential) = self.tokens.peek() {
+            self.tokens.next();
+
+            let right = self.parse_sequential()?;
+
+            return Some(Statement::Sequential {
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+        }
+
+        Some(left)
     }
 
     fn parse_and_or(&mut self) -> Option<Statement> {
@@ -139,8 +152,8 @@ mod tests {
         let tokens = lex("echo a | cat && echo b ; ls &");
         let mut parser = Parser::new(tokens);
         let statements = parser.parse_statements();
-        let expected = vec![
-            Statement::And {
+        let expected = vec![Statement::Sequential {
+            left: Box::new(Statement::And {
                 left: Box::new(Statement::Pipeline(vec![
                     CommandNode {
                         cmd: vec![Word::Literal("echo".to_string())],
@@ -167,16 +180,18 @@ mod tests {
                         path: vec![],
                     },
                 })),
-            },
-            Statement::Background(Box::new(Statement::Command(CommandNode {
-                cmd: vec![Word::Literal("ls".to_string())],
-                args: vec![],
-                redirection: Redirection {
-                    mode: RedirectionMode::Nothing,
-                    path: vec![],
+            }),
+            right: Box::new(Statement::Background(Box::new(Statement::Command(
+                CommandNode {
+                    cmd: vec![Word::Literal("ls".to_string())],
+                    args: vec![],
+                    redirection: Redirection {
+                        mode: RedirectionMode::Nothing,
+                        path: vec![],
+                    },
                 },
-            }))),
-        ];
+            )))),
+        }];
 
         assert_eq!(statements, expected)
     }
