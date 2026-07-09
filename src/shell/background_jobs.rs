@@ -11,7 +11,7 @@ pub enum BackgroundJobStatus {
 
 pub struct BackgroundJob {
     id: usize,
-    pid: u32,
+    pub pids: Vec<u32>,
     command: String,
     status: BackgroundJobStatus,
 }
@@ -31,10 +31,10 @@ impl Display for BackgroundJobStatus {
 }
 
 impl BackgroundJob {
-    pub fn new(id: usize, pid: u32, command: String, status: BackgroundJobStatus) -> Self {
+    pub fn new(id: usize, pids: Vec<u32>, command: String, status: BackgroundJobStatus) -> Self {
         Self {
             id,
-            pid,
+            pids,
             command,
             status,
         }
@@ -42,10 +42,6 @@ impl BackgroundJob {
 
     pub fn id(&self) -> usize {
         self.id
-    }
-
-    pub fn pid(&self) -> u32 {
-        self.pid
     }
 
     pub fn command(&self) -> &str {
@@ -147,7 +143,7 @@ impl BackgroundJobs {
         let mut table = Table::new();
         table.load_preset(UTF8_HORIZONTAL_ONLY).set_header(vec![
             Cell::new("id").add_attribute(Attribute::Bold),
-            Cell::new("pid").add_attribute(Attribute::Bold),
+            Cell::new("pids").add_attribute(Attribute::Bold),
             Cell::new("status").add_attribute(Attribute::Bold),
             Cell::new("command").add_attribute(Attribute::Bold),
         ]);
@@ -159,7 +155,13 @@ impl BackgroundJobs {
                     job.id(),
                     BackgroundJob::format_marker(idx, self.background_jobs.len())
                 )),
-                Cell::new(format!("{}", job.pid())),
+                Cell::new(
+                    job.pids
+                        .iter()
+                        .map(|pid| pid.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                ),
                 Cell::new(format!("{}", job.status())).fg(
                     if job.status() == BackgroundJobStatus::Running {
                         Color::Blue
