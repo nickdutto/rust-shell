@@ -2,7 +2,7 @@ use crate::parser::error::{ParserError, ParserErrorKind};
 use crate::parser::span::Span;
 use crate::parser::token_scanner::TokenScanner;
 use crate::shell::variables::Variables;
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Write};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum Word {
@@ -13,6 +13,33 @@ pub enum Word {
     Error(ParserError),
     #[default]
     Nothing,
+}
+
+impl Word {
+    pub fn to_original_string(&self) -> String {
+        match self {
+            Word::Literal(w) => w.to_string(),
+            Word::SingleQuoted(w) => format!("'{}'", w),
+            Word::DoubleQuoted(w) => format!("\"{}\"", w),
+            // TODO: doesn't account for whether the original variable was open or braced
+            Word::Variable(w) => format!("${}", w),
+            Word::Error(w) => w.raw_string.clone(),
+            Word::Nothing => String::new(),
+        }
+    }
+}
+
+impl Display for Word {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Word::Literal(w)
+            | Word::SingleQuoted(w)
+            | Word::DoubleQuoted(w)
+            | Word::Variable(w) => write!(f, "{}", w),
+            Word::Error(w) => write!(f, "{}", w.raw_string),
+            Word::Nothing => write!(f, ""),
+        }
+    }
 }
 
 pub fn scan_word(scanner: &mut TokenScanner, initial_char: Option<char>) -> Vec<Word> {
