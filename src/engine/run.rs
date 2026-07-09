@@ -1,7 +1,7 @@
 use crate::engine::command::run_command;
 use crate::io::stream::IoStreams;
 use crate::parser::lexer::lex;
-use crate::parser::{Parser, Statement};
+use crate::parser::statement::Statement;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;

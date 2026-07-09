@@ -1,24 +1,8 @@
-use crate::io::redirection::RedirectionMode;
 use crate::parser::command_node::CommandNode;
 use crate::parser::lexer::Token;
-use crate::parser::word::Word;
+use crate::parser::statement::Statement;
 use std::iter::Peekable;
 use std::vec::IntoIter;
-
-#[derive(Debug, PartialEq)]
-pub enum Statement {
-    Command(CommandNode),
-    Background(Box<Statement>),
-    And {
-        left: Box<Statement>,
-        right: Box<Statement>,
-    },
-    Pipeline(Vec<CommandNode>),
-    Sequence {
-        left: Box<Statement>,
-        right: Box<Statement>,
-    },
-}
 
 pub struct Parser {
     tokens: Peekable<IntoIter<Token>>,
@@ -128,7 +112,10 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::io::redirection::RedirectionMode;
+    use crate::parser::command_node::Redirection;
     use crate::parser::lexer::lex;
+    use crate::parser::word::Word;
 
     #[test]
     fn parse_statements_returns_single_command_node() {
