@@ -1,21 +1,9 @@
 use crate::io::redirection::RedirectionMode;
+use crate::parser::command_node::CommandNode;
 use crate::parser::lexer::Token;
 use crate::parser::word::Word;
 use std::iter::Peekable;
 use std::vec::IntoIter;
-
-#[derive(Debug, Default, PartialEq)]
-pub struct Redirection {
-    pub mode: RedirectionMode,
-    pub path: Vec<Word>,
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub struct CommandNode {
-    pub cmd: Vec<Word>,
-    pub args: Vec<Vec<Word>>,
-    pub redirection: Redirection,
-}
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
