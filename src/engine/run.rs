@@ -3,7 +3,7 @@ use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::parser::Parser;
 use crate::parser::lexer::lex;
 use crate::parser::statement::Statement;
-use crate::shell::background_jobs::{BackgroundJob, BackgroundJobStatus};
+use crate::shell::background_jobs::BackgroundJob;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
@@ -66,29 +66,12 @@ pub fn run_statement(
 
             let cmd_string = format!("{} &", inner_statement.to_statement_string());
 
-            let job_id = (1..)
-                .find(|&smallest| {
-                    !shell_state
-                        .read()
-                        .unwrap()
-                        .background_jobs
-                        .iter()
-                        .any(|job| job.id() == smallest)
-                })
-                .unwrap();
-
-            shell_state
+            let job_id = shell_state
                 .write()
                 .unwrap()
                 .background_jobs
-                .push(BackgroundJob::new(
-                    job_id,
-                    vec![],
-                    cmd_string,
-                    BackgroundJobStatus::Running,
-                ));
-
-            let _ = printer.print(format!("[{}] started", job_id));
+                .add_job(vec![], cmd_string);
+            let _ = printer.print(BackgroundJob::format_job_started(job_id));
 
             std::thread::spawn(move || {
                 run_statement(
@@ -99,20 +82,13 @@ pub fn run_statement(
                     &printer_clone,
                 );
 
-                let len = shell_state_clone.read().unwrap().background_jobs.len();
-
-                if let Some((idx, job)) = shell_state_clone
+                if let Some(output) = shell_state_clone
                     .write()
                     .unwrap()
                     .background_jobs
-                    .iter_mut()
-                    .enumerate()
-                    .find(|(_, job)| job.id() == job_id)
+                    .complete_job(job_id)
                 {
-                    job.set_status(BackgroundJobStatus::Done);
-                    job.strip_command_suffix();
-
-                    let _ = printer_clone.print(job.format_job_output(idx, len));
+                    let _ = printer_clone.print(output);
                 }
             });
 

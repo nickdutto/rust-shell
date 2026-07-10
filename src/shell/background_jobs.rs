@@ -1,5 +1,6 @@
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use comfy_table::{Attribute, Cell, Color, Table};
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::slice::{Iter, IterMut};
 
@@ -18,7 +19,7 @@ pub struct BackgroundJob {
 
 #[derive(Default)]
 pub struct BackgroundJobs {
-    background_jobs: Vec<BackgroundJob>,
+    jobs: Vec<BackgroundJob>,
 }
 
 impl Display for BackgroundJobStatus {
@@ -66,7 +67,11 @@ impl BackgroundJob {
         self.status = background_job_status;
     }
 
-    pub fn format_job_output(&self, idx: usize, len: usize) -> String {
+    pub fn format_job_started(id: usize) -> String {
+        format!("[{}] Started", id)
+    }
+
+    pub fn format_job_done(&self, idx: usize, len: usize) -> String {
         format!(
             "[{}]{}  {:<24} {}",
             self.id,
@@ -87,40 +92,71 @@ impl BackgroundJob {
 
 impl BackgroundJobs {
     pub fn new() -> Self {
-        Self {
-            background_jobs: vec![],
-        }
+        Self::default()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.background_jobs.is_empty()
+        self.jobs.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.background_jobs.len()
+        self.jobs.len()
     }
 
     pub fn push(&mut self, background_job: BackgroundJob) {
-        self.background_jobs.push(background_job);
+        self.jobs.push(background_job);
     }
 
     pub fn iter(&self) -> Iter<'_, BackgroundJob> {
-        self.background_jobs.iter()
+        self.jobs.iter()
     }
 
     pub fn iter_mut(&mut self) -> IterMut<'_, BackgroundJob> {
-        self.background_jobs.iter_mut()
+        self.jobs.iter_mut()
+    }
+
+    pub fn add_job(&mut self, pids: Vec<u32>, command: String) -> usize {
+        let smallest_id = self.smallest_available_id();
+
+        self.jobs.push(BackgroundJob::new(
+            smallest_id,
+            pids,
+            command,
+            BackgroundJobStatus::Running,
+        ));
+
+        smallest_id
+    }
+
+    pub fn complete_job(&mut self, job_id: usize) -> Option<String> {
+        let len = self.jobs.len();
+        let (idx, job) = self
+            .jobs
+            .iter_mut()
+            .enumerate()
+            .find(|(_, job)| job.id() == job_id)?;
+
+        job.set_status(BackgroundJobStatus::Done);
+        job.strip_command_suffix();
+
+        Some(job.format_job_done(idx, len))
+    }
+
+    pub fn smallest_available_id(&self) -> usize {
+        let existing_ids: HashSet<usize> = self.jobs.iter().map(|job| job.id()).collect();
+
+        (1..).find(|id| !existing_ids.contains(id)).unwrap_or(1)
     }
 
     pub fn remove_done_jobs(&mut self) {
-        self.background_jobs
+        self.jobs
             .retain(|job| job.status == BackgroundJobStatus::Running);
     }
 
     pub fn to_list_string(&self, filter: Option<BackgroundJobStatus>) -> String {
-        let len = self.background_jobs.len();
+        let len = self.jobs.len();
         let lines: Vec<String> = self
-            .background_jobs
+            .jobs
             .iter()
             .enumerate()
             .filter_map(|(idx, job)| {
@@ -129,10 +165,10 @@ impl BackgroundJobs {
                         return None;
                     }
 
-                    return Some(job.format_job_output(idx, len));
+                    return Some(job.format_job_done(idx, len));
                 };
 
-                Some(job.format_job_output(idx, len))
+                Some(job.format_job_done(idx, len))
             })
             .collect();
 
@@ -148,12 +184,12 @@ impl BackgroundJobs {
             Cell::new("command").add_attribute(Attribute::Bold),
         ]);
 
-        for (idx, job) in self.background_jobs.iter().enumerate() {
+        for (idx, job) in self.jobs.iter().enumerate() {
             table.add_row(vec![
                 Cell::new(format!(
                     "{}{}",
                     job.id(),
-                    BackgroundJob::format_marker(idx, self.background_jobs.len())
+                    BackgroundJob::format_marker(idx, self.jobs.len())
                 )),
                 Cell::new(
                     job.pids
