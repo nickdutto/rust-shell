@@ -4,12 +4,13 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::slice::{Iter, IterMut};
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackgroundJobStatus {
     Done,
     Running,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct BackgroundJob {
     id: usize,
     pub pids: Vec<u32>,
@@ -17,7 +18,7 @@ pub struct BackgroundJob {
     status: BackgroundJobStatus,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BackgroundJobs {
     jobs: Vec<BackgroundJob>,
 }
@@ -210,5 +211,167 @@ impl BackgroundJobs {
         }
 
         table
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Case<I, E> {
+        input: I,
+        expected: E,
+    }
+
+    #[test]
+    fn format_maker_returns_correct_for_position() {
+        let cases = vec![
+            Case {
+                input: 2,
+                expected: '+',
+            },
+            Case {
+                input: 1,
+                expected: '-',
+            },
+            Case {
+                input: 3,
+                expected: ' ',
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(BackgroundJob::format_marker(case.input, 3), case.expected);
+        }
+    }
+
+    #[test]
+    fn add_job_uses_smallest_id() {
+        let cases = vec![
+            Case {
+                input: vec![],
+                expected: vec![BackgroundJob {
+                    id: 1,
+                    pids: vec![],
+                    command: "echo".to_string(),
+                    status: BackgroundJobStatus::Running,
+                }],
+            },
+            Case {
+                input: vec![BackgroundJob {
+                    id: 1,
+                    pids: vec![],
+                    command: "a".to_string(),
+                    status: BackgroundJobStatus::Running,
+                }],
+                expected: vec![
+                    BackgroundJob {
+                        id: 1,
+                        pids: vec![],
+                        command: "a".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                    BackgroundJob {
+                        id: 2,
+                        pids: vec![],
+                        command: "echo".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                ],
+            },
+            Case {
+                input: vec![
+                    BackgroundJob {
+                        id: 1,
+                        pids: vec![],
+                        command: "a".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                    BackgroundJob {
+                        id: 3,
+                        pids: vec![],
+                        command: "b".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                ],
+                expected: vec![
+                    BackgroundJob {
+                        id: 1,
+                        pids: vec![],
+                        command: "a".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                    BackgroundJob {
+                        id: 3,
+                        pids: vec![],
+                        command: "b".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                    BackgroundJob {
+                        id: 2,
+                        pids: vec![],
+                        command: "echo".to_string(),
+                        status: BackgroundJobStatus::Running,
+                    },
+                ],
+            },
+        ];
+
+        for case in cases {
+            let mut background_jobs = BackgroundJobs::new();
+            for job in case.input {
+                background_jobs.push(job);
+            }
+
+            background_jobs.add_job(vec![], "echo".to_string());
+
+            assert_eq!(background_jobs.jobs, case.expected);
+        }
+    }
+
+    #[test]
+    fn remove_done_jobs() {
+        let mut background_jobs = BackgroundJobs {
+            jobs: vec![
+                BackgroundJob {
+                    id: 1,
+                    pids: vec![],
+                    command: "a".to_string(),
+                    status: BackgroundJobStatus::Running,
+                },
+                BackgroundJob {
+                    id: 2,
+                    pids: vec![],
+                    command: "b".to_string(),
+                    status: BackgroundJobStatus::Done,
+                },
+                BackgroundJob {
+                    id: 3,
+                    pids: vec![],
+                    command: "c".to_string(),
+                    status: BackgroundJobStatus::Running,
+                },
+            ],
+        };
+
+        background_jobs.remove_done_jobs();
+
+        assert_eq!(
+            background_jobs.jobs,
+            vec![
+                BackgroundJob {
+                    id: 1,
+                    pids: vec![],
+                    command: "a".to_string(),
+                    status: BackgroundJobStatus::Running,
+                },
+                BackgroundJob {
+                    id: 3,
+                    pids: vec![],
+                    command: "c".to_string(),
+                    status: BackgroundJobStatus::Running,
+                },
+            ]
+        )
     }
 }
