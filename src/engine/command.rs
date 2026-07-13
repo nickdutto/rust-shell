@@ -78,7 +78,7 @@ pub fn run_command(
             ProcessHandle::Immediate(code.as_i32())
         }
         "exit" => {
-            let code = handle_exit(shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
+            let code = handle_exit(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
             ProcessHandle::Immediate(code.as_i32())
         }
 
