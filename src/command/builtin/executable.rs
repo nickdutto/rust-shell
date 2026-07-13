@@ -23,11 +23,11 @@ pub fn handle_executable(
     match command.args(&args).spawn() {
         Ok(child) => Ok(child),
         Err(e) if e.kind() == ErrorKind::NotFound => {
-            writeln!(fallback_error, "{}: command not found", cmd).ok();
+            let _ = writeln!(fallback_error, "{}: command not found", cmd);
             Err(127)
         }
         Err(e) => {
-            writeln!(fallback_error, "{}: error executing command: {}", cmd, e).ok();
+            let _ = writeln!(fallback_error, "{}: error executing command: {}", cmd, e);
             Err(1)
         }
     }

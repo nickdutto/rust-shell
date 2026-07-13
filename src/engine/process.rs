@@ -1,3 +1,4 @@
+use crate::engine::exit::ExitCode;
 use std::process::Child;
 use std::thread::JoinHandle;
 
@@ -18,12 +19,14 @@ impl ProcessHandle {
         }
     }
 
-    pub fn run_producer(f: Box<dyn FnOnce() -> i32 + Send>, needs_thread: bool) -> ProcessHandle {
+    pub fn run_producer(
+        f: Box<dyn FnOnce() -> ExitCode + Send>,
+        needs_thread: bool,
+    ) -> ProcessHandle {
         if needs_thread {
-            ProcessHandle::Thread(std::thread::spawn(f))
+            ProcessHandle::Thread(std::thread::spawn(|| f().as_i32()))
         } else {
-            let code = f();
-            ProcessHandle::Immediate(code)
+            ProcessHandle::Immediate(f().as_i32())
         }
     }
 }

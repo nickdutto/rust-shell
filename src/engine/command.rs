@@ -9,6 +9,7 @@ use crate::command::builtin::jobs::handle_jobs;
 use crate::command::builtin::pwd::handle_pwd;
 use crate::command::builtin::theme::handle_theme;
 use crate::command::builtin::type_cmd::handle_type;
+use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
@@ -63,64 +64,52 @@ pub fn run_command(
 
     let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
 
-    // TODO: need to actually handle exit codes in builtins
     match cmd.as_str() {
         "cd" => {
-            handle_cd(args, shell_state, io_streams);
-            ProcessHandle::Immediate(0)
+            let code = handle_cd(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
+            ProcessHandle::Immediate(code.as_i32())
         }
         "complete" => {
-            handle_complete(args, shell_state, io_streams);
-            ProcessHandle::Immediate(0)
+            let code = handle_complete(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
+            ProcessHandle::Immediate(code.as_i32())
         }
         "declare" => {
-            handle_declare(args, shell_state, io_streams);
-            ProcessHandle::Immediate(0)
+            let code = handle_declare(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
+            ProcessHandle::Immediate(code.as_i32())
         }
         "exit" => {
-            handle_exit(shell_state, io_streams);
-            ProcessHandle::Immediate(0)
+            let code = handle_exit(shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
+            ProcessHandle::Immediate(code.as_i32())
         }
 
         "echo" => ProcessHandle::run_producer(
-            Box::new(move || {
-                handle_echo(args, io_streams);
-                0
-            }),
+            Box::new(move || handle_echo(args, io_streams).unwrap_or(ExitCode::FAILURE)),
             needs_thread,
         ),
         "history" => ProcessHandle::run_producer(
             Box::new(move || {
-                handle_history(args, shell_state, io_streams);
-                0
+                handle_history(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE)
             }),
             needs_thread,
         ),
         "jobs" => ProcessHandle::run_producer(
             Box::new(move || {
-                handle_jobs(args, shell_state, io_streams);
-                0
+                handle_jobs(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE)
             }),
             needs_thread,
         ),
         "pwd" => ProcessHandle::run_producer(
-            Box::new(move || {
-                handle_pwd(io_streams);
-                0
-            }),
+            Box::new(move || handle_pwd(io_streams).unwrap_or(ExitCode::FAILURE)),
             needs_thread,
         ),
         "theme" => ProcessHandle::run_producer(
-            Box::new(move || {
-                handle_theme(args, config, io_streams);
-                0
-            }),
+            Box::new(move || handle_theme(args, config, io_streams).unwrap_or(ExitCode::FAILURE)),
             needs_thread,
         ),
         "type" => ProcessHandle::run_producer(
             Box::new(move || {
-                handle_type(&cmd, io_streams);
-                0
+                handle_type(args.first().unwrap_or(&String::new()), io_streams)
+                    .unwrap_or(ExitCode::FAILURE)
             }),
             needs_thread,
         ),

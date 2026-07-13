@@ -1,3 +1,4 @@
+use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
 use crate::shell::shell_state::ShellState;
 use std::env;
@@ -10,9 +11,10 @@ pub fn handle_cd(
     args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
-) {
-    let target = args.first().map(|s| s.as_str().trim()).unwrap_or("~");
+) -> std::io::Result<ExitCode> {
+    let mut final_exit_code = ExitCode::SUCCESS;
 
+    let target = args.first().map(|s| s.as_str().trim()).unwrap_or("~");
     let result = match target {
         "~" => {
             if let Some(home) = env::var_os("HOME") {
@@ -25,8 +27,11 @@ pub fn handle_cd(
     };
 
     if let Err(e) = result {
-        writeln!(io_streams.error, "{}", e.trim()).unwrap();
+        writeln!(io_streams.error, "{}", e.trim())?;
+        final_exit_code = ExitCode::FAILURE;
     }
+
+    Ok(final_exit_code)
 }
 
 fn cd_set_dir(path: &Path, shell_state: Arc<RwLock<ShellState>>) -> Result<(), String> {
@@ -37,7 +42,7 @@ fn cd_set_dir(path: &Path, shell_state: Arc<RwLock<ShellState>>) -> Result<(), S
         }
         Err(e) if e.kind() == ErrorKind::NotFound => Err(format!(
             "cd: {}: No such file or directory",
-            path.to_str().unwrap()
+            path.to_str().unwrap_or_default()
         )),
         Err(e) => Err(format!("cd: {}: {}", path.display(), e)),
     }

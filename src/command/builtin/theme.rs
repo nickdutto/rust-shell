@@ -1,3 +1,4 @@
+use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
 use crate::shell::config::Config;
 use comfy_table::Table;
@@ -7,29 +8,31 @@ use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::sync::Arc;
 
-pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoStreams) {
+pub fn handle_theme(
+    args: Vec<String>,
+    config: Arc<Config>,
+    mut io_streams: IoStreams,
+) -> std::io::Result<ExitCode> {
     let mut buffer = String::with_capacity(8192);
 
     for arg in args.iter() {
         match arg.as_str() {
             "-fg" => {
                 let style = Style::new();
-                writeln!(
+                let _ = writeln!(
                     buffer,
                     "{}",
                     style.fg(Color::Fixed(39)).paint("Foreground (ANSI 256)")
-                )
-                .ok();
+                );
 
                 for color_idx in 0..256 {
-                    write!(
+                    let _ = write!(
                         buffer,
                         "{}",
                         style
                             .fg(Color::Fixed(color_idx as u8))
                             .paint(format!("{:^5}", color_idx))
-                    )
-                    .ok();
+                    );
 
                     if (color_idx + 1) % 16 == 0 {
                         buffer.push('\n');
@@ -38,23 +41,21 @@ pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoSt
             }
             "-bg" => {
                 let style = Style::new();
-                writeln!(
+                let _ = writeln!(
                     buffer,
                     "{}",
                     style.fg(Color::Fixed(39)).paint("Background (ANSI 256)")
-                )
-                .ok();
+                );
 
                 for color_idx in 0..256 {
-                    write!(
+                    let _ = write!(
                         buffer,
                         "{}",
                         style
                             .fg(get_contrast_foreground(color_idx as u8))
                             .on(Color::Fixed(color_idx as u8))
                             .paint(format!("{:^5}", color_idx))
-                    )
-                    .ok();
+                    );
 
                     if (color_idx + 1) % 16 == 0 {
                         buffer.push('\n');
@@ -73,8 +74,8 @@ pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoSt
                     .add_row(vec![style.strikethrough().paint("strikethrough")])
                     .add_row(vec![style.underline().paint("underline")]);
 
-                writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Text")).ok();
-                writeln!(buffer, "{table}").ok();
+                let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Text"));
+                let _ = writeln!(buffer, "{table}");
             }
             "-shape" => {
                 let style = Style::new();
@@ -120,8 +121,8 @@ pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoSt
                         shape_style.paint("\u{25a0}"),
                     ]);
 
-                writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Shapes")).ok();
-                writeln!(buffer, "{table}").ok();
+                let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Shapes"));
+                let _ = writeln!(buffer, "{table}");
             }
             "-config" => {
                 let style = Style::new();
@@ -197,8 +198,8 @@ pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoSt
                             .paint("2>>"),
                     ]);
 
-                writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Config")).ok();
-                writeln!(buffer, "{table}").ok();
+                let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Config"));
+                let _ = writeln!(buffer, "{table}");
             }
 
             _ => continue,
@@ -206,8 +207,10 @@ pub fn handle_theme(args: Vec<String>, config: Arc<Config>, mut io_streams: IoSt
     }
 
     if !buffer.is_empty() {
-        writeln!(io_streams.output, "{}", buffer.trim_end()).ok();
+        writeln!(io_streams.output, "{}", buffer.trim_end())?;
     }
+
+    Ok(ExitCode::SUCCESS)
 }
 
 fn get_contrast_foreground(bg_idx: u8) -> Color {

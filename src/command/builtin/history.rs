@@ -1,3 +1,4 @@
+use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
@@ -8,7 +9,9 @@ pub fn handle_history(
     args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
-) {
+) -> std::io::Result<ExitCode> {
+    let mut final_exit_code = ExitCode::SUCCESS;
+
     let history_len = shell_state.read().unwrap().history.entries.len();
     let mut limit: usize = history_len;
     let mut output_history = true;
@@ -30,7 +33,8 @@ pub fn handle_history(
                     };
 
                     if let Err(e) = result {
-                        writeln!(io_streams.error, "{}", e).unwrap();
+                        writeln!(io_streams.error, "{}", e)?;
+                        final_exit_code = ExitCode::FAILURE;
                     }
                 }
             }
@@ -55,6 +59,8 @@ pub fn handle_history(
             .map(|(idx, entry)| format!("{:>4}{}{:>2}{}\n", "", idx + 1, "", entry))
             .collect();
 
-        writeln!(io_streams.output, "{}", output.trim_end()).unwrap();
+        writeln!(io_streams.output, "{}", output.trim_end())?;
     }
+
+    Ok(final_exit_code)
 }

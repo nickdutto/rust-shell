@@ -1,3 +1,4 @@
+use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
@@ -7,7 +8,8 @@ pub fn handle_complete(
     args: Vec<String>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
-) {
+) -> std::io::Result<ExitCode> {
+    let mut final_exit_code = ExitCode::SUCCESS;
     let mut args_iter = args.iter();
 
     while let Some(arg) = args_iter.next() {
@@ -29,28 +31,32 @@ pub fn handle_complete(
                 }
             }
             "-p" => {
-                let Some(name_arg) = args_iter.next() else {
+                if let Some(name_arg) = args_iter.next() {
+                    match shell_state
+                        .read()
+                        .unwrap()
+                        .completions
+                        .get_key_value(name_arg)
+                    {
+                        Ok((name, path)) => {
+                            writeln!(io_streams.output, "complete -C '{}' {}", path, name)?;
+                        }
+                        Err(e) => {
+                            writeln!(io_streams.error, "{}", e)?;
+                            final_exit_code = ExitCode::FAILURE;
+                        }
+                    }
+                } else {
                     writeln!(
                         io_streams.error,
                         "complete: missing specification name for -p",
-                    )
-                    .unwrap();
-                    return;
-                };
-
-                match shell_state
-                    .read()
-                    .unwrap()
-                    .completions
-                    .get_key_value(name_arg)
-                {
-                    Ok((name, path)) => {
-                        writeln!(io_streams.output, "complete -C '{}' {}", path, name).unwrap()
-                    }
-                    Err(e) => writeln!(io_streams.error, "{}", e).unwrap(),
+                    )?;
+                    final_exit_code = ExitCode::SYNTAX_ERROR;
                 }
             }
             _ => (),
         }
     }
+
+    Ok(final_exit_code)
 }
