@@ -1,3 +1,5 @@
+use std::process::ExitStatus;
+
 pub struct ExitCode(pub i32);
 
 impl ExitCode {
@@ -8,5 +10,36 @@ impl ExitCode {
 
     pub fn as_i32(&self) -> i32 {
         self.0
+    }
+}
+
+impl From<i32> for ExitCode {
+    fn from(code: i32) -> Self {
+        Self(code)
+    }
+}
+
+impl From<ExitCode> for i32 {
+    fn from(code: ExitCode) -> Self {
+        code.0
+    }
+}
+
+impl From<ExitStatus> for ExitCode {
+    fn from(status: ExitStatus) -> Self {
+        match status.code() {
+            Some(code) => Self(code),
+            None => {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::ExitStatusExt;
+                    if let Some(signal) = status.signal() {
+                        return Self(128 + signal);
+                    }
+                }
+
+                Self::FAILURE
+            }
+        }
     }
 }
