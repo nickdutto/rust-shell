@@ -162,8 +162,8 @@ impl Prompt for ShellPrompt {
         match prompt_mode {
             PromptEditMode::Default | PromptEditMode::Emacs => Cow::Borrowed(" "),
             PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => Cow::Owned("〉".into()),
-                PromptViMode::Insert => Cow::Owned(": ".into()),
+                PromptViMode::Normal | PromptViMode::Visual => Cow::Borrowed(">"),
+                PromptViMode::Insert => Cow::Borrowed(": "),
             },
             _ => Cow::Borrowed(" "),
         }
