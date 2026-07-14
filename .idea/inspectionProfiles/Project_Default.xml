@@ -6,5 +6,53 @@
         <language minSize="72" name="Rust" />
       </Languages>
     </inspection_tool>
+    <inspection_tool class="Json5StandardCompliance" enabled="true" level="ERROR" enabled_by_default="false">
+      <scope name="All Changed Files" level="ERROR" enabled="true" />
+      <scope name="Open Files" level="ERROR" enabled="true" />
+      <scope name="Project Files" level="ERROR" enabled="false" />
+      <scope name="Scratches and Consoles" level="ERROR" enabled="true" />
+      <scope name="Tests" level="ERROR" enabled="true" />
+      <scope name="everything" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="JsonDuplicatePropertyKeys" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="All Changed Files" level="WARNING" enabled="true" />
+      <scope name="Open Files" level="WARNING" enabled="true" />
+      <scope name="Project Files" level="WARNING" enabled="false" />
+      <scope name="Scratches and Consoles" level="WARNING" enabled="true" />
+      <scope name="Tests" level="WARNING" enabled="true" />
+      <scope name="everything" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="JsonSchemaCompliance" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="All Changed Files" level="WARNING" enabled="true" />
+      <scope name="Open Files" level="WARNING" enabled="true" />
+      <scope name="Project Files" level="WARNING" enabled="false" />
+      <scope name="Scratches and Consoles" level="WARNING" enabled="true" />
+      <scope name="Tests" level="WARNING" enabled="true" />
+      <scope name="everything" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="JsonSchemaDeprecation" enabled="true" level="WEAK WARNING" enabled_by_default="false">
+      <scope name="All Changed Files" level="WEAK WARNING" enabled="true" />
+      <scope name="Open Files" level="WEAK WARNING" enabled="true" />
+      <scope name="Project Files" level="WEAK WARNING" enabled="false" />
+      <scope name="Scratches and Consoles" level="WEAK WARNING" enabled="true" />
+      <scope name="Tests" level="WEAK WARNING" enabled="true" />
+      <scope name="everything" level="WEAK WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="JsonSchemaRefReference" enabled="true" level="WARNING" enabled_by_default="false">
+      <scope name="All Changed Files" level="WARNING" enabled="true" />
+      <scope name="Open Files" level="WARNING" enabled="true" />
+      <scope name="Project Files" level="WARNING" enabled="false" />
+      <scope name="Scratches and Consoles" level="WARNING" enabled="true" />
+      <scope name="Tests" level="WARNING" enabled="true" />
+      <scope name="everything" level="WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="JsonStandardCompliance" enabled="true" level="ERROR" enabled_by_default="false">
+      <scope name="All Changed Files" level="ERROR" enabled="true" />
+      <scope name="Open Files" level="ERROR" enabled="true" />
+      <scope name="Project Files" level="ERROR" enabled="false" />
+      <scope name="Scratches and Consoles" level="ERROR" enabled="true" />
+      <scope name="Tests" level="ERROR" enabled="true" />
+      <scope name="everything" level="ERROR" enabled="true" />
+    </inspection_tool>
   </profile>
 </component>
