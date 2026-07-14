@@ -4,13 +4,14 @@ use crate::io::stream::IoStreams;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::VariableError;
+use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub struct Declare;
 
 impl Command for Declare {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "declare"
     }
 
@@ -40,21 +41,21 @@ impl Command for Declare {
                             .variables
                             .get_key_value(variable_key)
                         {
-                            writeln!(io_streams.output, "declare -- {}=\"{}\"", key, value)?;
+                            writeln!(io_streams.output, "declare -- {key}=\"{value}\"")?;
                         } else {
-                            writeln!(io_streams.error, "declare: {}: not found", variable_key)?;
+                            writeln!(io_streams.error, "declare: {variable_key}: not found")?;
                             final_exit_code = ExitCode::FAILURE;
                         }
                     }
                 }
                 "-l" => {
-                    let variables: String = shell_state
-                        .read()
-                        .unwrap()
-                        .variables
-                        .iter()
-                        .map(|(key, value)| format!("{}=\"{}\"\n", key, value))
-                        .collect();
+                    let variables = shell_state.read().unwrap().variables.iter().fold(
+                        String::new(),
+                        |mut buffer, (key, value)| {
+                            let _ = writeln!(buffer, "{key}=\"{value}\"");
+                            buffer
+                        },
+                    );
 
                     writeln!(io_streams.output, "{}", variables.trim_end())?;
                 }
@@ -68,8 +69,7 @@ impl Command for Declare {
                     {
                         writeln!(
                             io_streams.error,
-                            "declare: `{}={}': not a valid identifier",
-                            key, value,
+                            "declare: `{key}={value}': not a valid identifier"
                         )?;
                         final_exit_code = ExitCode::FAILURE;
                     }

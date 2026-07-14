@@ -11,9 +11,9 @@ use std::sync::{Arc, RwLock};
 
 pub fn run_line(
     line: &str,
-    config: Arc<Config>,
-    shell_state: Arc<RwLock<ShellState>>,
-    printer: ExternalPrinter<String>,
+    config: &Arc<Config>,
+    shell_state: &Arc<RwLock<ShellState>>,
+    printer: &ExternalPrinter<String>,
 ) {
     run_statements(
         Parser::new(lex(line)).parse_statements(),
@@ -25,17 +25,17 @@ pub fn run_line(
 
 pub fn run_statements(
     statements: Vec<Statement>,
-    config: Arc<Config>,
-    shell_state: Arc<RwLock<ShellState>>,
-    printer: ExternalPrinter<String>,
+    config: &Arc<Config>,
+    shell_state: &Arc<RwLock<ShellState>>,
+    printer: &ExternalPrinter<String>,
 ) {
     for statement in statements {
         run_statement(
             statement,
             None,
-            Arc::clone(&config),
-            Arc::clone(&shell_state),
-            &printer,
+            Arc::clone(config),
+            Arc::clone(shell_state),
+            printer,
         );
     }
 }
@@ -144,7 +144,7 @@ pub fn run_statement(
 
             let mut final_code = 0;
             for handle in handles {
-                final_code = handle.wait()
+                final_code = handle.wait();
             }
 
             final_code

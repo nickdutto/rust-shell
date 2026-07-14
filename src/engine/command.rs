@@ -45,17 +45,14 @@ pub enum CommandType {
 impl CommandData {
     pub fn into_exit_code(self) -> ExitCode {
         match self {
-            CommandData::Child(mut child) => child
-                .wait()
-                .map(ExitCode::from)
-                .unwrap_or(ExitCode::FAILURE),
+            CommandData::Child(mut child) => child.wait().map_or(ExitCode::FAILURE, ExitCode::from),
             CommandData::ExitCode(code) => code,
         }
     }
 }
 
 pub trait Command {
-    fn name(&self) -> &str;
+    fn name(&self) -> &'static str;
 
     fn command_type(&self) -> CommandType;
 
@@ -81,7 +78,7 @@ pub fn run_command(
         && !command_node.redirection.path.is_empty()
     {
         let file = initialise_writer_file(
-            command_node.redirection.mode.clone(),
+            &command_node.redirection.mode,
             &words_to_string(
                 command_node.redirection.path,
                 &shell_state.read().unwrap().variables,

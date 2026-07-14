@@ -22,7 +22,7 @@ impl Statement {
 
             Statement::Pipeline(statements) => statements
                 .iter()
-                .map(|command_node| command_node.to_command_string())
+                .map(CommandNode::to_command_string)
                 .collect::<Vec<_>>()
                 .join(" | "),
 

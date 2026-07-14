@@ -122,7 +122,7 @@ pub struct PromptSegment {
 
 impl Config {
     pub fn load(&mut self) -> Result<(), ConfigError> {
-        if let Some(path) = self.init_file()? {
+        if let Some(path) = Self::init_file()? {
             let config_content =
                 fs::read_to_string(&path).map_err(|e| ConfigError::ReadFile { error: Some(e) })?;
 
@@ -160,7 +160,7 @@ impl Config {
         Ok(())
     }
 
-    fn init_file(&mut self) -> Result<Option<OsString>, ConfigError> {
+    fn init_file() -> Result<Option<OsString>, ConfigError> {
         if let Some(path) = env::var_os(CONFIG_PATH_VAR) {
             if let Some(parent) = Path::new(&path).parent() {
                 fs::create_dir_all(parent)

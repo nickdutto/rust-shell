@@ -28,7 +28,6 @@ impl ShellPrompt {
     }
 
     fn get_prompt_mode_value<'a>(
-        &self,
         shell_state: &'a ShellState,
         segment: &'a PromptSegment,
     ) -> Cow<'a, str> {
@@ -68,7 +67,7 @@ impl ShellPrompt {
         side: PromptSide,
         is_edge: bool,
     ) {
-        let prompt_value = self.get_prompt_mode_value(shell_state, segment);
+        let prompt_value = Self::get_prompt_mode_value(shell_state, segment);
         let bg = Color::Fixed(segment.background);
         let fg = Color::Fixed(segment.foreground);
         let arrow_symbol = match side {
@@ -107,7 +106,7 @@ impl ShellPrompt {
             if let Some(icon) = Self::get_icon_slice(icon_unicode, &mut icon_buffer) {
                 write!(buffer, "{}{}", style.paint(icon), style.paint(" ")).ok();
             }
-        };
+        }
 
         write!(buffer, "{}", style.paint(&*prompt_value)).ok();
         write!(buffer, "{}", style.paint(" ")).ok();
@@ -165,7 +164,7 @@ impl Prompt for ShellPrompt {
                 PromptViMode::Normal | PromptViMode::Visual => Cow::Borrowed(">"),
                 PromptViMode::Insert => Cow::Borrowed(": "),
             },
-            _ => Cow::Borrowed(" "),
+            PromptEditMode::Custom(_) => Cow::Borrowed(" "),
         }
     }
 

@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 pub struct TypeCmd;
 
 impl Command for TypeCmd {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "type"
     }
 
@@ -29,7 +29,7 @@ impl Command for TypeCmd {
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, CommandError> {
-        let cmd_arg = args.first().map(String::as_str).unwrap_or("");
+        let cmd_arg = args.first().map_or("", String::as_str);
         if cmd_arg.is_empty() {
             writeln!(io_streams.error, "type: missing operand")?;
             return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
@@ -38,7 +38,7 @@ impl Command for TypeCmd {
         let mut buffer = String::new();
 
         if BUILTIN_COMMANDS.contains(&cmd_arg) {
-            let _ = write!(buffer, "{} is a shell builtin", cmd_arg);
+            let _ = write!(buffer, "{cmd_arg} is a shell builtin");
         } else {
             let Ok(paths) = get_env_paths("PATH") else {
                 writeln!(
@@ -52,7 +52,7 @@ impl Command for TypeCmd {
                 .into_iter()
                 .filter_map(|dir_path| dir_path.read_dir().ok())
                 .flatten()
-                .filter_map(|entry| entry.ok())
+                .filter_map(Result::ok)
                 .map(|entry| entry.path())
                 .filter_map(|path| {
                     if is_executable(&path) {
@@ -74,7 +74,7 @@ impl Command for TypeCmd {
             }
 
             if !found {
-                buffer = format!("{}: not found", cmd_arg);
+                buffer = format!("{cmd_arg}: not found");
             }
         }
 

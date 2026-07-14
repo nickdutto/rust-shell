@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 pub struct Exit;
 
 impl Command for Exit {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "exit"
     }
 
@@ -32,7 +32,7 @@ impl Command for Exit {
             .history
             .exit_save_history_file()
         {
-            writeln!(io_streams.error, "{}", e)?;
+            writeln!(io_streams.error, "{e}")?;
         }
 
         stdout().flush()?;

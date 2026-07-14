@@ -51,7 +51,7 @@ impl BackgroundJob {
     }
 
     pub fn set_command(&mut self, command: String) {
-        self.command = command
+        self.command = command;
     }
 
     pub fn strip_command_suffix(&mut self) {
@@ -69,7 +69,7 @@ impl BackgroundJob {
     }
 
     pub fn format_job_started(id: usize) -> String {
-        format!("[{}] Started", id)
+        format!("[{id}] Started")
     }
 
     pub fn format_job_done(&self, idx: usize, len: usize) -> String {
@@ -144,9 +144,11 @@ impl BackgroundJobs {
     }
 
     pub fn smallest_available_id(&self) -> usize {
-        let existing_ids: HashSet<usize> = self.jobs.iter().map(|job| job.id()).collect();
+        let existing_ids: HashSet<usize> = self.jobs.iter().map(BackgroundJob::id).collect();
 
-        (1..).find(|id| !existing_ids.contains(id)).unwrap_or(1)
+        (1..=self.jobs.len() + 1)
+            .find(|id| !existing_ids.contains(id))
+            .unwrap_or(1)
     }
 
     pub fn remove_done_jobs(&mut self) {
@@ -167,7 +169,7 @@ impl BackgroundJobs {
                     }
 
                     return Some(job.format_job_done(idx, len));
-                };
+                }
 
                 Some(job.format_job_done(idx, len))
             })
@@ -195,7 +197,7 @@ impl BackgroundJobs {
                 Cell::new(
                     job.pids
                         .iter()
-                        .map(|pid| pid.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<String>>()
                         .join(", "),
                 ),
@@ -211,6 +213,24 @@ impl BackgroundJobs {
         }
 
         table
+    }
+}
+
+impl<'a> IntoIterator for &'a mut BackgroundJobs {
+    type Item = &'a mut BackgroundJob;
+    type IntoIter = IterMut<'a, BackgroundJob>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+impl<'a> IntoIterator for &'a BackgroundJobs {
+    type Item = &'a BackgroundJob;
+    type IntoIter = Iter<'a, BackgroundJob>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -372,6 +392,6 @@ mod tests {
                     status: BackgroundJobStatus::Running,
                 },
             ]
-        )
+        );
     }
 }

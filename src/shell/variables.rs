@@ -74,3 +74,12 @@ impl Variables {
         }
     }
 }
+
+impl<'a> IntoIterator for &'a Variables {
+    type Item = (&'a String, &'a String);
+    type IntoIter = Iter<'a, String, String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}

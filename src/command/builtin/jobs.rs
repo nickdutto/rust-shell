@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 pub struct Jobs;
 
 impl Command for Jobs {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "jobs"
     }
 
@@ -28,10 +28,10 @@ impl Command for Jobs {
     ) -> Result<CommandData, CommandError> {
         let mut executed = false;
 
-        for arg in args.iter() {
+        for arg in &args {
             if arg.as_str() == "-t" {
                 let table = shell_state.read().unwrap().background_jobs.to_table();
-                writeln!(io_streams.output, "{}", table)?;
+                writeln!(io_streams.output, "{table}")?;
                 executed = true;
             }
         }

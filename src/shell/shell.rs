@@ -28,7 +28,7 @@ impl Shell {
     pub fn new() -> Self {
         let mut config = Config::default();
         match config.load() {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(e) => println!("{e}"),
         }
 
@@ -44,7 +44,7 @@ impl Shell {
         let printer = ExternalPrinter::default();
         let prompt = ShellPrompt::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
         let completer = Completer::new(Arc::clone(&self.shell_state), BUILTIN_COMMANDS);
-        let suggestions = Suggestions::new(Arc::clone(&self.config));
+        let suggestions = Suggestions::new(&self.config);
         let syntax_highlighter = SyntaxHighlighter::new(Arc::clone(&self.config), BUILTIN_COMMANDS);
 
         if self.config.menus.completions.enabled {
@@ -67,17 +67,17 @@ impl Shell {
             .with_highlighter(Box::new(syntax_highlighter))
             .with_hinter(Box::new(suggestions));
 
-        self.repl(&mut editor, printer, prompt);
+        self.repl(&mut editor, &printer, &prompt);
     }
 
     fn repl(
         &mut self,
         editor: &mut Reedline,
-        printer: ExternalPrinter<String>,
-        prompt: ShellPrompt,
+        printer: &ExternalPrinter<String>,
+        prompt: &ShellPrompt,
     ) {
         loop {
-            let sig = editor.read_line(&prompt);
+            let sig = editor.read_line(prompt);
             match sig {
                 Ok(Signal::Success(buffer)) => {
                     if buffer.trim().is_empty() {
@@ -86,12 +86,7 @@ impl Shell {
 
                     editor.history_mut().sync().unwrap();
 
-                    run_line(
-                        &buffer,
-                        Arc::clone(&self.config),
-                        Arc::clone(&self.shell_state),
-                        printer.clone(),
-                    );
+                    run_line(&buffer, &self.config, &self.shell_state, printer);
 
                     self.shell_state
                         .write()
@@ -99,12 +94,12 @@ impl Shell {
                         .background_jobs
                         .remove_done_jobs();
                 }
-                Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
+                Ok(Signal::CtrlD | Signal::CtrlC) => {
                     println!("\nAborted!");
                     break;
                 }
                 x => {
-                    println!("Event: {:?}", x);
+                    println!("Event: {x:?}");
                 }
             }
         }
@@ -132,7 +127,7 @@ impl Shell {
         keybindings.add_binding(
             key_modifier,
             key_code,
-            ReedlineEvent::Menu(menu_config.name.to_string()),
+            ReedlineEvent::Menu(menu_config.name.clone()),
         );
 
         Box::new(

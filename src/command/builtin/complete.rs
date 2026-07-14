@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 pub struct Complete;
 
 impl Command for Complete {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "complete"
     }
 
@@ -56,10 +56,10 @@ impl Command for Complete {
                             .get_key_value(name_arg)
                         {
                             Ok((name, path)) => {
-                                writeln!(io_streams.output, "complete -C '{}' {}", path, name)?;
+                                writeln!(io_streams.output, "complete -C '{path}' {name}")?;
                             }
                             Err(e) => {
-                                writeln!(io_streams.error, "{}", e)?;
+                                writeln!(io_streams.error, "{e}")?;
                                 final_exit_code = ExitCode::FAILURE;
                             }
                         }

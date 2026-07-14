@@ -18,11 +18,11 @@ pub enum Word {
 impl Word {
     pub fn to_original_string(&self) -> String {
         match self {
-            Word::Literal(w) => w.to_string(),
-            Word::SingleQuoted(w) => format!("'{}'", w),
-            Word::DoubleQuoted(w) => format!("\"{}\"", w),
+            Word::Literal(w) => w.clone(),
+            Word::SingleQuoted(w) => format!("'{w}'"),
+            Word::DoubleQuoted(w) => format!("\"{w}\""),
             // TODO: doesn't account for whether the original variable was open or braced
-            Word::Variable(w) => format!("${}", w),
+            Word::Variable(w) => format!("${w}"),
             Word::Error(w) => w.raw_string.clone(),
             Word::Nothing => String::new(),
         }
@@ -35,7 +35,7 @@ impl Display for Word {
             Word::Literal(w)
             | Word::SingleQuoted(w)
             | Word::DoubleQuoted(w)
-            | Word::Variable(w) => write!(f, "{}", w),
+            | Word::Variable(w) => write!(f, "{w}"),
             Word::Error(w) => write!(f, "{}", w.raw_string),
             Word::Nothing => write!(f, ""),
         }
@@ -175,20 +175,20 @@ fn scan_variable(scanner: &mut TokenScanner) -> Word {
             kind: ParserErrorKind::InvalidVariableName,
             span: Span::new(start_index, scanner.current_index()),
             raw_string: if scanner.next_if_matches('}') {
-                format!("${{{}}}", content)
+                format!("${{{content}}}")
             } else if has_start_brace {
-                format!("${{{}", content)
+                format!("${{{content}")
             } else {
-                format!("${}", content)
+                format!("${content}")
             },
         });
-    };
+    }
 
     if has_start_brace && !scanner.next_if_matches('}') {
         return Word::Error(ParserError {
             kind: ParserErrorKind::UnclosedVariableBrace,
             span: Span::new(start_index, scanner.current_index()),
-            raw_string: format!("${{{}", content),
+            raw_string: format!("${{{content}"),
         });
     }
 
@@ -223,19 +223,17 @@ pub fn words_to_string(words: Vec<Word>, variables: &Variables) -> String {
     for word in words {
         match word {
             Word::Literal(w) | Word::SingleQuoted(w) | Word::DoubleQuoted(w) => {
-                let _ = write!(word_buffer, "{}", w);
+                let _ = write!(word_buffer, "{w}");
             }
             Word::Variable(w) => {
                 if let Ok(Some(variable)) = variables.get(&w) {
-                    let _ = write!(word_buffer, "{}", variable);
+                    let _ = write!(word_buffer, "{variable}");
                 }
             }
             Word::Error(_) => {
                 todo!()
             }
-            Word::Nothing => {
-                continue;
-            }
+            Word::Nothing => {}
         }
     }
 
@@ -324,7 +322,7 @@ mod tests {
         assert_eq!(
             scan_single_quoted(&mut TokenScanner::new("'hello'w'orld'")),
             Word::SingleQuoted("hello".to_string())
-        )
+        );
     }
 
     #[test]
@@ -332,7 +330,7 @@ mod tests {
         assert_eq!(
             scan_double_quoted(&mut TokenScanner::new("\"hello\"w\"orld\"")),
             Word::DoubleQuoted("hello".to_string())
-        )
+        );
     }
 
     #[test]
@@ -342,7 +340,7 @@ mod tests {
                 "\"hello \\$ \\` \\\" \\\\ \\\n world\""
             )),
             Word::DoubleQuoted("hello $ ` \" \\  world".to_string())
-        )
+        );
     }
 
     #[test]
@@ -404,7 +402,7 @@ mod tests {
         ];
 
         for case in &mut cases {
-            assert_eq!(scan_variable(&mut case.input), case.expected)
+            assert_eq!(scan_variable(&mut case.input), case.expected);
         }
     }
 
@@ -470,7 +468,7 @@ mod tests {
         ];
 
         for case in &mut cases {
-            assert_eq!(scan_variable(&mut case.input), case.expected)
+            assert_eq!(scan_variable(&mut case.input), case.expected);
         }
     }
 
@@ -483,6 +481,6 @@ mod tests {
                 span: Span::new(0, 5),
                 raw_string: "${abc".to_string()
             })
-        )
+        );
     }
 }

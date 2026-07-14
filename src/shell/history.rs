@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Write as FmtWrite;
 use std::fs::OpenOptions;
 use std::io::{Error, Write};
 use std::path::Path;
@@ -34,7 +35,7 @@ impl History {
 
         match history.startup_history_file() {
             Ok(()) => {}
-            Err(e) => eprintln!("{}", e),
+            Err(e) => eprintln!("{e}"),
         }
 
         history
@@ -42,7 +43,7 @@ impl History {
 
     pub fn startup_history_file(&mut self) -> Result<(), HistoryError> {
         if let Some(history_file_path) = env::var_os("HISTFILE") {
-            self.read_history_file(history_file_path.to_str().unwrap())?
+            self.read_history_file(history_file_path.to_str().unwrap())?;
         }
 
         Ok(())
@@ -50,7 +51,7 @@ impl History {
 
     pub fn exit_save_history_file(&mut self) -> Result<(), HistoryError> {
         if let Some(history_file_path) = env::var_os("HISTFILE") {
-            self.save_history_file(history_file_path.to_str().unwrap(), WriteMode::Append)?
+            self.save_history_file(history_file_path.to_str().unwrap(), &WriteMode::Append)?;
         }
 
         Ok(())
@@ -74,12 +75,12 @@ impl History {
         }
     }
 
-    pub fn save_history_file(&mut self, path: &str, mode: WriteMode) -> Result<(), HistoryError> {
+    pub fn save_history_file(&mut self, path: &str, mode: &WriteMode) -> Result<(), HistoryError> {
         if let Some(parent) = Path::new(path).parent() {
             fs::create_dir_all(parent).ok();
         }
 
-        let skip = if mode == WriteMode::Append {
+        let skip = if *mode == WriteMode::Append {
             self.append_index
         } else {
             0
@@ -87,23 +88,25 @@ impl History {
 
         let result = OpenOptions::new()
             .create(true)
-            .write(mode == WriteMode::Write)
-            .append(mode == WriteMode::Append)
+            .write(*mode == WriteMode::Write)
+            .append(*mode == WriteMode::Append)
             .open(path)
             .and_then(|mut file| {
-                let output: String = self
-                    .entries
-                    .iter()
-                    .skip(skip)
-                    .map(|entry| format!("{}\n", entry))
-                    .collect();
+                let output =
+                    self.entries
+                        .iter()
+                        .skip(skip)
+                        .fold(String::new(), |mut buffer, entry| {
+                            let _ = writeln!(buffer, "{entry}");
+                            buffer
+                        });
 
                 file.write_all(output.as_bytes())
             });
 
         match result {
-            Ok(_) => {
-                if mode == WriteMode::Append {
+            Ok(()) => {
+                if *mode == WriteMode::Append {
                     self.append_index = self.entries.len();
                 }
                 Ok(())

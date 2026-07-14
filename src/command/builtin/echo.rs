@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 pub struct Echo;
 
 impl Command for Echo {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "echo"
     }
 

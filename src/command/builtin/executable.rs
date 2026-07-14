@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 pub struct Executable;
 
 impl Command for Executable {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "executable"
     }
 
@@ -54,11 +54,11 @@ impl Command for Executable {
                 Ok(CommandData::Child(child))
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
-                writeln!(fallback_error, "{}: command not found", cmd)?;
+                writeln!(fallback_error, "{cmd}: command not found")?;
                 Ok(CommandData::ExitCode(ExitCode::NOT_FOUND))
             }
             Err(e) => {
-                writeln!(fallback_error, "{}: error executing command: {}", cmd, e)?;
+                writeln!(fallback_error, "{cmd}: error executing command: {e}")?;
                 Ok(CommandData::ExitCode(ExitCode::FAILURE))
             }
         }

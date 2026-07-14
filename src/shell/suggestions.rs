@@ -15,7 +15,7 @@ pub struct Suggestions {
 }
 
 impl Suggestions {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: &Arc<Config>) -> Self {
         Self {
             current_suggestion: String::new(),
             cwd_aware: config.suggestions.cwd_aware,
@@ -28,14 +28,14 @@ impl Suggestions {
         if line.chars().take(self.min_chars + 1).count() >= self.min_chars {
             return match self.cwd_aware {
                 true => self.search_history_cwd(line, cwd, history),
-                false => self.search_history_global(line, history),
+                false => Self::search_history_global(line, history),
             };
         }
 
         String::new()
     }
 
-    fn search_history_global(&mut self, line: &str, history: &dyn History) -> String {
+    fn search_history_global(line: &str, history: &dyn History) -> String {
         history
             .search(SearchQuery::last_with_prefix(
                 line.to_string(),
@@ -80,11 +80,7 @@ impl Suggestions {
         };
 
         entry
-            .and_then(|ent| {
-                ent.command_line
-                    .get(line.len()..)
-                    .map(|slice| slice.to_string())
-            })
+            .and_then(|ent| ent.command_line.get(line.len()..).map(ToString::to_string))
             .unwrap_or_default()
     }
 }

@@ -25,8 +25,7 @@ impl ProcessHandle {
         needs_thread: bool,
     ) -> ProcessHandle {
         let fun = || {
-            f().map(CommandData::into_exit_code)
-                .unwrap_or(ExitCode::FAILURE)
+            f().map_or(ExitCode::FAILURE, CommandData::into_exit_code)
                 .as_i32()
         };
 

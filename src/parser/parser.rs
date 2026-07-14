@@ -23,7 +23,7 @@ impl Parser {
                 statements.push(statement);
             } else {
                 break;
-            };
+            }
         }
 
         statements
@@ -144,7 +144,7 @@ mod tests {
             },
         })];
 
-        assert_eq!(statements, expected)
+        assert_eq!(statements, expected);
     }
 
     #[test]
@@ -193,6 +193,6 @@ mod tests {
             )))),
         }];
 
-        assert_eq!(statements, expected)
+        assert_eq!(statements, expected);
     }
 }

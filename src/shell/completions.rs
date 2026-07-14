@@ -44,7 +44,7 @@ impl Completions {
     }
 
     pub fn insert(&mut self, key: String, value: String) -> Option<String> {
-        self.specifications.insert(key.clone(), value.clone())
+        self.specifications.insert(key, value)
     }
 
     pub fn remove(&mut self, key: &str) -> Option<String> {
@@ -84,7 +84,7 @@ impl Completions {
             if executable.starts_with(partial_input) {
                 suggestions.push(Suggestion {
                     value: format!("{executable} "),
-                    display_override: Some(executable.to_string()),
+                    display_override: Some(executable.clone()),
                     description: Some("Path executable".to_string()),
                     style: None,
                     extra: None,
@@ -107,7 +107,7 @@ impl Completions {
             None => partial_input,
         };
 
-        let start_pos = partial_input.rfind(' ').map(|idx| idx + 1).unwrap_or(0);
+        let start_pos = partial_input.rfind(' ').map_or(0, |idx| idx + 1);
         let span = Span::new(start_pos, pos);
 
         let path;
@@ -121,18 +121,18 @@ impl Completions {
         } else {
             path = String::new();
             partial_filename = last_partial_input.to_string();
-        };
+        }
 
         let dir_path = if !path.is_empty() {
             PathBuf::from(&path)
         } else {
-            env::current_dir().ok().unwrap().to_path_buf()
+            env::current_dir().unwrap_or(PathBuf::from("."))
         };
 
         let mut completion_paths: Vec<CompletionPath> = fs::read_dir(dir_path)
             .into_iter()
             .flatten()
-            .filter_map(|entry| entry.ok())
+            .filter_map(Result::ok)
             .filter_map(|entry| {
                 let file_name = entry.file_name().into_string().ok()?;
                 let file_type = entry.file_type().ok()?;
@@ -185,10 +185,10 @@ impl Completions {
 
         let command = words[0];
         let (current_word, preceding_word) = if partial_input.ends_with(' ') {
-            ("", words.last().cloned().unwrap_or(""))
+            ("", words.last().copied().unwrap_or(""))
         } else {
             (
-                words.last().cloned().unwrap_or(""),
+                words.last().copied().unwrap_or(""),
                 if words.len() >= 2 {
                     words[words.len() - 2]
                 } else {
@@ -201,8 +201,7 @@ impl Completions {
             let start_pos = if !partial_input.ends_with(' ') {
                 partial_input
                     .rfind(' ')
-                    .map(|last_space| last_space + 1)
-                    .unwrap_or(0)
+                    .map_or(0, |last_space| last_space + 1)
             } else {
                 pos
             };
@@ -236,5 +235,14 @@ impl Completions {
         }
 
         false
+    }
+}
+
+impl<'a> IntoIterator for &'a Completions {
+    type Item = (&'a String, &'a String);
+    type IntoIter = Iter<'a, String, String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

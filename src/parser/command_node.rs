@@ -21,9 +21,8 @@ impl CommandNode {
         let original_words = |words: &[Word]| -> String {
             words
                 .iter()
-                .map(|w| w.to_original_string())
-                .collect::<Vec<_>>()
-                .join("")
+                .map(Word::to_original_string)
+                .collect::<String>()
         };
 
         buffer.push_str(&original_words(&self.cmd));

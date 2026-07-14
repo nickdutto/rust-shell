@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 pub struct Cd;
 
 impl Command for Cd {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "cd"
     }
 
@@ -31,16 +31,16 @@ impl Command for Cd {
     ) -> Result<CommandData, CommandError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        let target = args.first().map(|s| s.as_str().trim()).unwrap_or("~");
+        let target = args.first().map_or("~", |s| s.as_str().trim());
         let result = match target {
             "~" => {
                 if let Some(home) = env::var_os("HOME") {
-                    cd_set_dir(Path::new(&home), shell_state)
+                    cd_set_dir(Path::new(&home), &shell_state)
                 } else {
                     Ok(())
                 }
             }
-            _ => cd_set_dir(Path::new(&target), shell_state),
+            _ => cd_set_dir(Path::new(&target), &shell_state),
         };
 
         if let Err(e) = result {
@@ -52,9 +52,9 @@ impl Command for Cd {
     }
 }
 
-fn cd_set_dir(path: &Path, shell_state: Arc<RwLock<ShellState>>) -> Result<(), String> {
+fn cd_set_dir(path: &Path, shell_state: &Arc<RwLock<ShellState>>) -> Result<(), String> {
     match env::set_current_dir(path) {
-        Ok(_) => {
+        Ok(()) => {
             shell_state.write().unwrap().current_directory = env::current_dir().unwrap_or_default();
             Ok(())
         }

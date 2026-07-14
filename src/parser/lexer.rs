@@ -56,7 +56,7 @@ pub fn lex(input: &str) -> Vec<Token> {
                         ('1', true) => tokens.push(Token::Redirection(RedirectionMode::OutAppend)),
                         ('2', false) => tokens.push(Token::Redirection(RedirectionMode::Error)),
                         ('2', true) => {
-                            tokens.push(Token::Redirection(RedirectionMode::ErrorAppend))
+                            tokens.push(Token::Redirection(RedirectionMode::ErrorAppend));
                         }
                         _ => unreachable!(),
                     }

@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 pub struct Pwd;
 
 impl Command for Pwd {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "pwd"
     }
 
@@ -34,7 +34,7 @@ impl Command for Pwd {
                 writeln!(io_streams.output, "{}", path.display().to_string().trim())?;
             }
             Err(e) => {
-                writeln!(io_streams.error, "{}", e)?;
+                writeln!(io_streams.error, "{e}")?;
                 final_exit_code = ExitCode::FAILURE;
             }
         }
