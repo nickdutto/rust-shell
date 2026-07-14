@@ -1,14 +1,14 @@
-use crate::command::builtin::cd::handle_cd;
-use crate::command::builtin::complete::handle_complete;
-use crate::command::builtin::declare::handle_declare;
-use crate::command::builtin::echo::handle_echo;
-use crate::command::builtin::executable::handle_executable;
-use crate::command::builtin::exit::handle_exit;
-use crate::command::builtin::history::handle_history;
-use crate::command::builtin::jobs::handle_jobs;
-use crate::command::builtin::pwd::handle_pwd;
-use crate::command::builtin::theme::handle_theme;
-use crate::command::builtin::type_cmd::handle_type;
+use crate::command::builtin::cd::Cd;
+use crate::command::builtin::complete::Complete;
+use crate::command::builtin::declare::Declare;
+use crate::command::builtin::echo::Echo;
+use crate::command::builtin::executable::Executable;
+use crate::command::builtin::exit::Exit;
+use crate::command::builtin::history::History;
+use crate::command::builtin::jobs::Jobs;
+use crate::command::builtin::pwd::Pwd;
+use crate::command::builtin::theme::Theme;
+use crate::command::builtin::type_cmd::TypeCmd;
 use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
@@ -17,11 +17,58 @@ use crate::parser::command_node::CommandNode;
 use crate::parser::word::words_to_string;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
+use std::io;
+use std::process::Child;
 use std::sync::{Arc, RwLock};
+use thiserror::Error;
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
     "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type",
 ];
+
+#[derive(Error, Debug)]
+pub enum CommandError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+pub enum CommandData {
+    Child(Child),
+    ExitCode(ExitCode),
+}
+
+pub enum CommandType {
+    Builtin,
+    External,
+}
+
+impl CommandData {
+    pub fn into_exit_code(self) -> ExitCode {
+        match self {
+            CommandData::Child(mut child) => child
+                .wait()
+                .map(ExitCode::from)
+                .unwrap_or(ExitCode::FAILURE),
+            CommandData::ExitCode(code) => code,
+        }
+    }
+}
+
+pub trait Command {
+    fn name(&self) -> &str;
+
+    fn command_type(&self) -> CommandType;
+
+    fn run(
+        &self,
+        cmd: &str,
+        args: Vec<String>,
+        job_id: Option<usize>,
+        config: Arc<Config>,
+        shell_state: Arc<RwLock<ShellState>>,
+        io_streams: IoStreams,
+    ) -> Result<CommandData, CommandError>;
+}
 
 pub fn run_command(
     command_node: CommandNode,
@@ -65,70 +112,58 @@ pub fn run_command(
     let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
 
     match cmd.as_str() {
-        "cd" => {
-            let code = handle_cd(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
-            ProcessHandle::Immediate(code.as_i32())
-        }
-        "complete" => {
-            let code = handle_complete(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
-            ProcessHandle::Immediate(code.as_i32())
-        }
-        "declare" => {
-            let code = handle_declare(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
-            ProcessHandle::Immediate(code.as_i32())
-        }
-        "exit" => {
-            let code = handle_exit(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE);
-            ProcessHandle::Immediate(code.as_i32())
-        }
-
+        "cd" => ProcessHandle::run_producer(
+            Box::new(move || Cd.run(&cmd, args, None, config, shell_state, io_streams)),
+            needs_thread,
+        ),
+        "complete" => ProcessHandle::run_producer(
+            Box::new(move || Complete.run(&cmd, args, None, config, shell_state, io_streams)),
+            needs_thread,
+        ),
+        "declare" => ProcessHandle::run_producer(
+            Box::new(move || Declare.run(&cmd, args, None, config, shell_state, io_streams)),
+            needs_thread,
+        ),
+        "exit" => ProcessHandle::run_producer(
+            Box::new(move || Exit.run(&cmd, args, None, config, shell_state, io_streams)),
+            needs_thread,
+        ),
         "echo" => ProcessHandle::run_producer(
-            Box::new(move || handle_echo(args, io_streams).unwrap_or(ExitCode::FAILURE)),
+            Box::new(move || Echo.run(&cmd, args, None, config, shell_state, io_streams)),
             needs_thread,
         ),
         "history" => ProcessHandle::run_producer(
-            Box::new(move || {
-                handle_history(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE)
-            }),
+            Box::new(move || History.run(&cmd, args, None, config, shell_state, io_streams)),
             needs_thread,
         ),
         "jobs" => ProcessHandle::run_producer(
-            Box::new(move || {
-                handle_jobs(args, shell_state, io_streams).unwrap_or(ExitCode::FAILURE)
-            }),
+            Box::new(move || Jobs.run(&cmd, args, None, config, shell_state, io_streams)),
             needs_thread,
         ),
         "pwd" => ProcessHandle::run_producer(
-            Box::new(move || handle_pwd(io_streams).unwrap_or(ExitCode::FAILURE)),
+            Box::new(move || Pwd.run(&cmd, args, None, config, shell_state, io_streams)),
             needs_thread,
         ),
         "theme" => ProcessHandle::run_producer(
-            Box::new(move || handle_theme(args, config, io_streams).unwrap_or(ExitCode::FAILURE)),
+            Box::new(move || Theme.run(&cmd, args, None, config, shell_state, io_streams)),
             needs_thread,
         ),
         "type" => ProcessHandle::run_producer(
+            Box::new(move || TypeCmd.run(&cmd, args, None, config, shell_state, io_streams)),
+            needs_thread,
+        ),
+        _cmd => ProcessHandle::run_producer(
             Box::new(move || {
-                handle_type(args.first().unwrap_or(&String::new()), io_streams)
-                    .unwrap_or(ExitCode::FAILURE)
+                Executable.run(
+                    &cmd,
+                    args,
+                    current_job_id,
+                    config,
+                    Arc::clone(&shell_state),
+                    io_streams,
+                )
             }),
             needs_thread,
         ),
-        _cmd => match handle_executable(&cmd, args, io_streams) {
-            Ok(child) => {
-                if let Some(job_id) = current_job_id
-                    && let Some(job) = shell_state
-                    .write()
-                    .unwrap()
-                    .background_jobs
-                    .iter_mut()
-                    .find(|job| job.id() == job_id)
-                {
-                    job.pids.push(child.id());
-                }
-
-                ProcessHandle::External(child)
-            }
-            Err(exit_code) => ProcessHandle::Immediate(exit_code),
-        },
     }
 }

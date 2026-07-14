@@ -1,3 +1,4 @@
+use crate::engine::command::{CommandData, CommandError};
 use crate::engine::exit::ExitCode;
 use std::process::Child;
 use std::thread::JoinHandle;
@@ -20,13 +21,19 @@ impl ProcessHandle {
     }
 
     pub fn run_producer(
-        f: Box<dyn FnOnce() -> ExitCode + Send>,
+        f: Box<dyn FnOnce() -> Result<CommandData, CommandError> + Send>,
         needs_thread: bool,
     ) -> ProcessHandle {
+        let fun = || {
+            f().map(CommandData::into_exit_code)
+                .unwrap_or(ExitCode::FAILURE)
+                .as_i32()
+        };
+
         if needs_thread {
-            ProcessHandle::Thread(std::thread::spawn(|| f().as_i32()))
+            ProcessHandle::Thread(std::thread::spawn(fun))
         } else {
-            ProcessHandle::Immediate(f().as_i32())
+            ProcessHandle::Immediate(fun())
         }
     }
 }

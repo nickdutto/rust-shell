@@ -1,41 +1,59 @@
+use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub fn handle_jobs(
-    args: Vec<String>,
-    shell_state: Arc<RwLock<ShellState>>,
-    mut io_streams: IoStreams,
-) -> std::io::Result<ExitCode> {
-    let mut executed = false;
+pub struct Jobs;
 
-    for arg in args.iter() {
-        if arg.as_str() == "-t" {
-            let table = shell_state.read().unwrap().background_jobs.to_table();
-            writeln!(io_streams.output, "{}", table)?;
-            executed = true;
-        }
+impl Command for Jobs {
+    fn name(&self) -> &str {
+        "jobs"
     }
 
-    if !executed {
-        let jobs_list = shell_state
-            .read()
+    fn command_type(&self) -> CommandType {
+        CommandType::Builtin
+    }
+
+    fn run(
+        &self,
+        _cmd: &str,
+        args: Vec<String>,
+        _job_id: Option<usize>,
+        _config: Arc<Config>,
+        shell_state: Arc<RwLock<ShellState>>,
+        mut io_streams: IoStreams,
+    ) -> Result<CommandData, CommandError> {
+        let mut executed = false;
+
+        for arg in args.iter() {
+            if arg.as_str() == "-t" {
+                let table = shell_state.read().unwrap().background_jobs.to_table();
+                writeln!(io_streams.output, "{}", table)?;
+                executed = true;
+            }
+        }
+
+        if !executed {
+            let jobs_list = shell_state
+                .read()
+                .unwrap()
+                .background_jobs
+                .to_list_string(None);
+
+            if !jobs_list.is_empty() {
+                writeln!(io_streams.output, "{jobs_list}")?;
+            }
+        }
+
+        shell_state
+            .write()
             .unwrap()
             .background_jobs
-            .to_list_string(None);
+            .remove_done_jobs();
 
-        if !jobs_list.is_empty() {
-            writeln!(io_streams.output, "{jobs_list}")?;
-        }
+        Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }
-
-    shell_state
-        .write()
-        .unwrap()
-        .background_jobs
-        .remove_done_jobs();
-
-    Ok(ExitCode::SUCCESS)
 }
