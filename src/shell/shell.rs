@@ -1,6 +1,6 @@
-﻿use crate::engine::command::BUILTIN_COMMANDS;
+﻿use crate::engine::Engine;
+use crate::engine::command::BUILTIN_COMMANDS;
 use crate::engine::router::CommandRouter;
-use crate::engine::run::run_line;
 use crate::shell::completer::Completer;
 use crate::shell::config::{Config, Menu as MenuConfig};
 use crate::shell::highlighter::SyntaxHighlighter;
@@ -73,15 +73,17 @@ impl Shell {
             .with_highlighter(Box::new(syntax_highlighter))
             .with_hinter(Box::new(suggestions));
 
-        self.repl(&mut editor, &printer, &prompt);
+        let engine = Engine::new(
+            Arc::clone(&self.config),
+            Arc::clone(&self.command_router),
+            Arc::clone(&self.shell_state),
+            printer,
+        );
+
+        self.repl(&mut editor, &engine, &prompt);
     }
 
-    fn repl(
-        &mut self,
-        editor: &mut Reedline,
-        printer: &ExternalPrinter<String>,
-        prompt: &ShellPrompt,
-    ) {
+    fn repl(&mut self, editor: &mut Reedline, engine: &Engine, prompt: &ShellPrompt) {
         loop {
             let sig = editor.read_line(prompt);
             match sig {
@@ -92,13 +94,7 @@ impl Shell {
 
                     editor.history_mut().sync().unwrap();
 
-                    run_line(
-                        &buffer,
-                        &self.config,
-                        &self.command_router,
-                        &self.shell_state,
-                        printer,
-                    );
+                    engine.run_line(&buffer);
 
                     self.shell_state
                         .write()
