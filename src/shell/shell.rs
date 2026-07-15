@@ -1,4 +1,5 @@
 ﻿use crate::engine::command::BUILTIN_COMMANDS;
+use crate::engine::router::CommandRouter;
 use crate::engine::run::run_line;
 use crate::shell::completer::Completer;
 use crate::shell::config::{Config, Menu as MenuConfig};
@@ -15,6 +16,7 @@ use std::sync::{Arc, RwLock};
 
 pub struct Shell {
     config: Arc<Config>,
+    command_router: Arc<CommandRouter>,
     shell_state: Arc<RwLock<ShellState>>,
 }
 
@@ -29,11 +31,15 @@ impl Shell {
         let mut config = Config::default();
         match config.load() {
             Ok(()) => {}
-            Err(e) => println!("{e}"),
+            Err(e) => eprintln!("{e}"),
         }
+
+        let mut command_router = CommandRouter::new();
+        command_router.register_builtins();
 
         Self {
             config: Arc::new(config),
+            command_router: Arc::new(command_router),
             shell_state: Arc::new(RwLock::new(ShellState::new())),
         }
     }
@@ -86,7 +92,13 @@ impl Shell {
 
                     editor.history_mut().sync().unwrap();
 
-                    run_line(&buffer, &self.config, &self.shell_state, printer);
+                    run_line(
+                        &buffer,
+                        &self.config,
+                        &self.command_router,
+                        &self.shell_state,
+                        printer,
+                    );
 
                     self.shell_state
                         .write()

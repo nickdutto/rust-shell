@@ -1,4 +1,5 @@
 use crate::engine::command::run_command;
+use crate::engine::router::CommandRouter;
 use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::parser::Parser;
 use crate::parser::lexer::lex;
@@ -12,12 +13,14 @@ use std::sync::{Arc, RwLock};
 pub fn run_line(
     line: &str,
     config: &Arc<Config>,
+    command_router: &Arc<CommandRouter>,
     shell_state: &Arc<RwLock<ShellState>>,
     printer: &ExternalPrinter<String>,
 ) {
     run_statements(
         Parser::new(lex(line)).parse_statements(),
         config,
+        command_router,
         shell_state,
         printer,
     );
@@ -26,6 +29,7 @@ pub fn run_line(
 pub fn run_statements(
     statements: Vec<Statement>,
     config: &Arc<Config>,
+    command_router: &Arc<CommandRouter>,
     shell_state: &Arc<RwLock<ShellState>>,
     printer: &ExternalPrinter<String>,
 ) {
@@ -34,6 +38,7 @@ pub fn run_statements(
             statement,
             None,
             Arc::clone(config),
+            Arc::clone(command_router),
             Arc::clone(shell_state),
             printer,
         );
@@ -44,6 +49,7 @@ pub fn run_statement(
     statement: Statement,
     current_job_id: Option<usize>,
     config: Arc<Config>,
+    command_router: Arc<CommandRouter>,
     shell_state: Arc<RwLock<ShellState>>,
     printer: &ExternalPrinter<String>,
 ) -> i32 {
@@ -53,6 +59,7 @@ pub fn run_statement(
                 command_node,
                 current_job_id,
                 config,
+                &command_router,
                 shell_state,
                 IoStreams::new(),
             );
@@ -78,6 +85,7 @@ pub fn run_statement(
                     *inner_statement,
                     Some(job_id),
                     config,
+                    command_router,
                     shell_state,
                     &printer_clone,
                 );
@@ -100,12 +108,20 @@ pub fn run_statement(
                 *left,
                 current_job_id,
                 Arc::clone(&config),
+                Arc::clone(&command_router),
                 Arc::clone(&shell_state),
                 printer,
             );
 
             if left_code == 0 {
-                run_statement(*right, current_job_id, config, shell_state, printer)
+                run_statement(
+                    *right,
+                    current_job_id,
+                    config,
+                    command_router,
+                    shell_state,
+                    printer,
+                )
             } else {
                 left_code
             }
@@ -134,6 +150,7 @@ pub fn run_statement(
                     command_node,
                     current_job_id,
                     Arc::clone(&config),
+                    &command_router,
                     Arc::clone(&shell_state),
                     streams,
                 );
@@ -155,11 +172,19 @@ pub fn run_statement(
                 *left,
                 current_job_id,
                 Arc::clone(&config),
+                Arc::clone(&command_router),
                 Arc::clone(&shell_state),
                 printer,
             );
 
-            run_statement(*right, current_job_id, config, shell_state, printer)
+            run_statement(
+                *right,
+                current_job_id,
+                config,
+                command_router,
+                shell_state,
+                printer,
+            )
         }
     }
 }

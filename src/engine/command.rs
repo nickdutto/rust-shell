@@ -1,19 +1,9 @@
-use crate::command::builtin::cd::Cd;
-use crate::command::builtin::complete::Complete;
-use crate::command::builtin::declare::Declare;
-use crate::command::builtin::echo::Echo;
-use crate::command::builtin::executable::Executable;
-use crate::command::builtin::exit::Exit;
-use crate::command::builtin::history::History;
-use crate::command::builtin::jobs::Jobs;
-use crate::command::builtin::pwd::Pwd;
-use crate::command::builtin::theme::Theme;
-use crate::command::builtin::type_cmd::TypeCmd;
 use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
+use crate::engine::router::CommandRouter;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::parser::command_node::CommandNode;
+use crate::parser::command_node::{CommandNode, Redirection};
 use crate::parser::word::words_to_string;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
@@ -71,21 +61,43 @@ pub fn run_command(
     command_node: CommandNode,
     current_job_id: Option<usize>,
     config: Arc<Config>,
+    command_router: &Arc<CommandRouter>,
     shell_state: Arc<RwLock<ShellState>>,
     mut io_streams: IoStreams,
 ) -> ProcessHandle {
-    if command_node.redirection.mode != RedirectionMode::Nothing
-        && !command_node.redirection.path.is_empty()
-    {
+    init_redirection_io_streams(command_node.redirection, &shell_state, &mut io_streams);
+
+    let command_name = words_to_string(command_node.cmd, &shell_state.read().unwrap().variables);
+    let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
+
+    let mut args = vec![];
+    for arg in command_node.args {
+        args.push(words_to_string(arg, &shell_state.read().unwrap().variables));
+    }
+
+    command_router.dispatch(
+        command_name,
+        args,
+        needs_thread,
+        current_job_id,
+        config,
+        shell_state,
+        io_streams,
+    )
+}
+
+pub fn init_redirection_io_streams(
+    redirection: Redirection,
+    shell_state: &Arc<RwLock<ShellState>>,
+    io_streams: &mut IoStreams,
+) {
+    if redirection.mode != RedirectionMode::Nothing && !redirection.path.is_empty() {
         let file = initialise_writer_file(
-            &command_node.redirection.mode,
-            &words_to_string(
-                command_node.redirection.path,
-                &shell_state.read().unwrap().variables,
-            ),
+            &redirection.mode,
+            &words_to_string(redirection.path, &shell_state.read().unwrap().variables),
         );
 
-        match command_node.redirection.mode {
+        match redirection.mode {
             RedirectionMode::Out | RedirectionMode::OutAppend => {
                 io_streams.output = OutputStream::File(file);
             }
@@ -97,70 +109,5 @@ pub fn run_command(
                 io_streams.error = OutputStream::Stderr;
             }
         }
-    }
-
-    let cmd = words_to_string(command_node.cmd, &shell_state.read().unwrap().variables);
-
-    let mut args = vec![];
-    for arg in command_node.args {
-        args.push(words_to_string(arg, &shell_state.read().unwrap().variables));
-    }
-
-    let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
-
-    match cmd.as_str() {
-        "cd" => ProcessHandle::run_producer(
-            Box::new(move || Cd.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "complete" => ProcessHandle::run_producer(
-            Box::new(move || Complete.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "declare" => ProcessHandle::run_producer(
-            Box::new(move || Declare.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "exit" => ProcessHandle::run_producer(
-            Box::new(move || Exit.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "echo" => ProcessHandle::run_producer(
-            Box::new(move || Echo.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "history" => ProcessHandle::run_producer(
-            Box::new(move || History.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "jobs" => ProcessHandle::run_producer(
-            Box::new(move || Jobs.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "pwd" => ProcessHandle::run_producer(
-            Box::new(move || Pwd.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "theme" => ProcessHandle::run_producer(
-            Box::new(move || Theme.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        "type" => ProcessHandle::run_producer(
-            Box::new(move || TypeCmd.run(&cmd, args, None, config, shell_state, io_streams)),
-            needs_thread,
-        ),
-        _cmd => ProcessHandle::run_producer(
-            Box::new(move || {
-                Executable.run(
-                    &cmd,
-                    args,
-                    current_job_id,
-                    config,
-                    Arc::clone(&shell_state),
-                    io_streams,
-                )
-            }),
-            needs_thread,
-        ),
     }
 }
