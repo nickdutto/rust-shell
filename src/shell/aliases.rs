@@ -1,6 +1,5 @@
 use comfy_table::presets::NOTHING;
 use comfy_table::{Attribute, Cell, Table};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Iter;
 use std::fmt::Write;
