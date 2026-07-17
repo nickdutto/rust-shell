@@ -37,10 +37,15 @@ impl Shell {
         let mut command_router = CommandRouter::new();
         command_router.register_builtins();
 
+        let mut shell_state = ShellState::new();
+        if !config.aliases.is_empty() {
+            shell_state.aliases.set(std::mem::take(&mut config.aliases));
+        }
+
         Self {
             config: Arc::new(config),
             command_router: Arc::new(command_router),
-            shell_state: Arc::new(RwLock::new(ShellState::new())),
+            shell_state: Arc::new(RwLock::new(shell_state)),
         }
     }
 

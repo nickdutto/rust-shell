@@ -1,3 +1,4 @@
+pub mod aliases;
 pub mod background_jobs;
 pub mod completer;
 pub mod completions;

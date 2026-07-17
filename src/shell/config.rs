@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
 use std::io::{Error as IoError, ErrorKind, Write};
@@ -34,6 +35,7 @@ pub enum ConfigError {
 pub struct Config {
     pub theme: Theme,
     pub suggestions: Suggestions,
+    pub aliases: HashMap<String, String>,
     pub menus: Menus,
     pub prompt: Prompt,
 }

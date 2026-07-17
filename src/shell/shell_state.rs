@@ -1,3 +1,4 @@
+use crate::shell::aliases::Aliases;
 use crate::shell::background_jobs::BackgroundJobs;
 use crate::shell::completions::Completions;
 use crate::shell::history::History;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct ShellState {
+    pub aliases: Aliases,
     pub background_jobs: BackgroundJobs,
     pub completions: Completions,
     pub history: History,
@@ -19,6 +21,7 @@ pub struct ShellState {
 impl ShellState {
     pub fn new() -> Self {
         Self {
+            aliases: Aliases::new(),
             background_jobs: BackgroundJobs::new(),
             completions: Completions::new(),
             history: History::new(),
