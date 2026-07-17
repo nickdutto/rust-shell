@@ -36,6 +36,7 @@ pub struct Config {
     pub theme: Theme,
     pub suggestions: Suggestions,
     pub aliases: HashMap<String, String>,
+    pub variables: HashMap<String, String>,
     pub menus: Menus,
     pub prompt: Prompt,
 }

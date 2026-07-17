@@ -38,8 +38,15 @@ impl Shell {
         command_router.register_builtins();
 
         let mut shell_state = ShellState::new();
+
         if !config.aliases.is_empty() {
             shell_state.aliases.set(std::mem::take(&mut config.aliases));
+        }
+
+        if !config.variables.is_empty() {
+            shell_state
+                .variables
+                .set(std::mem::take(&mut config.variables));
         }
 
         Self {

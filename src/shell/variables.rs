@@ -20,6 +20,13 @@ impl Variables {
         }
     }
 
+    pub fn set(&mut self, replacement: HashMap<String, String>) {
+        self.variables = replacement
+            .into_iter()
+            .filter(|(key, _)| Self::validate_key(key))
+            .collect();
+    }
+
     pub fn get(&self, key: &str) -> Result<Option<&String>, VariableError> {
         if Variables::validate_key(key) {
             Ok(self.variables.get(key))
