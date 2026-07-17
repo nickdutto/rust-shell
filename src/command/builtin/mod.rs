@@ -1,3 +1,4 @@
+pub mod alias;
 pub mod cd;
 pub mod complete;
 pub mod declare;

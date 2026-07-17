@@ -7,7 +7,7 @@ use crate::parser::Parser;
 use crate::parser::command_node::{CommandNode, Redirection};
 use crate::parser::lexer::lex;
 use crate::parser::statement::Statement;
-use crate::parser::word::words_to_string;
+use crate::parser::word::{Word, words_to_string};
 use crate::shell::background_jobs::BackgroundJob;
 use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
@@ -194,22 +194,12 @@ impl Engine {
     ) -> ProcessHandle {
         self.init_redirection_io_streams(command_node.redirection, &mut io_streams);
 
-        let command_name = words_to_string(
-            command_node.cmd,
-            &self.shell_state.read().unwrap().variables,
-        );
         let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
 
-        let mut args = vec![];
-        for arg in command_node.args {
-            args.push(words_to_string(
-                arg,
-                &self.shell_state.read().unwrap().variables,
-            ));
-        }
+        let (cmd_name, args) = self.expand_command_node_values(command_node.cmd, command_node.args);
 
         self.command_router.dispatch(
-            command_name,
+            cmd_name,
             args,
             needs_thread,
             current_job_id,
@@ -242,5 +232,35 @@ impl Engine {
                 }
             }
         }
+    }
+
+    fn expand_command_node_values(
+        &self,
+        node_cmd: Vec<Word>,
+        node_args: Vec<Vec<Word>>,
+    ) -> (String, Vec<String>) {
+        let mut cmd_name = words_to_string(node_cmd, &self.shell_state.read().unwrap().variables);
+        let mut args = vec![];
+
+        if let Some(aliased_value) = self.shell_state.read().unwrap().aliases.get(&cmd_name) {
+            let mut aliased_args = aliased_value
+                .split_whitespace()
+                .map(String::from)
+                .collect::<Vec<String>>();
+
+            if !aliased_args.is_empty() {
+                cmd_name = aliased_args.remove(0);
+                args.extend(aliased_args);
+            }
+        }
+
+        for arg in node_args {
+            args.push(words_to_string(
+                arg,
+                &self.shell_state.read().unwrap().variables,
+            ));
+        }
+
+        (cmd_name, args)
     }
 }

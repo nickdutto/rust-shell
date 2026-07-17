@@ -1,3 +1,4 @@
+use crate::command::builtin::alias::Alias;
 use crate::command::builtin::cd::Cd;
 use crate::command::builtin::complete::Complete;
 use crate::command::builtin::declare::Declare;
@@ -45,6 +46,7 @@ impl CommandRouter {
     }
 
     pub fn register_builtins(&mut self) {
+        self.register(Arc::new(Alias));
         self.register(Arc::new(Cd));
         self.register(Arc::new(Complete));
         self.register(Arc::new(Declare));
