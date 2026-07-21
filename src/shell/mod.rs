@@ -5,6 +5,7 @@ pub mod completions;
 pub mod config;
 pub mod highlighter;
 pub mod history;
+pub mod menus;
 pub mod prompt;
 #[allow(clippy::module_inception)]
 mod shell;

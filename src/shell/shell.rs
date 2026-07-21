@@ -2,16 +2,13 @@
 use crate::engine::command::BUILTIN_COMMANDS;
 use crate::engine::router::CommandRouter;
 use crate::shell::completer::Completer;
-use crate::shell::config::{Config, Menu as MenuConfig};
+use crate::shell::config::Config;
 use crate::shell::highlighter::SyntaxHighlighter;
+use crate::shell::menus::Menus;
 use crate::shell::prompt::ShellPrompt;
 use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
-use nu_ansi_term::{Color, Style};
-use reedline::{
-    ColumnarMenu, Emacs, ExternalPrinter, KeyCode, KeyModifiers, Keybindings, Menu, MenuBuilder,
-    Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings,
-};
+use reedline::{Emacs, ExternalPrinter, Reedline, Signal, default_emacs_keybindings};
 use std::sync::{Arc, RwLock};
 
 pub struct Shell {
@@ -66,16 +63,17 @@ impl Shell {
         let syntax_highlighter = SyntaxHighlighter::new(Arc::clone(&self.config), BUILTIN_COMMANDS);
 
         if self.config.menus.completions.enabled {
-            editor = editor.with_menu(ReedlineMenu::EngineCompleter(Self::configure_menu(
+            editor = editor.with_menu(Menus::completions_menu(
                 &self.config.menus.completions,
                 &mut keybindings,
-            )));
+            ));
         }
-        if self.config.menus.suggestions.enabled {
-            editor = editor.with_menu(ReedlineMenu::HistoryMenu(Self::configure_menu(
-                &self.config.menus.suggestions,
+
+        if self.config.menus.history.enabled {
+            editor = editor.with_menu(Menus::history_menu(
+                &self.config.menus.history,
                 &mut keybindings,
-            )));
+            ));
         }
 
         editor = editor
@@ -123,41 +121,5 @@ impl Shell {
                 }
             }
         }
-    }
-
-    fn configure_menu(menu_config: &MenuConfig, keybindings: &mut Keybindings) -> Box<dyn Menu> {
-        let style = Style::new();
-        let selected_fg = Color::Fixed(menu_config.selected_foreground);
-
-        // TODO: support all key modifiers
-        let key_modifier = match menu_config.key_modifier.as_str() {
-            "control" => KeyModifiers::CONTROL,
-            _ => KeyModifiers::NONE,
-        };
-
-        // TODO: support more key code variants
-        let key_code = match menu_config.key_code.as_str() {
-            "tab" => KeyCode::Tab,
-            code => match code.parse::<char>() {
-                Ok(ch) => KeyCode::Char(ch),
-                Err(_) => KeyCode::Null,
-            },
-        };
-
-        keybindings.add_binding(
-            key_modifier,
-            key_code,
-            ReedlineEvent::Menu(menu_config.name.clone()),
-        );
-
-        Box::new(
-            ColumnarMenu::default()
-                .with_name(menu_config.name.as_str())
-                .with_text_style(style)
-                .with_selected_text_style(style.fg(selected_fg))
-                .with_match_text_style(style.underline())
-                .with_selected_match_text_style(style.fg(selected_fg).underline())
-                .with_description_text_style(style.dimmed().reset_before_style()),
-        )
     }
 }
