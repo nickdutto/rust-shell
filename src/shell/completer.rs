@@ -41,7 +41,10 @@ impl ReedlineCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
 
-        let partial_input = &line[..pos];
+        let Some(partial_input) = &line.get(..pos.min(line.len())) else {
+            return suggestions;
+        };
+
         if partial_input.is_empty() {
             return suggestions;
         }

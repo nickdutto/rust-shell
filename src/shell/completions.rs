@@ -63,34 +63,49 @@ impl Completions {
         builtin_commands: &'static [&'static str],
         path_executables: &Arc<RwLock<Vec<String>>>,
     ) {
+        Self::complete_command_iter(
+            builtin_commands,
+            suggestions,
+            partial_input,
+            pos,
+            Some(&"Builtin command".to_owned()),
+        );
+
+        Self::complete_command_iter(
+            path_executables.read().unwrap().iter(),
+            suggestions,
+            partial_input,
+            pos,
+            Some(&"Path executable".to_owned()),
+        );
+    }
+
+    fn complete_command_iter<I, S>(
+        candidates: I,
+        suggestions: &mut Vec<Suggestion>,
+        partial_input: &str,
+        pos: usize,
+        description: Option<&String>,
+    ) where
+        I: IntoIterator<Item=S>,
+        S: AsRef<str>,
+    {
         let span = Span::new(0, pos);
 
-        for command in builtin_commands {
-            if command.starts_with(partial_input) {
-                suggestions.push(Suggestion {
-                    value: format!("{command} "),
-                    display_override: Some(command.to_string()),
-                    description: Some("Builtin command".to_string()),
-                    style: None,
-                    extra: None,
-                    match_indices: None,
-                    span,
-                    append_whitespace: false,
-                });
-            }
-        }
+        for candidate in candidates {
+            let can = candidate.as_ref();
+            if can.starts_with(partial_input) {
+                let value = can.to_string();
 
-        for executable in path_executables.read().unwrap().iter() {
-            if executable.starts_with(partial_input) {
                 suggestions.push(Suggestion {
-                    value: format!("{executable} "),
-                    display_override: Some(executable.clone()),
-                    description: Some("Path executable".to_string()),
+                    value: value.clone(),
+                    display_override: Some(value),
+                    description: description.cloned(),
                     style: None,
                     extra: None,
                     match_indices: None,
                     span,
-                    append_whitespace: false,
+                    append_whitespace: true,
                 });
             }
         }
@@ -154,7 +169,7 @@ impl Completions {
                 let path_pair = if completion_path.is_dir {
                     format!("{}{}/", path, completion_path.path)
                 } else {
-                    format!("{}{} ", path, completion_path.path)
+                    format!("{}{}", path, completion_path.path)
                 };
 
                 suggestions.push(Suggestion {
@@ -219,14 +234,14 @@ impl Completions {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
                         suggestions.push(Suggestion {
-                            value: format!("{trimmed} "),
-                            display_override: Some(trimmed.to_string()),
-                            description: Some("Custom spec completion".to_string()),
+                            value: trimmed.to_owned(),
+                            display_override: Some(trimmed.to_owned()),
+                            description: Some("Custom spec completion".to_owned()),
                             style: None,
                             extra: None,
                             match_indices: None,
                             span,
-                            append_whitespace: false,
+                            append_whitespace: true,
                         });
                     }
                 }
