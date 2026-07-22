@@ -13,13 +13,13 @@ strip = "none"
 
 [dependencies]
 comfy-table = "7.2.2"
-is_executable = "1.0.5"
-jiff = "0.2.29"
+is_executable = "1.0.6"
+jiff = "0.2.34"
 nu-ansi-term = "0.50.3"
 reedline = { version = "0.49.0", features = ["external_printer"] }
-serde = "1.0.228"
-thiserror = "2.0.18"
-toml = "1.1.2"
+serde = "1.0.229"
+thiserror = "2.0.19"
+toml = "1.1.3"
 unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
