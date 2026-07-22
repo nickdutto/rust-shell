@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
 use crate::engine::router::CommandRouter;
@@ -9,7 +10,6 @@ use crate::parser::lexer::lex;
 use crate::parser::statement::Statement;
 use crate::parser::word::{Word, words_to_string};
 use crate::shell::background_jobs::BackgroundJob;
-use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
 use std::iter::Peekable;

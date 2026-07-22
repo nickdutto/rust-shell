@@ -1,4 +1,5 @@
-use crate::shell::config::{Config, DEFAULT_DATETIME_FORMAT, PromptMode, PromptSegment};
+use crate::config::Config;
+use crate::config::prompt::{PromptMode, PromptSegment};
 use crate::shell::shell_state::ShellState;
 use jiff::Zoned;
 use nu_ansi_term::{Color, Style};
@@ -45,7 +46,7 @@ impl ShellPrompt {
                         segment
                             .datetime_format
                             .as_deref()
-                            .unwrap_or(DEFAULT_DATETIME_FORMAT),
+                            .unwrap_or("%d/%m/%Y %H:%M:%S"),
                     )
                     .to_string(),
             ),

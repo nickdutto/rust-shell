@@ -1,7 +1,7 @@
+use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
-use crate::shell::config::Config;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
 use std::fmt::Write as FmtWrite;

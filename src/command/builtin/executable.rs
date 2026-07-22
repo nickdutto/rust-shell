@@ -1,7 +1,7 @@
+use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::{IoStreams, OutputStream};
-use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use std::io::ErrorKind;
 use std::io::Write;

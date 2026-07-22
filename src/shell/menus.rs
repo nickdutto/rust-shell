@@ -1,4 +1,4 @@
-use crate::shell::config::MenuConfig;
+use crate::config::menus::MenuConfig;
 use crate::system::keys::{parse_key_code, parse_key_modifier};
 use nu_ansi_term::{Color, Style};
 use reedline::{ColumnarMenu, Keybindings, MenuBuilder, ReedlineEvent, ReedlineMenu};

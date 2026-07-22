@@ -1,7 +1,7 @@
+use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
-use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;

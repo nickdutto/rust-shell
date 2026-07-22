@@ -1,8 +1,8 @@
-﻿use crate::engine::Engine;
+﻿use crate::config::Config;
+use crate::engine::Engine;
 use crate::engine::command::BUILTIN_COMMANDS;
 use crate::engine::router::CommandRouter;
 use crate::shell::completer::Completer;
-use crate::shell::config::Config;
 use crate::shell::highlighter::SyntaxHighlighter;
 use crate::shell::menus::Menus;
 use crate::shell::prompt::ShellPrompt;

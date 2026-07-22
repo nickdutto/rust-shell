@@ -1,4 +1,4 @@
-use crate::shell::config::Config;
+use crate::config::Config;
 use nu_ansi_term::{Color, Style};
 use reedline::ReedlineError;
 use reedline::ReedlineErrorVariants::HistoryFeatureUnsupported;

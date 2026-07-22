@@ -2,7 +2,6 @@ pub mod aliases;
 pub mod background_jobs;
 pub mod completer;
 pub mod completions;
-pub mod config;
 pub mod highlighter;
 pub mod history;
 pub mod menus;

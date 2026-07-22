@@ -1,4 +1,4 @@
-use crate::shell::config::Config;
+use crate::config::Config;
 use crate::shell::variables::Variables;
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter, StyledText};

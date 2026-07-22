@@ -1,6 +1,6 @@
+use crate::config::Config;
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
-use crate::shell::config::Config;
 use crate::shell::shell_state::ShellState;
 use std::io;
 use std::process::Child;
