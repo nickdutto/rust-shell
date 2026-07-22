@@ -10,6 +10,7 @@ use crate::command::builtin::jobs::Jobs;
 use crate::command::builtin::pwd::Pwd;
 use crate::command::builtin::theme::Theme;
 use crate::command::builtin::type_cmd::TypeCmd;
+use crate::command::date::now::Now;
 use crate::config::Config;
 use crate::engine::command::Command;
 use crate::engine::process::ProcessHandle;
@@ -57,6 +58,8 @@ impl CommandRouter {
         self.register(Arc::new(Pwd));
         self.register(Arc::new(Theme));
         self.register(Arc::new(TypeCmd));
+
+        self.register(Arc::new(Now));
     }
 
     pub fn dispatch(
