@@ -8,7 +8,8 @@ use std::sync::{Arc, RwLock};
 use thiserror::Error;
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
-    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type",
+    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type", "date",
+    "timezone", "http", "http get",
 ];
 
 #[derive(Error, Debug)]
