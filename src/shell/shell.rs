@@ -112,8 +112,9 @@ impl Shell {
                         .background_jobs
                         .remove_done_jobs();
                 }
-                Ok(Signal::CtrlD | Signal::CtrlC) => {
-                    println!("\nAborted!");
+                Ok(Signal::CtrlC) => {}
+                Ok(Signal::CtrlD) => {
+                    println!("Aborted");
                     break;
                 }
                 x => {

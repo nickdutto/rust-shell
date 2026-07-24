@@ -28,7 +28,7 @@ impl Default for Menus {
             history: MenuConfig {
                 enabled: true,
                 key_modifier: "control".into(),
-                key_code: "w".into(),
+                key_code: "o".into(),
                 selected_foreground: 202,
             },
         }
