@@ -11,6 +11,12 @@ pub struct SyntaxHighlighter {
     config: Arc<Config>,
 }
 
+impl Highlighter for SyntaxHighlighter {
+    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+        self.highlight_tokens(line)
+    }
+}
+
 impl SyntaxHighlighter {
     pub fn new(config: Arc<Config>, builtin_commands: &'static [&'static str]) -> Self {
         Self {
@@ -20,58 +26,42 @@ impl SyntaxHighlighter {
     }
 
     fn highlight_tokens(&self, line: &str) -> StyledText {
+        let mut chars = line.chars().peekable();
         let mut buffer = StyledText::new();
         let mut in_quotes = false;
         let mut quote_char = ' ';
 
-        let base_style_color = match self.config.theme.colors.input_base {
+        let base_style = Style::new().fg(match self.config.theme.colors.input_base {
             Some(color) => Color::Fixed(color),
             None => Color::Default,
-        };
-        let base_style = Style::new().fg(base_style_color);
+        });
 
-        let quote_style_color = |ch| match ch {
-            '"' => self.config.theme.colors.double_quote_strings,
-            '\'' => self.config.theme.colors.single_quote_strings,
-            _ => self.config.theme.colors.double_quote_strings,
-        };
-
-        let mut chars = line.chars().peekable();
         while let Some(ch) = chars.next() {
             match ch {
                 '"' | '\'' => {
-                    if !in_quotes {
-                        in_quotes = true;
-                        quote_char = ch;
-                    } else if in_quotes && ch == quote_char {
-                        in_quotes = false;
-                        quote_char = ch;
-                    }
-
-                    buffer.push((
-                        Style::new().fg(Color::Fixed(quote_style_color(quote_char))),
-                        ch.to_string(),
-                    ));
+                    self.highlight_quote(&mut buffer, &mut in_quotes, &mut quote_char, ch);
                 }
                 _ if in_quotes => {
-                    buffer.push((
-                        Style::new().fg(Color::Fixed(quote_style_color(quote_char))),
-                        ch.to_string(),
-                    ));
+                    self.highlight_quote(&mut buffer, &mut in_quotes, &mut quote_char, ch);
+                }
+
+                '&' => {
+                    self.highlight_ampersand(&mut buffer, &mut chars, ch);
+                }
+
+                ';' => {
+                    self.highlight_sequential(&mut buffer, ch);
                 }
 
                 '|' => {
-                    buffer.push((
-                        Style::new().fg(Color::Fixed(self.config.theme.colors.pipe)),
-                        ch.to_string(),
-                    ));
-                }
-
-                redir_op @ ('>' | '1' | '2') => {
-                    self.highlight_redirection(&mut buffer, &mut chars, ch, base_style, redir_op);
+                    self.highlight_pipe(&mut buffer, ch);
                 }
 
                 '$' => self.highlight_variable(&mut buffer, &mut chars, ch),
+
+                '>' | '1' | '2' => {
+                    self.highlight_redirection(&mut buffer, &mut chars, ch, base_style);
+                }
 
                 _ => self.highlight_command(&mut buffer, &mut chars, ch, base_style),
             }
@@ -80,53 +70,68 @@ impl SyntaxHighlighter {
         buffer
     }
 
-    fn highlight_redirection(
+    fn highlight_quote(
         &self,
         buffer: &mut StyledText,
-        chars: &mut Peekable<Chars>,
+        in_quotes: &mut bool,
+        quote_char: &mut char,
         ch: char,
-        base_style: Style,
-        redirection_op: char,
     ) {
-        let mut redirection_buffer = String::new();
-
-        let mut append_mode = false;
-        let peek_redirection_char = |c: Option<&char>| {
-            if let Some(&'>') = c {
-                return true;
-            }
-            false
+        let quote_style_color = |ch| match ch {
+            '"' => self.config.theme.colors.double_quote_strings,
+            '\'' => self.config.theme.colors.single_quote_strings,
+            _ => self.config.theme.colors.double_quote_strings,
         };
 
-        if redirection_op == '>' {
-            redirection_buffer.push(ch);
-            if peek_redirection_char(chars.peek()) {
-                redirection_buffer.extend(chars.next());
-                append_mode = true;
-            }
-        } else if peek_redirection_char(chars.peek()) {
-            redirection_buffer.push(ch);
-            redirection_buffer.extend(chars.next());
+        let mut push_ch = |quote_ch: &char| {
+            buffer.push((
+                Style::new().fg(Color::Fixed(quote_style_color(*quote_ch))),
+                ch.to_string(),
+            ));
+        };
 
-            if peek_redirection_char(chars.peek()) {
-                redirection_buffer.extend(chars.next());
-                append_mode = true;
-            }
-        } else {
-            buffer.push((base_style, ch.to_string()));
+        if matches!(ch, '"' | '\'') {
+            push_ch(quote_char);
+            return;
         }
 
-        let style_color = match (redirection_op, append_mode) {
-            ('>' | '1', true) => self.config.theme.colors.redirection_out,
-            ('>' | '1', false) => self.config.theme.colors.redirection_out_append,
-            ('2', true) => self.config.theme.colors.redirection_error,
-            ('2', false) => self.config.theme.colors.redirection_error_append,
-            _ => self.config.theme.colors.redirection_out,
+        if !*in_quotes {
+            *in_quotes = true;
+            *quote_char = ch;
+        } else if *in_quotes && ch == *quote_char {
+            *in_quotes = false;
+            *quote_char = ch;
+        }
+
+        push_ch(quote_char);
+    }
+
+    fn highlight_ampersand(&self, buffer: &mut StyledText, chars: &mut Peekable<Chars>, ch: char) {
+        let is_background = chars.peek() == Some(&'&');
+        let color = if is_background {
+            self.config.theme.colors.background
+        } else {
+            self.config.theme.colors.and
         };
 
+        if is_background {
+            buffer.push((Style::new().fg(Color::Fixed(color)), ch.to_string()));
+            chars.next();
+        }
+        buffer.push((Style::new().fg(Color::Fixed(color)), ch.to_string()));
+    }
+
+    fn highlight_sequential(&self, buffer: &mut StyledText, ch: char) {
         buffer.push((
-            Style::new().fg(Color::Fixed(style_color)),
-            redirection_buffer,
+            Style::new().fg(Color::Fixed(self.config.theme.colors.sequential)),
+            ch.to_string(),
+        ));
+    }
+
+    fn highlight_pipe(&self, buffer: &mut StyledText, ch: char) {
+        buffer.push((
+            Style::new().fg(Color::Fixed(self.config.theme.colors.pipe)),
+            ch.to_string(),
         ));
     }
 
@@ -166,6 +171,55 @@ impl SyntaxHighlighter {
         buffer.push((Style::new().fg(Color::Fixed(style_color)), var_buffer));
     }
 
+    fn highlight_redirection(
+        &self,
+        buffer: &mut StyledText,
+        chars: &mut Peekable<Chars>,
+        ch: char,
+        base_style: Style,
+    ) {
+        let mut redirection_buffer = String::new();
+
+        let mut append_mode = false;
+        let peek_redirection_char = |c: Option<&char>| {
+            if let Some(&'>') = c {
+                return true;
+            }
+            false
+        };
+
+        if ch == '>' {
+            redirection_buffer.push(ch);
+            if peek_redirection_char(chars.peek()) {
+                redirection_buffer.extend(chars.next());
+                append_mode = true;
+            }
+        } else if peek_redirection_char(chars.peek()) {
+            redirection_buffer.push(ch);
+            redirection_buffer.extend(chars.next());
+
+            if peek_redirection_char(chars.peek()) {
+                redirection_buffer.extend(chars.next());
+                append_mode = true;
+            }
+        } else {
+            buffer.push((base_style, ch.to_string()));
+        }
+
+        let style_color = match (ch, append_mode) {
+            ('>' | '1', true) => self.config.theme.colors.redirection_out,
+            ('>' | '1', false) => self.config.theme.colors.redirection_out_append,
+            ('2', true) => self.config.theme.colors.redirection_error,
+            ('2', false) => self.config.theme.colors.redirection_error_append,
+            _ => self.config.theme.colors.redirection_out,
+        };
+
+        buffer.push((
+            Style::new().fg(Color::Fixed(style_color)),
+            redirection_buffer,
+        ));
+    }
+
     fn highlight_command(
         &self,
         buffer: &mut StyledText,
@@ -196,11 +250,5 @@ impl SyntaxHighlighter {
         if !matched_command {
             buffer.push((base_style, ch.to_string()));
         }
-    }
-}
-
-impl Highlighter for SyntaxHighlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
-        self.highlight_tokens(line)
     }
 }
