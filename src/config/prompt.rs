@@ -22,6 +22,7 @@ pub enum PromptMode {
 pub struct PromptSegment {
     pub mode: PromptMode,
     pub basic_value: Option<String>,
+    pub full_directory_path: Option<bool>,
     pub datetime_format: Option<String>,
     pub icon_unicode: Option<String>,
     pub background: u8,
@@ -41,6 +42,7 @@ impl Default for Prompt {
                 PromptSegment {
                     mode: PromptMode::Username,
                     basic_value: None,
+                    full_directory_path: None,
                     datetime_format: None,
                     icon_unicode: None,
                     background: 33,
@@ -55,6 +57,7 @@ impl Default for Prompt {
                 PromptSegment {
                     mode: PromptMode::CurrentDirectory,
                     basic_value: None,
+                    full_directory_path: Some(false),
                     datetime_format: None,
                     icon_unicode: Some("ea83".into()),
                     background: 33,
@@ -70,6 +73,7 @@ impl Default for Prompt {
             right: vec![PromptSegment {
                 mode: PromptMode::DateTime,
                 basic_value: None,
+                full_directory_path: None,
                 datetime_format: Some("%H:%M:%S".into()),
                 icon_unicode: Some("f017".into()),
                 background: 93,

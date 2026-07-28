@@ -50,10 +50,17 @@ impl ShellPrompt {
             PromptMode::Empty => Cow::Borrowed(""),
             PromptMode::Username => Cow::Borrowed(&shell_state.username),
             PromptMode::Basic => Cow::Borrowed(segment.basic_value.as_deref().unwrap_or("")),
-            PromptMode::CurrentDirectory => shell_state.current_directory.to_str().map_or_else(
-                || Cow::Owned(shell_state.current_directory.display().to_string()),
-                Cow::Borrowed,
-            ),
+            PromptMode::CurrentDirectory => {
+                let os_str = match segment.full_directory_path.unwrap_or(false) {
+                    true => Some(shell_state.current_directory.as_os_str()),
+                    false => shell_state.current_directory.file_name(),
+                };
+
+                os_str.map_or_else(
+                    || Cow::Owned(shell_state.current_directory.display().to_string()),
+                    |os_str| os_str.to_string_lossy(),
+                )
+            }
             PromptMode::DateTime => Cow::Owned(
                 self.prompt_time
                     .as_ref()
