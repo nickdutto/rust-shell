@@ -91,12 +91,14 @@ impl Shell {
             printer,
         );
 
-        self.repl(&mut editor, &engine, &prompt);
+        self.repl(&mut editor, &engine, prompt);
     }
 
-    fn repl(&mut self, editor: &mut Reedline, engine: &Engine, prompt: &ShellPrompt) {
+    fn repl(&mut self, editor: &mut Reedline, engine: &Engine, mut prompt: ShellPrompt) {
         loop {
-            let sig = editor.read_line(prompt);
+            prompt.refresh_time();
+
+            let sig = editor.read_line(&prompt);
             match sig {
                 Ok(Signal::Success(buffer)) => {
                     if buffer.trim().is_empty() {

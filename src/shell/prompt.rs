@@ -20,6 +20,7 @@ pub struct ShellPrompt {
     config: Arc<Config>,
     shell_state: Arc<RwLock<ShellState>>,
     transient: bool,
+    prompt_time: Option<Zoned>,
 }
 
 impl ShellPrompt {
@@ -28,6 +29,7 @@ impl ShellPrompt {
             config,
             shell_state,
             transient: false,
+            prompt_time: None,
         }
     }
 
@@ -35,7 +37,12 @@ impl ShellPrompt {
         self.transient = transient;
     }
 
+    pub fn refresh_time(&mut self) {
+        self.prompt_time = Some(Zoned::now());
+    }
+
     fn get_prompt_mode_value<'a>(
+        &self,
         shell_state: &'a ShellState,
         segment: &'a PromptSegment,
     ) -> Cow<'a, str> {
@@ -48,7 +55,9 @@ impl ShellPrompt {
                 Cow::Borrowed,
             ),
             PromptMode::DateTime => Cow::Owned(
-                Zoned::now()
+                self.prompt_time
+                    .as_ref()
+                    .unwrap_or(&Zoned::now())
                     .strftime(
                         segment
                             .datetime_format
@@ -75,7 +84,7 @@ impl ShellPrompt {
         side: PromptSide,
         is_edge: bool,
     ) {
-        let prompt_value = Self::get_prompt_mode_value(shell_state, segment);
+        let prompt_value = self.get_prompt_mode_value(shell_state, segment);
         let bg = Color::Fixed(segment.background);
         let fg = Color::Fixed(segment.foreground);
         let arrow_symbol = match side {
