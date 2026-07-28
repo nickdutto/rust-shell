@@ -5,7 +5,7 @@ use crate::engine::router::CommandRouter;
 use crate::shell::completer::Completer;
 use crate::shell::highlighter::SyntaxHighlighter;
 use crate::shell::menus::Menus;
-use crate::shell::prompt::ShellPrompt;
+use crate::shell::prompt::{ShellPrompt, make_transient_prompt};
 use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
 use reedline::{Emacs, ExternalPrinter, Reedline, Signal, default_emacs_keybindings};
@@ -81,7 +81,8 @@ impl Shell {
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
             .with_external_printer(printer.clone())
             .with_highlighter(Box::new(syntax_highlighter))
-            .with_hinter(Box::new(suggestions));
+            .with_hinter(Box::new(suggestions))
+            .with_transient_prompt(make_transient_prompt(&prompt));
 
         let engine = Engine::new(
             Arc::clone(&self.config),

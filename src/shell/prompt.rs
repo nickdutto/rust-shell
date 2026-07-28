@@ -15,9 +15,11 @@ enum PromptSide {
     Right,
 }
 
+#[derive(Clone)]
 pub struct ShellPrompt {
     config: Arc<Config>,
     shell_state: Arc<RwLock<ShellState>>,
+    transient: bool,
 }
 
 impl ShellPrompt {
@@ -25,7 +27,12 @@ impl ShellPrompt {
         Self {
             config,
             shell_state,
+            transient: false,
         }
+    }
+
+    pub fn set_transient(&mut self, transient: bool) {
+        self.transient = transient;
     }
 
     fn get_prompt_mode_value<'a>(
@@ -155,7 +162,10 @@ impl Prompt for ShellPrompt {
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
-        Cow::Owned(self.render_segments(PromptSide::Right))
+        match self.transient {
+            true => Cow::Borrowed(""),
+            false => Cow::Owned(self.render_segments(PromptSide::Right)),
+        }
     }
 
     fn render_prompt_indicator(&self, prompt_mode: PromptEditMode) -> Cow<'_, str> {
@@ -187,4 +197,10 @@ impl Prompt for ShellPrompt {
                 .into_owned(),
         )
     }
+}
+
+pub fn make_transient_prompt(prompt: &ShellPrompt) -> Box<dyn Prompt> {
+    let mut prompt = prompt.clone();
+    prompt.set_transient(true);
+    Box::new(prompt)
 }
