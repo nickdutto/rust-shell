@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use comfy_table::Table;
 use comfy_table::presets::NOTHING;
@@ -23,8 +24,8 @@ impl Command for Theme {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -33,7 +34,7 @@ impl Command for Theme {
         let mut buffer = String::with_capacity(8192);
 
         for arg in &args {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 "-fg" => {
                     let style = Style::new();
                     let _ = writeln!(

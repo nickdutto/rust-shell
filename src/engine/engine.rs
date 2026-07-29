@@ -7,8 +7,9 @@ use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::parser::Parser;
 use crate::parser::command_node::{CommandNode, Redirection};
 use crate::parser::lexer::lex;
+use crate::parser::span::Spanned;
 use crate::parser::statement::Statement;
-use crate::parser::word::{Word, words_to_string};
+use crate::parser::word::{Word, total_word_span, words_to_string};
 use crate::shell::background_jobs::BackgroundJob;
 use crate::shell::shell_state::ShellState;
 use reedline::ExternalPrinter;
@@ -236,9 +237,10 @@ impl Engine {
 
     fn expand_command_node_values(
         &self,
-        node_cmd: Vec<Word>,
-        node_args: Vec<Vec<Word>>,
-    ) -> (String, Vec<String>) {
+        node_cmd: Vec<Spanned<Word>>,
+        node_args: Vec<Vec<Spanned<Word>>>,
+    ) -> (Spanned<String>, Vec<Spanned<String>>) {
+        let cmd_span = total_word_span(&node_cmd);
         let mut cmd_name = words_to_string(node_cmd, &self.shell_state.read().unwrap().variables);
         let mut args = vec![];
 
@@ -250,17 +252,19 @@ impl Engine {
 
             if !aliased_args.is_empty() {
                 cmd_name = aliased_args.remove(0);
-                args.extend(aliased_args);
+                for aliased_arg in aliased_args {
+                    args.push(Spanned::new(aliased_arg, cmd_span.clone()));
+                }
             }
         }
 
         for arg in node_args {
-            args.push(words_to_string(
-                arg,
-                &self.shell_state.read().unwrap().variables,
-            ));
+            let arg_span = total_word_span(&arg);
+            let arg_string = words_to_string(arg, &self.shell_state.read().unwrap().variables);
+
+            args.push(Spanned::new(arg_string, arg_span));
         }
 
-        (cmd_name, args)
+        (Spanned::new(cmd_name, cmd_span), args)
     }
 }

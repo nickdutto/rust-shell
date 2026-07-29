@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use crate::shell::variables::{VariableError, Variables};
 use std::io::Write;
@@ -20,8 +21,8 @@ impl Command for Declare {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -38,7 +39,7 @@ impl Command for Declare {
         let mut args_iter = args.iter();
 
         while let Some(arg) = args_iter.next() {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 "-l" => {
                     let variables = shell_state.read().unwrap().variables.to_list_string();
                     writeln!(io_streams.output, "{}", variables.trim_end())?;
@@ -51,18 +52,19 @@ impl Command for Declare {
 
                 "-p" => {
                     if let Some(name_arg) = args_iter.next() {
-                        match shell_state.write().unwrap().variables.get(name_arg) {
+                        match shell_state.write().unwrap().variables.get(&name_arg.item) {
                             Ok(Some(value)) => {
                                 writeln!(
                                     io_streams.output,
                                     "{}",
-                                    Variables::format_item_string(name_arg, value)
+                                    Variables::format_item_string(&name_arg.item, value)
                                 )?;
                             }
                             Err(_) => {
                                 writeln!(
                                     io_streams.error,
-                                    "declare: no variable named {name_arg} found"
+                                    "declare: no variable named {} found",
+                                    name_arg.item
                                 )?;
                             }
                             _ => {}
@@ -75,18 +77,24 @@ impl Command for Declare {
 
                 "-r" => {
                     if let Some(name_arg) = args_iter.next() {
-                        match shell_state.write().unwrap().variables.remove(name_arg) {
+                        match shell_state
+                            .write()
+                            .unwrap()
+                            .variables
+                            .remove(&name_arg.item)
+                        {
                             Some(value) => {
                                 writeln!(
                                     io_streams.output,
                                     "declare: removed: {}",
-                                    Variables::format_item_string(name_arg, &value)
+                                    Variables::format_item_string(&name_arg.item, &value)
                                 )?;
                             }
                             None => {
                                 writeln!(
                                     io_streams.error,
-                                    "declare: no variable named {name_arg} to remove"
+                                    "declare: no variable named {} to remove",
+                                    name_arg.item
                                 )?;
                                 final_exit_code = ExitCode::FAILURE;
                             }
@@ -98,7 +106,7 @@ impl Command for Declare {
                 }
 
                 name_arg => {
-                    if args_iter.next().map(String::as_str) != Some("=") {
+                    if args_iter.next().map(|s| s.item.as_str()) != Some("=") {
                         writeln!(
                             io_streams.error,
                             "declare: missing = between variable name and value. Example: declare TARGET = ./src"
@@ -112,7 +120,7 @@ impl Command for Declare {
                             .write()
                             .unwrap()
                             .variables
-                            .insert(name_arg.to_owned(), value_arg.clone())
+                            .insert(name_arg.to_owned(), value_arg.item.clone())
                         {
                             Ok(_) => {}
                             Err(VariableError::InvalidIdentifier { key, value }) => {

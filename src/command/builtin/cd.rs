@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::ErrorKind;
@@ -22,8 +23,8 @@ impl Command for Cd {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -31,7 +32,7 @@ impl Command for Cd {
     ) -> Result<CommandData, CommandError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        let target = args.first().map_or("~", |s| s.as_str().trim());
+        let target = args.first().map_or("~", |s| s.item.as_str().trim());
         let result = match target {
             "~" => {
                 if let Some(home) = env::var_os("HOME") {

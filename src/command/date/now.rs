@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use jiff::Zoned;
 use std::io::Write;
@@ -20,8 +21,8 @@ impl Command for Now {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -32,7 +33,7 @@ impl Command for Now {
         let now = Zoned::now();
 
         while let Some(arg) = args_iter.next() {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 "-d" => {
                     writeln!(io_streams.output, "{}", now.strftime("%d"))?;
                 }
@@ -84,7 +85,7 @@ impl Command for Now {
                 }
                 "-f" => {
                     if let Some(format_arg) = args_iter.next() {
-                        match jiff::fmt::strtime::format(format_arg, &now) {
+                        match jiff::fmt::strtime::format(&format_arg.item, &now) {
                             Ok(f) => writeln!(io_streams.output, "{f}")?,
                             Err(e) => {
                                 writeln!(io_streams.error, "now: {e}")?;

@@ -1,16 +1,17 @@
 use crate::io::redirection::RedirectionMode;
+use crate::parser::span::Spanned;
 use crate::parser::word::Word;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Redirection {
     pub mode: RedirectionMode,
-    pub path: Vec<Word>,
+    pub path: Vec<Spanned<Word>>,
 }
 
 #[derive(Debug, Default, PartialEq)]
 pub struct CommandNode {
-    pub cmd: Vec<Word>,
-    pub args: Vec<Vec<Word>>,
+    pub cmd: Vec<Spanned<Word>>,
+    pub args: Vec<Vec<Spanned<Word>>>,
     pub redirection: Redirection,
 }
 
@@ -18,10 +19,10 @@ impl CommandNode {
     pub fn to_command_string(&self) -> String {
         let mut buffer = String::new();
 
-        let original_words = |words: &[Word]| -> String {
+        let original_words = |words: &[Spanned<Word>]| -> String {
             words
                 .iter()
-                .map(Word::to_original_string)
+                .map(|s| s.item.to_original_string())
                 .collect::<String>()
         };
 

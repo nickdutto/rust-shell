@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
@@ -19,8 +20,8 @@ impl Command for Complete {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -30,7 +31,7 @@ impl Command for Complete {
         let mut args_iter = args.iter();
 
         while let Some(arg) = args_iter.next() {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 "-C" => {
                     if let Some(path_arg) = args_iter.next()
                         && let Some(name_arg) = args_iter.next()
@@ -39,12 +40,16 @@ impl Command for Complete {
                             .write()
                             .unwrap()
                             .completions
-                            .insert(name_arg.clone(), path_arg.clone());
+                            .insert(name_arg.item.clone(), path_arg.item.clone());
                     }
                 }
                 "-r" => {
                     if let Some(name_arg) = args_iter.next() {
-                        shell_state.write().unwrap().completions.remove(name_arg);
+                        shell_state
+                            .write()
+                            .unwrap()
+                            .completions
+                            .remove(&name_arg.item);
                     }
                 }
                 "-p" => {
@@ -53,7 +58,7 @@ impl Command for Complete {
                             .read()
                             .unwrap()
                             .completions
-                            .get_key_value(name_arg)
+                            .get_key_value(&name_arg.item)
                         {
                             Ok((name, path)) => {
                                 writeln!(io_streams.output, "complete -C '{path}' {name}")?;

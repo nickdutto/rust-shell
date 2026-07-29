@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use comfy_table::presets::NOTHING;
 use comfy_table::{Attribute, Cell, Table};
@@ -35,8 +36,8 @@ impl Command for Timezone {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -48,8 +49,8 @@ impl Command for Timezone {
         let mut sort_mode = Some(SortMode::Alphabetical);
         let now = Timestamp::now();
 
-        for arg in &args {
-            match arg.as_str() {
+        for arg in args {
+            match arg.item.as_str() {
                 "-t" => {
                     output_mode = OutputMode::Table;
                 }
@@ -66,7 +67,7 @@ impl Command for Timezone {
                     sort_mode = None;
                 }
                 _ => {
-                    let tz = match TimeZone::get(arg) {
+                    let tz = match TimeZone::get(&arg.item) {
                         Ok(t) => t,
                         Err(e) => {
                             writeln!(io_streams.error, "{e}")?;
@@ -75,7 +76,7 @@ impl Command for Timezone {
                         }
                     };
 
-                    tz_timestamps.push((arg.clone(), now.to_zoned(tz)));
+                    tz_timestamps.push((arg.item.clone(), now.to_zoned(tz)));
                 }
             }
         }

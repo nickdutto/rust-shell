@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io;
 use std::process::Child;
@@ -44,8 +45,8 @@ pub trait Command {
 
     fn run(
         &self,
-        cmd: &str,
-        args: Vec<String>,
+        cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         job_id: Option<usize>,
         config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,

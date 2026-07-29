@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::aliases::Aliases;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
@@ -20,8 +21,8 @@ impl Command for Alias {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -38,7 +39,7 @@ impl Command for Alias {
         let mut args_iter = args.iter();
 
         while let Some(arg) = args_iter.next() {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 "-l" => {
                     let aliases = shell_state.read().unwrap().aliases.to_list_string();
                     writeln!(io_streams.output, "{}", aliases.trim_end())?;
@@ -51,18 +52,24 @@ impl Command for Alias {
 
                 "-p" => {
                     if let Some(alias_key_arg) = args_iter.next() {
-                        match shell_state.write().unwrap().aliases.get(alias_key_arg) {
+                        match shell_state
+                            .write()
+                            .unwrap()
+                            .aliases
+                            .get(&alias_key_arg.item)
+                        {
                             Some(value) => {
                                 writeln!(
                                     io_streams.output,
                                     "{}",
-                                    Aliases::format_item_string(alias_key_arg, value)
+                                    Aliases::format_item_string(&alias_key_arg.item, value)
                                 )?;
                             }
                             None => {
                                 writeln!(
                                     io_streams.error,
-                                    "alias: no alias named {alias_key_arg} found"
+                                    "alias: no alias named {} found",
+                                    alias_key_arg.item
                                 )?;
                             }
                         }
@@ -74,18 +81,24 @@ impl Command for Alias {
 
                 "-r" => {
                     if let Some(alias_key_arg) = args_iter.next() {
-                        match shell_state.write().unwrap().aliases.remove(alias_key_arg) {
+                        match shell_state
+                            .write()
+                            .unwrap()
+                            .aliases
+                            .remove(&alias_key_arg.item)
+                        {
                             Some(value) => {
                                 writeln!(
                                     io_streams.output,
                                     "alias: removed: {}",
-                                    Aliases::format_item_string(alias_key_arg, &value)
+                                    Aliases::format_item_string(&alias_key_arg.item, &value)
                                 )?;
                             }
                             None => {
                                 writeln!(
                                     io_streams.error,
-                                    "alias: no alias named \"{alias_key_arg}\" to remove"
+                                    "alias: no alias named \"{}\" to remove",
+                                    alias_key_arg.item
                                 )?;
                                 final_exit_code = ExitCode::FAILURE;
                             }
@@ -97,7 +110,7 @@ impl Command for Alias {
                 }
 
                 alias_name_arg => {
-                    let eq_arg = args_iter.next().map(String::as_str);
+                    let eq_arg = args_iter.next().map(|s| s.item.as_str());
                     if eq_arg == Some("=") {
                         let mut aliased_args = vec![];
                         for arg in args_iter.by_ref() {
@@ -105,11 +118,14 @@ impl Command for Alias {
                         }
 
                         if !aliased_args.is_empty() {
-                            shell_state
-                                .write()
-                                .unwrap()
-                                .aliases
-                                .insert(alias_name_arg.to_owned(), aliased_args.join(" "));
+                            shell_state.write().unwrap().aliases.insert(
+                                alias_name_arg.to_owned(),
+                                aliased_args
+                                    .iter()
+                                    .map(|s| s.item.as_str())
+                                    .collect::<Vec<&str>>()
+                                    .join(" "),
+                            );
                         }
                     } else {
                         writeln!(

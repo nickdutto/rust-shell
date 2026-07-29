@@ -1,5 +1,5 @@
 use crate::parser::error::{ParserError, ParserErrorKind};
-use crate::parser::span::Span;
+use crate::parser::span::{Span, Spanned};
 use crate::parser::token_scanner::TokenScanner;
 use crate::shell::variables::Variables;
 use std::fmt::{Display, Formatter, Write};
@@ -42,14 +42,21 @@ impl Display for Word {
     }
 }
 
-pub fn scan_word(scanner: &mut TokenScanner, initial_char: Option<char>) -> Vec<Word> {
-    let mut word = vec![];
+pub fn scan_word(scanner: &mut TokenScanner, mut initial_char: Option<char>) -> Vec<Spanned<Word>> {
+    let mut words = vec![];
 
     if let Some(initial_ch) = initial_char
         && scanner.peek().is_none_or(|ch| ch.is_whitespace())
     {
-        word.push(Word::Literal(initial_ch.to_string()));
-        return word;
+        let end_idx = scanner.current_index();
+        let start_idx = end_idx - initial_ch.len_utf8();
+
+        words.push(Spanned::new(
+            Word::Literal(initial_ch.to_string()),
+            Span::new(start_idx, end_idx),
+        ));
+
+        return words;
     }
 
     while let Some(&ch) = scanner.peek() {
@@ -58,28 +65,37 @@ pub fn scan_word(scanner: &mut TokenScanner, initial_char: Option<char>) -> Vec<
         }
 
         if matches!(ch, '\'' | '"' | '$')
-            && let Some(initial_ch) = initial_char
+            && let Some(initial_ch) = initial_char.take()
         {
-            word.push(Word::Literal(initial_ch.to_string()));
+            let end_idx = scanner.current_index();
+            let start_idx = end_idx - initial_ch.len_utf8();
+
+            words.push(Spanned::new(
+                Word::Literal(initial_ch.to_string()),
+                Span::new(start_idx, end_idx),
+            ));
         }
 
-        match ch {
-            '\'' => {
-                word.push(scan_single_quoted(scanner));
-            }
-            '"' => {
-                word.push(scan_double_quoted(scanner));
-            }
-            '$' => {
-                word.push(scan_variable(scanner));
-            }
-            _ => {
-                word.push(scan_literal(scanner, initial_char));
-            }
-        }
+        let start_idx = if let Some(initial_ch) = initial_char {
+            scanner.current_index() - initial_ch.len_utf8()
+        } else {
+            scanner.current_index()
+        };
+
+        let word = match ch {
+            '\'' => scan_single_quoted(scanner),
+            '"' => scan_double_quoted(scanner),
+            '$' => scan_variable(scanner),
+            _ => scan_literal(scanner, initial_char.take()),
+        };
+
+        words.push(Spanned::new(
+            word,
+            Span::new(start_idx, scanner.current_index()),
+        ));
     }
 
-    word
+    words
 }
 
 fn scan_single_quoted(scanner: &mut TokenScanner) -> Word {
@@ -217,11 +233,11 @@ fn scan_literal(scanner: &mut TokenScanner, initial_char: Option<char>) -> Word 
     Word::Literal(content)
 }
 
-pub fn words_to_string(words: Vec<Word>, variables: &Variables) -> String {
+pub fn words_to_string(words: Vec<Spanned<Word>>, variables: &Variables) -> String {
     let mut word_buffer = String::new();
 
     for word in words {
-        match word {
+        match word.item {
             Word::Literal(w) | Word::SingleQuoted(w) | Word::DoubleQuoted(w) => {
                 let _ = write!(word_buffer, "{w}");
             }
@@ -240,6 +256,13 @@ pub fn words_to_string(words: Vec<Word>, variables: &Variables) -> String {
     word_buffer
 }
 
+pub fn total_word_span(words: &[Spanned<Word>]) -> Span {
+    match (words.first(), words.last()) {
+        (Some(first), Some(last)) => Span::new(first.span.start, last.span.end),
+        _ => Span::default(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,19 +278,31 @@ mod tests {
         let cases = vec![
             Case {
                 input: "literal",
-                expected: vec![Word::Literal("literal".to_string())],
+                expected: vec![Spanned::new(
+                    Word::Literal("literal".to_string()),
+                    Span::new(0, 7),
+                )],
             },
             Case {
                 input: "'single'",
-                expected: vec![Word::SingleQuoted("single".to_string())],
+                expected: vec![Spanned::new(
+                    Word::SingleQuoted("single".to_string()),
+                    Span::new(0, 8),
+                )],
             },
             Case {
                 input: "\"double\"",
-                expected: vec![Word::DoubleQuoted("double".to_string())],
+                expected: vec![Spanned::new(
+                    Word::DoubleQuoted("double".to_string()),
+                    Span::new(0, 8),
+                )],
             },
             Case {
                 input: "$var",
-                expected: vec![Word::Variable("var".to_string())],
+                expected: vec![Spanned::new(
+                    Word::Variable("var".to_string()),
+                    Span::new(0, 4),
+                )],
             },
         ];
 
@@ -283,37 +318,39 @@ mod tests {
     fn scan_word_with_initial_char_returns_correct_words() {
         let cases = vec![
             Case {
-                input: "literal",
-                expected: vec![Word::Literal("1literal".to_string())],
+                input: "1literal",
+                expected: vec![Spanned::new(
+                    Word::Literal("1literal".to_string()),
+                    Span::new(0, 8),
+                )],
             },
             Case {
-                input: "'single'",
+                input: "1'single'",
                 expected: vec![
-                    Word::Literal("1".to_string()),
-                    Word::SingleQuoted("single".to_string()),
+                    Spanned::new(Word::Literal("1".to_string()), Span::new(0, 1)),
+                    Spanned::new(Word::SingleQuoted("single".to_string()), Span::new(1, 9)),
                 ],
             },
             Case {
-                input: "\"double\"",
+                input: "1\"double\"",
                 expected: vec![
-                    Word::Literal("1".to_string()),
-                    Word::DoubleQuoted("double".to_string()),
+                    Spanned::new(Word::Literal("1".to_string()), Span::new(0, 1)),
+                    Spanned::new(Word::DoubleQuoted("double".to_string()), Span::new(1, 9)),
                 ],
             },
             Case {
-                input: "$var",
+                input: "1$var",
                 expected: vec![
-                    Word::Literal("1".to_string()),
-                    Word::Variable("var".to_string()),
+                    Spanned::new(Word::Literal("1".to_string()), Span::new(0, 1)),
+                    Spanned::new(Word::Variable("var".to_string()), Span::new(1, 5)),
                 ],
             },
         ];
 
         for case in cases {
-            assert_eq!(
-                scan_word(&mut TokenScanner::new(case.input), Some('1')),
-                case.expected
-            );
+            let mut scanner = TokenScanner::new(case.input);
+            let initial_char = scanner.next_char();
+            assert_eq!(scan_word(&mut scanner, initial_char), case.expected);
         }
     }
 

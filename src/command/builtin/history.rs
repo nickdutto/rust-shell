@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::history::WriteMode;
 use crate::shell::shell_state::ShellState;
 use std::fmt::Write as FmtWrite;
@@ -21,8 +22,8 @@ impl Command for History {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -36,7 +37,7 @@ impl Command for History {
         let mut args_iter = args.iter().peekable();
 
         while let Some(arg) = args_iter.next() {
-            match arg.as_str() {
+            match arg.item.as_str() {
                 flag @ ("-r" | "-w" | "-a") => {
                     output_history = false;
 
@@ -44,9 +45,13 @@ impl Command for History {
                         let mut guard = shell_state.write().unwrap();
 
                         let result = match flag {
-                            "-r" => guard.history.read_history_file(path),
-                            "-w" => guard.history.save_history_file(path, &WriteMode::Write),
-                            "-a" => guard.history.save_history_file(path, &WriteMode::Append),
+                            "-r" => guard.history.read_history_file(&path.item),
+                            "-w" => guard
+                                .history
+                                .save_history_file(&path.item, &WriteMode::Write),
+                            "-a" => guard
+                                .history
+                                .save_history_file(&path.item, &WriteMode::Append),
                             _ => unreachable!(),
                         };
 
@@ -59,7 +64,7 @@ impl Command for History {
                 _ => {
                     limit = args
                         .first()
-                        .and_then(|arg| arg.parse::<usize>().ok())
+                        .and_then(|s| s.item.parse::<usize>().ok())
                         .unwrap_or(history_len);
                 }
             }

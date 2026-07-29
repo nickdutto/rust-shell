@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io::{Write, stdout};
 use std::process;
@@ -19,8 +20,8 @@ impl Command for Exit {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -39,7 +40,7 @@ impl Command for Exit {
 
         let exit_code = args
             .first()
-            .and_then(|c| c.parse::<i32>().ok())
+            .and_then(|s| s.item.parse::<i32>().ok())
             .unwrap_or(0);
 
         process::exit(exit_code);

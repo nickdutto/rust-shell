@@ -17,6 +17,7 @@ use crate::config::Config;
 use crate::engine::command::Command;
 use crate::engine::process::ProcessHandle;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -69,8 +70,8 @@ impl CommandRouter {
 
     pub fn dispatch(
         &self,
-        command_name: String,
-        args: Vec<String>,
+        cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         needs_thread: bool,
         current_job_id: Option<usize>,
         config: Arc<Config>,
@@ -78,19 +79,12 @@ impl CommandRouter {
         io_streams: IoStreams,
     ) -> ProcessHandle {
         let command = self
-            .get(&command_name)
+            .get(&cmd.item)
             .unwrap_or_else(|| self.executable_command.clone());
 
         ProcessHandle::run_producer(
             Box::new(move || {
-                command.run(
-                    &command_name,
-                    args,
-                    current_job_id,
-                    config,
-                    shell_state,
-                    io_streams,
-                )
+                command.run(cmd, args, current_job_id, config, shell_state, io_streams)
             }),
             needs_thread,
         )

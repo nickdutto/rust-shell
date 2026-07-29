@@ -1,10 +1,11 @@
 use crate::io::redirection::RedirectionMode;
+use crate::parser::span::{Span, Spanned};
 use crate::parser::token_scanner::TokenScanner;
-use crate::parser::word::{Word, scan_word};
+use crate::parser::word::{Word, scan_word, total_word_span};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Token {
-    Word(Vec<Word>),
+pub enum TokenKind {
+    Word(Vec<Spanned<Word>>),
     Redirection(RedirectionMode),
     Pipe,
     Sequential,
@@ -12,11 +13,25 @@ pub enum Token {
     Background,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
 pub fn lex(input: &str) -> Vec<Token> {
     let mut tokens = vec![];
     let mut scanner = TokenScanner::new(input);
 
     while let Some(&ch) = scanner.peek() {
+        let start_idx = scanner.current_index();
+
         match ch {
             ' ' | '\t' => {
                 scanner.next_char();
@@ -24,27 +39,45 @@ pub fn lex(input: &str) -> Vec<Token> {
 
             '|' => {
                 scanner.next_char();
-                tokens.push(Token::Pipe);
+                tokens.push(Token::new(
+                    TokenKind::Pipe,
+                    Span::new(start_idx, scanner.current_index()),
+                ));
             }
 
             ';' => {
                 scanner.next_char();
-                tokens.push(Token::Sequential);
+                tokens.push(Token::new(
+                    TokenKind::Sequential,
+                    Span::new(start_idx, scanner.current_index()),
+                ));
             }
 
             '&' => {
                 scanner.next_char();
                 match scanner.next_if_matches('&') {
-                    true => tokens.push(Token::And),
-                    false => tokens.push(Token::Background),
+                    true => tokens.push(Token::new(
+                        TokenKind::And,
+                        Span::new(start_idx, scanner.current_index()),
+                    )),
+                    false => tokens.push(Token::new(
+                        TokenKind::Background,
+                        Span::new(start_idx, scanner.current_index()),
+                    )),
                 }
             }
 
             '>' => {
                 scanner.next_char();
                 match scanner.next_if_matches('>') {
-                    true => tokens.push(Token::Redirection(RedirectionMode::OutAppend)),
-                    false => tokens.push(Token::Redirection(RedirectionMode::Out)),
+                    true => tokens.push(Token::new(
+                        TokenKind::Redirection(RedirectionMode::OutAppend),
+                        Span::new(start_idx, scanner.current_index()),
+                    )),
+                    false => tokens.push(Token::new(
+                        TokenKind::Redirection(RedirectionMode::Out),
+                        Span::new(start_idx, scanner.current_index()),
+                    )),
                 }
             }
 
@@ -52,23 +85,37 @@ pub fn lex(input: &str) -> Vec<Token> {
                 scanner.next_char();
                 if scanner.next_if_matches('>') {
                     match (redir_op, scanner.next_if_matches('>')) {
-                        ('1', false) => tokens.push(Token::Redirection(RedirectionMode::Out)),
-                        ('1', true) => tokens.push(Token::Redirection(RedirectionMode::OutAppend)),
-                        ('2', false) => tokens.push(Token::Redirection(RedirectionMode::Error)),
+                        ('1', false) => tokens.push(Token::new(
+                            TokenKind::Redirection(RedirectionMode::Out),
+                            Span::new(start_idx, scanner.current_index()),
+                        )),
+                        ('1', true) => tokens.push(Token::new(
+                            TokenKind::Redirection(RedirectionMode::OutAppend),
+                            Span::new(start_idx, scanner.current_index()),
+                        )),
+                        ('2', false) => tokens.push(Token::new(
+                            TokenKind::Redirection(RedirectionMode::Error),
+                            Span::new(start_idx, scanner.current_index()),
+                        )),
                         ('2', true) => {
-                            tokens.push(Token::Redirection(RedirectionMode::ErrorAppend));
+                            tokens.push(Token::new(
+                                TokenKind::Redirection(RedirectionMode::ErrorAppend),
+                                Span::new(start_idx, scanner.current_index()),
+                            ));
                         }
                         _ => unreachable!(),
                     }
                 } else {
                     let word = scan_word(&mut scanner, Some(redir_op));
-                    tokens.push(Token::Word(word));
+                    let span = total_word_span(&word);
+                    tokens.push(Token::new(TokenKind::Word(word), span));
                 }
             }
 
             _ => {
                 let word = scan_word(&mut scanner, None);
-                tokens.push(Token::Word(word));
+                let span = total_word_span(&word);
+                tokens.push(Token::new(TokenKind::Word(word), span));
             }
         }
     }
@@ -92,19 +139,19 @@ mod tests {
         let cases = vec![
             Case {
                 input: "|",
-                expected: vec![Token::Pipe],
+                expected: vec![Token::new(TokenKind::Pipe, Span::new(0, 1))],
             },
             Case {
                 input: ";",
-                expected: vec![Token::Sequential],
+                expected: vec![Token::new(TokenKind::Sequential, Span::new(0, 1))],
             },
             Case {
                 input: "&&",
-                expected: vec![Token::And],
+                expected: vec![Token::new(TokenKind::And, Span::new(0, 2))],
             },
             Case {
                 input: "&",
-                expected: vec![Token::Background],
+                expected: vec![Token::new(TokenKind::Background, Span::new(0, 1))],
             },
         ];
 
@@ -118,27 +165,45 @@ mod tests {
         let cases = vec![
             Case {
                 input: ">",
-                expected: vec![Token::Redirection(RedirectionMode::Out)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::Out),
+                    Span::new(0, 1),
+                )],
             },
             Case {
                 input: ">>",
-                expected: vec![Token::Redirection(RedirectionMode::OutAppend)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::OutAppend),
+                    Span::new(0, 2),
+                )],
             },
             Case {
                 input: "1>",
-                expected: vec![Token::Redirection(RedirectionMode::Out)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::Out),
+                    Span::new(0, 2),
+                )],
             },
             Case {
                 input: "1>>",
-                expected: vec![Token::Redirection(RedirectionMode::OutAppend)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::OutAppend),
+                    Span::new(0, 3),
+                )],
             },
             Case {
                 input: "2>",
-                expected: vec![Token::Redirection(RedirectionMode::Error)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::Error),
+                    Span::new(0, 2),
+                )],
             },
             Case {
                 input: "2>>",
-                expected: vec![Token::Redirection(RedirectionMode::ErrorAppend)],
+                expected: vec![Token::new(
+                    TokenKind::Redirection(RedirectionMode::ErrorAppend),
+                    Span::new(0, 3),
+                )],
             },
         ];
 
@@ -152,63 +217,183 @@ mod tests {
         let cases = vec![
             Case {
                 input: "literal",
-                expected: vec![Token::Word(vec![Word::Literal("literal".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Literal("literal".to_string()),
+                        Span::new(0, 7),
+                    )]),
+                    Span::new(0, 7),
+                )],
             },
             Case {
                 input: "'single'",
-                expected: vec![Token::Word(vec![Word::SingleQuoted("single".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::SingleQuoted("single".to_string()),
+                        Span::new(0, 8),
+                    )]),
+                    Span::new(0, 8),
+                )],
             },
             Case {
                 input: "\"double\"",
-                expected: vec![Token::Word(vec![Word::DoubleQuoted("double".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::DoubleQuoted("double".to_string()),
+                        Span::new(0, 8),
+                    )]),
+                    Span::new(0, 8),
+                )],
             },
             Case {
                 input: "$var",
-                expected: vec![Token::Word(vec![Word::Variable("var".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Variable("var".to_string()),
+                        Span::new(0, 4),
+                    )]),
+                    Span::new(0, 4),
+                )],
             },
             Case {
                 input: "${var_b}",
-                expected: vec![Token::Word(vec![Word::Variable("var_b".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Variable("var_b".to_string()),
+                        Span::new(0, 8),
+                    )]),
+                    Span::new(0, 8),
+                )],
             },
             Case {
                 input: "1",
-                expected: vec![Token::Word(vec![Word::Literal("1".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Literal("1".to_string()),
+                        Span::new(0, 1),
+                    )]),
+                    Span::new(0, 1),
+                )],
             },
             Case {
                 input: "2",
-                expected: vec![Token::Word(vec![Word::Literal("2".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Literal("2".to_string()),
+                        Span::new(0, 1),
+                    )]),
+                    Span::new(0, 1),
+                )],
             },
             Case {
                 input: "1abc",
-                expected: vec![Token::Word(vec![Word::Literal("1abc".to_string())])],
+                expected: vec![Token::new(
+                    TokenKind::Word(vec![Spanned::new(
+                        Word::Literal("1abc".to_string()),
+                        Span::new(0, 4),
+                    )]),
+                    Span::new(0, 4),
+                )],
             },
             Case {
                 input: "literal 'single' \"double\" 1 2 1abc $ $var ${var_b} $! ${1} ${ }",
                 expected: vec![
-                    Token::Word(vec![Word::Literal("literal".to_string())]),
-                    Token::Word(vec![Word::SingleQuoted("single".to_string())]),
-                    Token::Word(vec![Word::DoubleQuoted("double".to_string())]),
-                    Token::Word(vec![Word::Literal("1".to_string())]),
-                    Token::Word(vec![Word::Literal("2".to_string())]),
-                    Token::Word(vec![Word::Literal("1abc".to_string())]),
-                    Token::Word(vec![Word::Literal("$".to_string())]),
-                    Token::Word(vec![Word::Variable("var".to_string())]),
-                    Token::Word(vec![Word::Variable("var_b".to_string())]),
-                    Token::Word(vec![Word::Error(ParserError {
-                        kind: ParserErrorKind::InvalidVariableName,
-                        span: Span::new(51, 53),
-                        raw_string: "$!".to_string(),
-                    })]),
-                    Token::Word(vec![Word::Error(ParserError {
-                        kind: ParserErrorKind::InvalidVariableName,
-                        span: Span::new(54, 57),
-                        raw_string: "${1}".to_string(),
-                    })]),
-                    Token::Word(vec![Word::Error(ParserError {
-                        kind: ParserErrorKind::InvalidVariableName,
-                        span: Span::new(59, 62),
-                        raw_string: "${ }".to_string(),
-                    })]),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Literal("literal".to_string()),
+                            Span::new(0, 7),
+                        )]),
+                        Span::new(0, 7),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::SingleQuoted("single".to_string()),
+                            Span::new(8, 16),
+                        )]),
+                        Span::new(8, 16),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::DoubleQuoted("double".to_string()),
+                            Span::new(17, 25),
+                        )]),
+                        Span::new(17, 25),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Literal("1".to_string()),
+                            Span::new(26, 27),
+                        )]),
+                        Span::new(26, 27),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Literal("2".to_string()),
+                            Span::new(28, 29),
+                        )]),
+                        Span::new(28, 29),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Literal("1abc".to_string()),
+                            Span::new(30, 34),
+                        )]),
+                        Span::new(30, 34),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Literal("$".to_string()),
+                            Span::new(35, 36),
+                        )]),
+                        Span::new(35, 36),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Variable("var".to_string()),
+                            Span::new(37, 41),
+                        )]),
+                        Span::new(37, 41),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Variable("var_b".to_string()),
+                            Span::new(42, 50),
+                        )]),
+                        Span::new(42, 50),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Error(ParserError {
+                                kind: ParserErrorKind::InvalidVariableName,
+                                span: Span::new(51, 53),
+                                raw_string: "$!".to_string(),
+                            }),
+                            Span::new(51, 53),
+                        )]),
+                        Span::new(51, 53),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Error(ParserError {
+                                kind: ParserErrorKind::InvalidVariableName,
+                                span: Span::new(54, 57),
+                                raw_string: "${1}".to_string(),
+                            }),
+                            Span::new(54, 58),
+                        )]),
+                        Span::new(54, 58),
+                    ),
+                    Token::new(
+                        TokenKind::Word(vec![Spanned::new(
+                            Word::Error(ParserError {
+                                kind: ParserErrorKind::InvalidVariableName,
+                                span: Span::new(59, 62),
+                                raw_string: "${ }".to_string(),
+                            }),
+                            Span::new(59, 63),
+                        )]),
+                        Span::new(59, 63),
+                    ),
                 ],
             },
         ];

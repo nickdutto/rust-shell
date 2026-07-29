@@ -1,5 +1,5 @@
 use crate::parser::command_node::CommandNode;
-use crate::parser::lexer::Token;
+use crate::parser::lexer::{Token, TokenKind};
 use crate::parser::statement::Statement;
 use std::iter::Peekable;
 use std::vec::IntoIter;
@@ -32,12 +32,12 @@ impl Parser {
     fn parse_sequential(&mut self) -> Option<Statement> {
         let mut left = self.parse_and_or()?;
 
-        if let Some(Token::Background) = self.tokens.peek() {
+        if matches!(self.tokens.peek(), Some(token) if token.kind == TokenKind::Background) {
             self.tokens.next();
             left = Statement::Background(Box::new(left));
         }
 
-        if let Some(Token::Sequential) = self.tokens.peek() {
+        if matches!(self.tokens.peek(), Some(token) if token.kind == TokenKind::Sequential) {
             self.tokens.next();
 
             let right = self.parse_sequential()?;
@@ -54,7 +54,7 @@ impl Parser {
     fn parse_and_or(&mut self) -> Option<Statement> {
         let left = self.parse_pipeline()?;
 
-        if let Some(Token::And) = self.tokens.peek() {
+        if matches!(self.tokens.peek(), Some(token) if token.kind == TokenKind::And) {
             self.tokens.next();
 
             let right = self.parse_and_or()?;
@@ -73,7 +73,11 @@ impl Parser {
 
         commands.push(self.parse_command_node());
 
-        while let Some(Token::Pipe) = self.tokens.peek() {
+        while let Some(Token {
+                           kind: TokenKind::Pipe,
+                           ..
+                       }) = self.tokens.peek()
+        {
             self.tokens.next();
             commands.push(self.parse_command_node());
         }
@@ -89,23 +93,26 @@ impl Parser {
         let mut command = CommandNode::default();
 
         while let Some(token) = self.tokens.peek() {
-            match token {
-                Token::Pipe | Token::Sequential | Token::And | Token::Background => {
+            match token.kind {
+                TokenKind::Pipe
+                | TokenKind::Sequential
+                | TokenKind::And
+                | TokenKind::Background => {
                     break;
                 }
                 _ => {
                     if let Some(tok) = self.tokens.next() {
-                        match tok {
-                            Token::Word(word) => {
+                        match tok.kind {
+                            TokenKind::Word(word) => {
                                 if command.cmd.is_empty() {
                                     command.cmd = word;
                                 } else {
                                     command.args.push(word);
                                 }
                             }
-                            Token::Redirection(redirection_mode) => {
+                            TokenKind::Redirection(redirection_mode) => {
                                 if let Some(word) = self.tokens.next()
-                                    && let Token::Word(w) = word
+                                    && let TokenKind::Word(w) = word.kind
                                 {
                                     command.redirection.mode = redirection_mode;
                                     command.redirection.path = w;
@@ -128,6 +135,7 @@ mod tests {
     use crate::io::redirection::RedirectionMode;
     use crate::parser::command_node::Redirection;
     use crate::parser::lexer::lex;
+    use crate::parser::span::{Span, Spanned};
     use crate::parser::word::Word;
 
     #[test]
@@ -136,8 +144,14 @@ mod tests {
         let mut parser = Parser::new(tokens);
         let statements = parser.parse_statements();
         let expected = vec![Statement::Command(CommandNode {
-            cmd: vec![Word::Literal("echo".to_string())],
-            args: vec![vec![Word::Literal("a".to_string())]],
+            cmd: vec![Spanned::new(
+                Word::Literal("echo".to_string()),
+                Span::new(0, 4),
+            )],
+            args: vec![vec![Spanned::new(
+                Word::Literal("a".to_string()),
+                Span::new(5, 6),
+            )]],
             redirection: Redirection {
                 mode: RedirectionMode::Nothing,
                 path: vec![],
@@ -156,15 +170,24 @@ mod tests {
             left: Box::new(Statement::And {
                 left: Box::new(Statement::Pipeline(vec![
                     CommandNode {
-                        cmd: vec![Word::Literal("echo".to_string())],
-                        args: vec![vec![Word::Literal("a".to_string())]],
+                        cmd: vec![Spanned::new(
+                            Word::Literal("echo".to_string()),
+                            Span::new(0, 4),
+                        )],
+                        args: vec![vec![Spanned::new(
+                            Word::Literal("a".to_string()),
+                            Span::new(5, 6),
+                        )]],
                         redirection: Redirection {
                             mode: RedirectionMode::Nothing,
                             path: vec![],
                         },
                     },
                     CommandNode {
-                        cmd: vec![Word::Literal("cat".to_string())],
+                        cmd: vec![Spanned::new(
+                            Word::Literal("cat".to_string()),
+                            Span::new(9, 12),
+                        )],
                         args: vec![],
                         redirection: Redirection {
                             mode: RedirectionMode::Nothing,
@@ -173,8 +196,14 @@ mod tests {
                     },
                 ])),
                 right: Box::new(Statement::Command(CommandNode {
-                    cmd: vec![Word::Literal("echo".to_string())],
-                    args: vec![vec![Word::Literal("b".to_string())]],
+                    cmd: vec![Spanned::new(
+                        Word::Literal("echo".to_string()),
+                        Span::new(16, 20),
+                    )],
+                    args: vec![vec![Spanned::new(
+                        Word::Literal("b".to_string()),
+                        Span::new(21, 22),
+                    )]],
                     redirection: Redirection {
                         mode: RedirectionMode::Nothing,
                         path: vec![],
@@ -183,7 +212,10 @@ mod tests {
             }),
             right: Box::new(Statement::Background(Box::new(Statement::Command(
                 CommandNode {
-                    cmd: vec![Word::Literal("ls".to_string())],
+                    cmd: vec![Spanned::new(
+                        Word::Literal("ls".to_string()),
+                        Span::new(25, 27),
+                    )],
                     args: vec![],
                     redirection: Redirection {
                         mode: RedirectionMode::Nothing,

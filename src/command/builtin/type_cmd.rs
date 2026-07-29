@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
@@ -22,14 +23,14 @@ impl Command for TypeCmd {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, CommandError> {
-        let cmd_arg = args.first().map_or("", String::as_str);
+        let cmd_arg = args.first().map_or("", |s| s.item.as_str());
         if cmd_arg.is_empty() {
             writeln!(io_streams.error, "type: missing operand")?;
             return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));

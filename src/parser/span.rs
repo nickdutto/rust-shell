@@ -1,3 +1,15 @@
+#[derive(Clone, Debug, PartialEq)]
+pub struct Spanned<T> {
+    pub item: T,
+    pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(item: T, span: Span) -> Self {
+        Self { item, span }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Span {
     pub start: usize,

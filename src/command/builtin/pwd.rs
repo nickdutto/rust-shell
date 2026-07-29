@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandError, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::env;
 use std::io::Write;
@@ -20,8 +21,8 @@ impl Command for Pwd {
 
     fn run(
         &self,
-        _cmd: &str,
-        _args: Vec<String>,
+        _cmd: Spanned<String>,
+        _args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,

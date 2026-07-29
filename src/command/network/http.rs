@@ -4,6 +4,7 @@ use crate::engine::exit::ExitCode;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
@@ -22,8 +23,8 @@ impl Command for Http {
 
     fn run(
         &self,
-        _cmd: &str,
-        args: Vec<String>,
+        _cmd: Spanned<String>,
+        args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -46,10 +47,10 @@ impl Command for Http {
             return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
         };
 
-        let http_method = HttpMethod::parse(&method_arg)
+        let http_method = HttpMethod::parse(&method_arg.item)
             .map_err(|e| errors.push(e.to_string()))
             .ok();
-        let url = Url::parse(&url_arg)
+        let url = Url::parse(&url_arg.item)
             .map_err(|e| errors.push(e.to_string()))
             .ok();
 
