@@ -1,4 +1,4 @@
-use crate::parser::error::{ParserError, ParserErrorKind};
+use crate::parser::error::ParserError;
 use crate::parser::span::{Span, Spanned};
 use crate::parser::token_scanner::TokenScanner;
 use crate::shell::variables::Variables;
@@ -10,7 +10,7 @@ pub enum Word {
     SingleQuoted(String),
     DoubleQuoted(String),
     Variable(String),
-    Error(ParserError),
+    Error(String, ParserError),
     #[default]
     Nothing,
 }
@@ -23,7 +23,7 @@ impl Word {
             Word::DoubleQuoted(w) => format!("\"{w}\""),
             // TODO: doesn't account for whether the original variable was open or braced
             Word::Variable(w) => format!("${w}"),
-            Word::Error(w) => w.raw_string.clone(),
+            Word::Error(w, _) => w.clone(),
             Word::Nothing => String::new(),
         }
     }
@@ -36,7 +36,7 @@ impl Display for Word {
             | Word::SingleQuoted(w)
             | Word::DoubleQuoted(w)
             | Word::Variable(w) => write!(f, "{w}"),
-            Word::Error(w) => write!(f, "{}", w.raw_string),
+            Word::Error(w, _) => write!(f, "{w}"),
             Word::Nothing => write!(f, ""),
         }
     }
@@ -187,25 +187,27 @@ fn scan_variable(scanner: &mut TokenScanner) -> Word {
             content.extend(scanner.next_char());
         }
 
-        return Word::Error(ParserError {
-            kind: ParserErrorKind::InvalidVariableName,
-            span: Span::new(start_index, scanner.current_index()),
-            raw_string: if scanner.next_if_matches('}') {
+        return Word::Error(
+            if scanner.next_if_matches('}') {
                 format!("${{{content}}}")
             } else if has_start_brace {
                 format!("${{{content}")
             } else {
                 format!("${content}")
             },
-        });
+            ParserError::InvalidVariableName {
+                span: Span::new(start_index, scanner.current_index()),
+            },
+        );
     }
 
     if has_start_brace && !scanner.next_if_matches('}') {
-        return Word::Error(ParserError {
-            kind: ParserErrorKind::UnclosedVariableBrace,
-            span: Span::new(start_index, scanner.current_index()),
-            raw_string: format!("${{{content}"),
-        });
+        return Word::Error(
+            format!("${{{content}"),
+            ParserError::UnclosedVariableBrace {
+                span: Span::new(start_index, scanner.current_index()),
+            },
+        );
     }
 
     Word::Variable(content)
@@ -246,8 +248,8 @@ pub fn words_to_string(words: Vec<Spanned<Word>>, variables: &Variables) -> Stri
                     let _ = write!(word_buffer, "{variable}");
                 }
             }
-            Word::Error(_) => {
-                todo!()
+            Word::Error(w, _) => {
+                let _ = write!(word_buffer, "{w}");
             }
             Word::Nothing => {}
         }
@@ -266,7 +268,6 @@ pub fn total_word_span(words: &[Spanned<Word>]) -> Span {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::error::ParserErrorKind;
 
     struct Case<I, E> {
         input: I,
@@ -448,59 +449,66 @@ mod tests {
         let mut cases = vec![
             Case {
                 input: TokenScanner::new("${a-1@b}"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 7),
-                    raw_string: "${a-1@b}".to_string(),
-                }),
+                expected: Word::Error(
+                    "${a-1@b}".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 7),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("$1"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 2),
-                    raw_string: "$1".to_string(),
-                }),
+                expected: Word::Error(
+                    "$1".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 2),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("${1}"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 3),
-                    raw_string: "${1}".to_string(),
-                }),
+                expected: Word::Error(
+                    "${1}".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 3),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("$!"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 2),
-                    raw_string: "$!".to_string(),
-                }),
+                expected: Word::Error(
+                    "$!".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 2),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("${!}"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 3),
-                    raw_string: "${!}".to_string(),
-                }),
+                expected: Word::Error(
+                    "${!}".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 3),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("${}"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 2),
-                    raw_string: "${}".to_string(),
-                }),
+                expected: Word::Error(
+                    "${}".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 2),
+                    },
+                ),
             },
             Case {
                 input: TokenScanner::new("${ }"),
-                expected: Word::Error(ParserError {
-                    kind: ParserErrorKind::InvalidVariableName,
-                    span: Span::new(0, 3),
-                    raw_string: "${ }".to_string(),
-                }),
+                expected: Word::Error(
+                    "${ }".to_string(),
+                    ParserError::InvalidVariableName {
+                        span: Span::new(0, 3),
+                    },
+                ),
             },
         ];
 
@@ -513,11 +521,12 @@ mod tests {
     fn scan_variable_missing_close_brace_returns_error() {
         assert_eq!(
             scan_variable(&mut TokenScanner::new("${abc")),
-            Word::Error(ParserError {
-                kind: ParserErrorKind::UnclosedVariableBrace,
-                span: Span::new(0, 5),
-                raw_string: "${abc".to_string()
-            })
+            Word::Error(
+                "${abc".to_string(),
+                ParserError::UnclosedVariableBrace {
+                    span: Span::new(0, 5),
+                }
+            )
         );
     }
 }

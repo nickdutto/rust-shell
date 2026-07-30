@@ -126,7 +126,7 @@ pub fn lex(input: &str) -> Vec<Token> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::error::{ParserError, ParserErrorKind};
+    use crate::parser::error::ParserError;
     use crate::parser::span::Span;
 
     struct Case<I, E> {
@@ -363,33 +363,36 @@ mod tests {
                     ),
                     Token::new(
                         TokenKind::Word(vec![Spanned::new(
-                            Word::Error(ParserError {
-                                kind: ParserErrorKind::InvalidVariableName,
-                                span: Span::new(51, 53),
-                                raw_string: "$!".to_string(),
-                            }),
+                            Word::Error(
+                                "$!".to_string(),
+                                ParserError::InvalidVariableName {
+                                    span: Span::new(51, 53),
+                                },
+                            ),
                             Span::new(51, 53),
                         )]),
                         Span::new(51, 53),
                     ),
                     Token::new(
                         TokenKind::Word(vec![Spanned::new(
-                            Word::Error(ParserError {
-                                kind: ParserErrorKind::InvalidVariableName,
-                                span: Span::new(54, 57),
-                                raw_string: "${1}".to_string(),
-                            }),
+                            Word::Error(
+                                "${1}".to_string(),
+                                ParserError::InvalidVariableName {
+                                    span: Span::new(54, 57),
+                                },
+                            ),
                             Span::new(54, 58),
                         )]),
                         Span::new(54, 58),
                     ),
                     Token::new(
                         TokenKind::Word(vec![Spanned::new(
-                            Word::Error(ParserError {
-                                kind: ParserErrorKind::InvalidVariableName,
-                                span: Span::new(59, 62),
-                                raw_string: "${ }".to_string(),
-                            }),
+                            Word::Error(
+                                "${ }".to_string(),
+                                ParserError::InvalidVariableName {
+                                    span: Span::new(59, 62),
+                                },
+                            ),
                             Span::new(59, 63),
                         )]),
                         Span::new(59, 63),
