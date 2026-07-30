@@ -2,11 +2,10 @@ use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
-use crate::io::stream::{IoStreams, OutputStream};
+use crate::io::stream::IoStreams;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io::ErrorKind;
-use std::io::Write;
 use std::sync::{Arc, RwLock};
 
 pub struct Executable;
@@ -33,8 +32,6 @@ impl Command for Executable {
             return Ok(CommandData::ExitCode(ExitCode::FAILURE));
         }
 
-        let mut fallback_error = OutputStream::fallback_output_stream(&io_streams.error);
-
         let mut command_binding = std::process::Command::new(&cmd.item);
         let command = command_binding
             .stdin(io_streams.input.into_stdio())
@@ -55,14 +52,19 @@ impl Command for Executable {
                 }
                 Ok(CommandData::Child(child))
             }
-            Err(e) if e.kind() == ErrorKind::NotFound => {
-                writeln!(fallback_error, "{}: command not found", cmd.item)?;
-                Ok(CommandData::ExitCode(ExitCode::NOT_FOUND))
-            }
-            Err(e) => {
-                writeln!(fallback_error, "{}: error executing command: {e}", cmd.item)?;
-                Ok(CommandData::ExitCode(ExitCode::FAILURE))
-            }
+            Err(e) if e.kind() == ErrorKind::NotFound => Err(ShellError::ExternalCommand {
+                help: format!(
+                    "`{}` is neither a built-in nor a known external command",
+                    cmd.item
+                ),
+                label: format!("Command `{}` not found", cmd.item),
+                span: cmd.span,
+            }),
+            Err(e) => Err(ShellError::ExternalCommand {
+                help: String::new(),
+                label: format!("{e}"),
+                span: cmd.span,
+            }),
         }
     }
 }

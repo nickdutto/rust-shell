@@ -2,16 +2,19 @@ use crate::config::Config;
 use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
 use crate::engine::router::CommandRouter;
+use crate::error::shell_error::ShellError;
 use crate::io::redirection::{RedirectionMode, initialise_writer_file};
 use crate::io::stream::{InputStream, IoStreams, OutputStream};
 use crate::parser::Parser;
 use crate::parser::command_node::{CommandNode, Redirection};
+use crate::parser::error::collect_parser_errors;
 use crate::parser::lexer::lex;
 use crate::parser::span::Spanned;
 use crate::parser::statement::Statement;
 use crate::parser::word::{Word, total_word_span, words_to_string};
 use crate::shell::background_jobs::BackgroundJob;
 use crate::shell::shell_state::ShellState;
+use miette::{NamedSource, Report};
 use reedline::ExternalPrinter;
 use std::iter::Peekable;
 use std::sync::{Arc, RwLock};
@@ -41,27 +44,41 @@ impl Engine {
     }
 
     pub fn run_line(&self, line: &str) {
-        self.run_statements(Parser::new(lex(line)).parse_statements());
-    }
+        let tokens = lex(line);
 
-    pub fn run_statements(&self, statements: Vec<Statement>) {
+        let errors = collect_parser_errors(&tokens);
+        if !errors.errors.is_empty() {
+            Self::report_error(ShellError::ParserMulti(errors), line);
+            return;
+        }
+
+        let statements = Parser::new(tokens).parse_statements();
         for statement in statements {
-            self.run_statement(statement, None);
+            if let Err(err) = self.run_statement(statement, None, line) {
+                Self::report_error(err, line);
+            }
         }
     }
 
-    pub fn run_statement(&self, statement: Statement, current_job_id: Option<usize>) -> i32 {
+    pub fn run_statement(
+        &self,
+        statement: Statement,
+        current_job_id: Option<usize>,
+        line: &str,
+    ) -> Result<ExitCode, ShellError> {
         match statement {
             Statement::Sequential { left, right } => {
-                self.execute_sequential(*left, *right, current_job_id)
+                self.execute_sequential(*left, *right, current_job_id, line)
             }
 
-            Statement::Background(inner_statement) => self.execute_background(*inner_statement),
-
-            Statement::And { left, right } => self.execute_and(*left, *right, current_job_id),
+            Statement::And { left, right } => self.execute_and(*left, *right, current_job_id, line),
 
             Statement::Pipeline(command_nodes) => {
-                self.execute_pipeline(command_nodes, current_job_id)
+                self.execute_pipeline(command_nodes, current_job_id, line)
+            }
+
+            Statement::Background(inner_statement) => {
+                Ok(self.execute_background(*inner_statement, line.to_owned()))
             }
 
             Statement::Command(command_node) => self
@@ -75,12 +92,88 @@ impl Engine {
         left: Statement,
         right: Statement,
         current_job_id: Option<usize>,
-    ) -> i32 {
-        self.run_statement(left, current_job_id);
-        self.run_statement(right, current_job_id)
+        line: &str,
+    ) -> Result<ExitCode, ShellError> {
+        if let Err(err) = self.run_statement(left, current_job_id, line) {
+            Self::report_error(err, line);
+        }
+        self.run_statement(right, current_job_id, line)
     }
 
-    fn execute_background(&self, statement: Statement) -> i32 {
+    fn execute_and(
+        &self,
+        left: Statement,
+        right: Statement,
+        current_job_id: Option<usize>,
+        line: &str,
+    ) -> Result<ExitCode, ShellError> {
+        let left_exit_code = self.run_statement(left, current_job_id, line)?;
+
+        if left_exit_code == ExitCode::SUCCESS {
+            self.run_statement(right, current_job_id, line)
+        } else {
+            Ok(left_exit_code)
+        }
+    }
+
+    fn execute_pipeline(
+        &self,
+        command_nodes: Vec<CommandNode>,
+        current_job_id: Option<usize>,
+        line: &str,
+    ) -> Result<ExitCode, ShellError> {
+        let mut current_input = InputStream::Stdin;
+        let mut handles: Vec<ProcessHandle> = vec![];
+        let mut iter = command_nodes.into_iter().peekable();
+
+        while let Some(command_node) = iter.next() {
+            let (io_streams, next_input) = match self.pipe_io_streams(current_input, &mut iter) {
+                Ok(streams) => streams,
+                Err(exit_code) => {
+                    for handle in handles {
+                        let _ = handle.wait();
+                    }
+                    return Ok(exit_code);
+                }
+            };
+
+            let handle = self.run_command(command_node, current_job_id, io_streams);
+
+            if let ProcessHandle::Immediate(Err(err)) = handle {
+                for h in handles {
+                    let _ = h.wait();
+                }
+                return Err(err);
+            }
+
+            handles.push(handle);
+            current_input = next_input;
+        }
+
+        let mut final_exit_code = ExitCode::SUCCESS;
+        let mut errors = vec![];
+
+        for handle in handles {
+            match handle.wait() {
+                Ok(exit_code) => final_exit_code = exit_code,
+                Err(err) => errors.push(err),
+            }
+        }
+
+        if !errors.is_empty() {
+            let first_err = errors.remove(0);
+
+            for err in errors {
+                Self::report_error(err, line);
+            }
+
+            Err(first_err)
+        } else {
+            Ok(final_exit_code)
+        }
+    }
+
+    fn execute_background(&self, statement: Statement, line: String) -> ExitCode {
         let runner_clone = self.clone();
         let shell_state_clone = Arc::clone(&self.shell_state);
 
@@ -91,13 +184,19 @@ impl Engine {
             .write()
             .unwrap()
             .background_jobs
-            .add_job(vec![], cmd_string);
+            .add_job(vec![], cmd_string.clone());
+
         let _ = self
             .printer
             .print(BackgroundJob::format_job_started(job_id));
 
         std::thread::spawn(move || {
-            runner_clone.run_statement(statement, Some(job_id));
+            if let Err(err) = runner_clone.run_statement(statement, Some(job_id), &line) {
+                let report =
+                    Report::new(err).with_source_code(NamedSource::new("line", cmd_string));
+
+                let _ = runner_clone.printer.print(format!("{report:?}"));
+            }
 
             if let Some(output) = shell_state_clone
                 .write()
@@ -109,50 +208,7 @@ impl Engine {
             }
         });
 
-        0
-    }
-
-    fn execute_and(&self, left: Statement, right: Statement, current_job_id: Option<usize>) -> i32 {
-        let left_code = self.run_statement(left, current_job_id);
-
-        if left_code == 0 {
-            self.run_statement(right, current_job_id)
-        } else {
-            left_code
-        }
-    }
-
-    fn execute_pipeline(
-        &self,
-        command_nodes: Vec<CommandNode>,
-        current_job_id: Option<usize>,
-    ) -> i32 {
-        let mut current_input = InputStream::Stdin;
-        let mut handles: Vec<ProcessHandle> = vec![];
-        let mut iter = command_nodes.into_iter().peekable();
-
-        while let Some(command_node) = iter.next() {
-            let (io_streams, next_input) = match self.pipe_io_streams(current_input, &mut iter) {
-                Ok(r) => r,
-                Err(code) => {
-                    for handle in handles {
-                        handle.wait();
-                    }
-
-                    return code.as_i32();
-                }
-            };
-
-            handles.push(self.run_command(command_node, current_job_id, io_streams));
-            current_input = next_input;
-        }
-
-        let mut final_code = 0;
-        for handle in handles {
-            final_code = handle.wait();
-        }
-
-        final_code
+        ExitCode::SUCCESS
     }
 
     fn pipe_io_streams(
@@ -165,10 +221,10 @@ impl Engine {
                 Ok((read_end, write_end)) => {
                     (InputStream::Pipe(read_end), OutputStream::Pipe(write_end))
                 }
-                Err(e) => {
+                Err(err) => {
                     let _ = self
                         .printer
-                        .print(format!("shell: pipe creation failed: {e}"));
+                        .print(format!("shell: pipe creation failed: {err}"));
 
                     return Err(ExitCode::FAILURE);
                 }
@@ -195,9 +251,9 @@ impl Engine {
     ) -> ProcessHandle {
         self.init_redirection_io_streams(command_node.redirection, &mut io_streams);
 
-        let needs_thread = matches!(io_streams.output, OutputStream::Pipe(_));
-
         let (cmd_name, args) = self.expand_command_node_values(command_node.cmd, command_node.args);
+        let is_builtin = self.command_router.is_builtin(&cmd_name.item);
+        let needs_thread = is_builtin && matches!(io_streams.output, OutputStream::Pipe(_));
 
         self.command_router.dispatch(
             cmd_name,
@@ -266,5 +322,10 @@ impl Engine {
         }
 
         (Spanned::new(cmd_name, cmd_span), args)
+    }
+
+    fn report_error(err: ShellError, line: &str) {
+        let report = Report::new(err).with_source_code(NamedSource::new("line", line.to_string()));
+        eprintln!("{report:?}");
     }
 }

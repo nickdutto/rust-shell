@@ -1,33 +1,31 @@
-use crate::engine::command::{CommandData, CommandError};
+use crate::engine::command::CommandData;
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use std::process::Child;
 use std::thread::JoinHandle;
 
 pub enum ProcessHandle {
     External(Child),
-    Thread(JoinHandle<i32>),
-    Immediate(i32),
+    Thread(JoinHandle<Result<ExitCode, ShellError>>),
+    Immediate(Result<ExitCode, ShellError>),
 }
 
 impl ProcessHandle {
-    pub fn wait(self) -> i32 {
+    pub fn wait(self) -> Result<ExitCode, ShellError> {
         match self {
             ProcessHandle::External(mut child) => {
-                child.wait().ok().and_then(|s| s.code()).unwrap_or(1)
+                Ok(child.wait().ok().map_or(ExitCode::FAILURE, ExitCode::from))
             }
-            ProcessHandle::Thread(handle) => handle.join().unwrap_or(1),
-            ProcessHandle::Immediate(code) => code,
+            ProcessHandle::Thread(handle) => handle.join().unwrap_or(Ok(ExitCode::FAILURE)),
+            ProcessHandle::Immediate(res) => res,
         }
     }
 
     pub fn run_producer(
-        f: Box<dyn FnOnce() -> Result<CommandData, CommandError> + Send>,
+        f: Box<dyn FnOnce() -> Result<CommandData, ShellError> + Send>,
         needs_thread: bool,
     ) -> ProcessHandle {
-        let fun = || {
-            f().map_or(ExitCode::FAILURE, CommandData::into_exit_code)
-                .as_i32()
-        };
+        let fun = || Ok(f()?.into_exit_code());
 
         if needs_thread {
             ProcessHandle::Thread(std::thread::spawn(fun))

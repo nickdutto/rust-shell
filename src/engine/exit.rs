@@ -1,5 +1,6 @@
 use std::process::ExitStatus;
 
+#[derive(PartialEq)]
 pub struct ExitCode(pub i32);
 
 impl ExitCode {

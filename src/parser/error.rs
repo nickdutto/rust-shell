@@ -40,14 +40,14 @@ impl ParserError {
 
 #[derive(Debug, Error, Diagnostic)]
 #[error("Found {count} parser errors")]
-#[diagnostic(code(shell::parser_errors))]
-pub struct ParserErrors {
+#[diagnostic(code(rs_shell::parser_multi_error))]
+pub struct ParserMultiError {
     pub count: usize,
     #[related]
     pub errors: Vec<ParserError>,
 }
 
-pub fn collect_parser_errors(tokens: &[Token]) -> Vec<ParserError> {
+pub fn collect_parser_errors(tokens: &[Token]) -> ParserMultiError {
     let mut errors = vec![];
 
     for token in tokens {
@@ -60,5 +60,8 @@ pub fn collect_parser_errors(tokens: &[Token]) -> Vec<ParserError> {
         }
     }
 
-    errors
+    ParserMultiError {
+        count: errors.len(),
+        errors,
+    }
 }

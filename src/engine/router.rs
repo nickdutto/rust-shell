@@ -49,6 +49,10 @@ impl CommandRouter {
         self.commands.get(name).cloned()
     }
 
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.commands.contains_key(name)
+    }
+
     pub fn register_builtins(&mut self) {
         self.register(Arc::new(Alias));
         self.register(Arc::new(Cd));

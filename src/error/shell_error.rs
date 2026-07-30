@@ -1,4 +1,4 @@
-use crate::parser::error::{ParserError, ParserErrors};
+use crate::parser::error::{ParserError, ParserMultiError};
 use crate::parser::span::Span;
 use miette::Diagnostic;
 use std::io;
@@ -12,8 +12,17 @@ pub enum ShellError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    ParserMulti(#[from] ParserErrors),
+    ParserMulti(#[from] ParserMultiError),
 
     #[error(transparent)]
     Io(#[from] io::Error),
+
+    #[error("External command failed")]
+    #[diagnostic(code(rs_shell::external_command), help("{help}"))]
+    ExternalCommand {
+        help: String,
+        label: String,
+        #[label("{label}")]
+        span: Span,
+    },
 }
