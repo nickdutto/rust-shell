@@ -1,6 +1,7 @@
 use crate::config::Config;
-use crate::engine::command::{Command, CommandData, CommandError, CommandType};
+use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::{IoStreams, OutputStream};
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
@@ -27,7 +28,7 @@ impl Command for Executable {
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
         io_streams: IoStreams,
-    ) -> Result<CommandData, CommandError> {
+    ) -> Result<CommandData, ShellError> {
         if cmd.item.is_empty() {
             return Ok(CommandData::ExitCode(ExitCode::FAILURE));
         }

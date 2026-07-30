@@ -1,6 +1,7 @@
 use crate::config::Config;
-use crate::engine::command::{Command, CommandData, CommandError, CommandType};
+use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
@@ -29,7 +30,7 @@ impl Command for Http {
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
-    ) -> Result<CommandData, CommandError> {
+    ) -> Result<CommandData, ShellError> {
         let mut args_iter = args.into_iter();
         let mut errors = vec![];
 

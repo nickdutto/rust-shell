@@ -1,6 +1,7 @@
 use crate::config::Config;
-use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandError, CommandType};
+use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
@@ -29,7 +30,7 @@ impl Command for TypeCmd {
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
-    ) -> Result<CommandData, CommandError> {
+    ) -> Result<CommandData, ShellError> {
         let cmd_arg = args.first().map_or("", |s| s.item.as_str());
         if cmd_arg.is_empty() {
             writeln!(io_streams.error, "type: missing operand")?;

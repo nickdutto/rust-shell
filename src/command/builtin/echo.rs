@@ -1,6 +1,7 @@
 use crate::config::Config;
-use crate::engine::command::{Command, CommandData, CommandError, CommandType};
+use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
@@ -26,7 +27,7 @@ impl Command for Echo {
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
-    ) -> Result<CommandData, CommandError> {
+    ) -> Result<CommandData, ShellError> {
         writeln!(
             io_streams.output,
             "{}",

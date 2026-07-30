@@ -1,23 +1,16 @@
 use crate::config::Config;
 use crate::engine::exit::ExitCode;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
-use std::io;
 use std::process::Child;
 use std::sync::{Arc, RwLock};
-use thiserror::Error;
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
     "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type", "date",
     "timezone", "http", "http get",
 ];
-
-#[derive(Error, Debug)]
-pub enum CommandError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-}
 
 pub enum CommandData {
     Child(Child),
@@ -51,5 +44,5 @@ pub trait Command {
         config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
         io_streams: IoStreams,
-    ) -> Result<CommandData, CommandError>;
+    ) -> Result<CommandData, ShellError>;
 }
