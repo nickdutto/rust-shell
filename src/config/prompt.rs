@@ -39,52 +39,66 @@ impl Default for Prompt {
     fn default() -> Self {
         Self {
             left: vec![
-                PromptSegment {
-                    mode: PromptMode::Username,
-                    basic_value: None,
-                    full_directory_path: None,
-                    datetime_format: None,
-                    icon_unicode: None,
-                    background: 33,
-                    foreground: 255,
-                    bold: false,
-                    arrow_left: false,
-                    arrow_left_color: 33,
-                    arrow_right: true,
-                    arrow_right_color: 33,
-                    gap: true,
-                },
-                PromptSegment {
-                    mode: PromptMode::CurrentDirectory,
-                    basic_value: None,
-                    full_directory_path: Some(false),
-                    datetime_format: None,
-                    icon_unicode: Some("ea83".into()),
-                    background: 33,
-                    foreground: 255,
-                    bold: false,
-                    arrow_left: true,
-                    arrow_left_color: 33,
-                    arrow_right: true,
-                    arrow_right_color: 33,
-                    gap: true,
-                },
+                PromptSegment::mode_username(),
+                PromptSegment::mode_current_directory(),
             ],
-            right: vec![PromptSegment {
-                mode: PromptMode::DateTime,
-                basic_value: None,
-                full_directory_path: None,
-                datetime_format: Some("%H:%M:%S".into()),
-                icon_unicode: Some("f017".into()),
-                background: 93,
-                foreground: 255,
-                bold: false,
-                arrow_left: true,
-                arrow_left_color: 93,
-                arrow_right: false,
-                arrow_right_color: 93,
-                gap: true,
-            }],
+            right: vec![PromptSegment::mode_datetime()],
+        }
+    }
+}
+
+impl PromptSegment {
+    fn mode_username() -> Self {
+        Self {
+            mode: PromptMode::Username,
+            basic_value: None,
+            full_directory_path: None,
+            datetime_format: None,
+            icon_unicode: None,
+            background: 33,
+            foreground: 255,
+            bold: false,
+            arrow_left: false,
+            arrow_left_color: 33,
+            arrow_right: true,
+            arrow_right_color: 33,
+            gap: true,
+        }
+    }
+
+    fn mode_current_directory() -> Self {
+        Self {
+            mode: PromptMode::CurrentDirectory,
+            basic_value: None,
+            full_directory_path: Some(false),
+            datetime_format: None,
+            icon_unicode: Some("ea83".into()),
+            background: 33,
+            foreground: 255,
+            bold: false,
+            arrow_left: true,
+            arrow_left_color: 33,
+            arrow_right: true,
+            arrow_right_color: 33,
+            gap: true,
+        }
+    }
+
+    fn mode_datetime() -> Self {
+        Self {
+            mode: PromptMode::DateTime,
+            basic_value: None,
+            full_directory_path: None,
+            datetime_format: Some("%H:%M:%S".into()),
+            icon_unicode: Some("f017".into()),
+            background: 93,
+            foreground: 255,
+            bold: false,
+            arrow_left: true,
+            arrow_left_color: 93,
+            arrow_right: false,
+            arrow_right_color: 93,
+            gap: true,
         }
     }
 }
