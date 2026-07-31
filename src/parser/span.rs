@@ -12,7 +12,7 @@ impl<T> Spanned<T> {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,

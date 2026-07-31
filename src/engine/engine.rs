@@ -309,7 +309,7 @@ impl Engine {
             if !aliased_args.is_empty() {
                 cmd_name = aliased_args.remove(0);
                 for aliased_arg in aliased_args {
-                    args.push(Spanned::new(aliased_arg, cmd_span.clone()));
+                    args.push(Spanned::new(aliased_arg, cmd_span));
                 }
             }
         }
@@ -324,8 +324,19 @@ impl Engine {
         (Spanned::new(cmd_name, cmd_span), args)
     }
 
-    fn report_error(err: ShellError, line: &str) {
-        let report = Report::new(err).with_source_code(NamedSource::new("line", line.to_string()));
-        eprintln!("{report:?}");
+    fn report_error(shell_error: ShellError, line: &str) {
+        let report_err = |err: ShellError| {
+            let report =
+                Report::new(err).with_source_code(NamedSource::new("line", line.to_string()));
+            eprintln!("{report:?}");
+        };
+
+        if let ShellError::Multiple(errors) = shell_error {
+            for err in errors {
+                report_err(err);
+            }
+        } else {
+            report_err(shell_error);
+        }
     }
 }

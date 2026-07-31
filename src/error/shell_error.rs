@@ -6,6 +6,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum ShellError {
+    #[error("Multiple shell errors")]
+    Multiple(Vec<ShellError>),
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     Parser(#[from] ParserError),
@@ -20,6 +23,15 @@ pub enum ShellError {
     #[error("External command failed")]
     #[diagnostic(code(rs_shell::external_command), help("{help}"))]
     ExternalCommand {
+        help: String,
+        label: String,
+        #[label("{label}")]
+        span: Span,
+    },
+
+    #[error("Command argument error")]
+    #[diagnostic(code(rs_shell::command_argument), help("{help}"))]
+    CommandArgument {
         help: String,
         label: String,
         #[label("{label}")]
