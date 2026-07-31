@@ -5,8 +5,9 @@ use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
-use crate::parser::span::Spanned;
+use crate::parser::span::{Span, Spanned};
 use crate::shell::shell_state::ShellState;
+use std::error::Error;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 use url::Url;
@@ -24,7 +25,7 @@ impl Command for Http {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
+        cmd: Spanned<String>,
         args: Vec<Spanned<String>>,
         _job_id: Option<usize>,
         _config: Arc<Config>,
@@ -32,37 +33,33 @@ impl Command for Http {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut args_iter = args.into_iter();
-        let mut errors = vec![];
 
-        let Some(method_arg) = args_iter.next() else {
-            writeln!(
-                io_streams.error,
-                "http get: missing http method arg. Available methods: {}",
-                HttpMethod::available_methods()
-            )?;
-            return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
+        let http_method_res = Self::parse_arg(
+            "HttpMethod",
+            args_iter.next(),
+            cmd.span,
+            |s| HttpMethod::parse(&s),
+            HttpMethod::available_methods,
+            String::new,
+        );
+
+        let url_res = Self::parse_arg(
+            "Url",
+            args_iter.next(),
+            cmd.span,
+            |s| Url::parse(&s),
+            String::new,
+            String::new,
+        );
+
+        let (Ok(http_method), Ok(url)) = (&http_method_res, &url_res) else {
+            let mut errors = vec![];
+            errors.extend(http_method_res.err());
+            errors.extend(url_res.err());
+            return Err(ShellError::Multiple(errors));
         };
 
-        let Some(url_arg) = args_iter.next() else {
-            writeln!(io_streams.error, "http get: missing url arg")?;
-            return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
-        };
-
-        let http_method = HttpMethod::parse(&method_arg.item)
-            .map_err(|e| errors.push(e.to_string()))
-            .ok();
-        let url = Url::parse(&url_arg.item)
-            .map_err(|e| errors.push(e.to_string()))
-            .ok();
-
-        let (Some(http_method), Some(url)) = (http_method, url) else {
-            for e in errors {
-                writeln!(io_streams.error, "{e}")?;
-            }
-            return Ok(CommandData::ExitCode(ExitCode::FAILURE));
-        };
-
-        match HttpClient::send_request(&http_method, &url) {
+        match HttpClient::send_request(http_method, url) {
             Ok(res) => {
                 writeln!(io_streams.output, "{res}")?;
             }
@@ -73,5 +70,36 @@ impl Command for Http {
         }
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
+    }
+}
+
+impl Http {
+    fn parse_arg<T, E, Parser, ParserHelp, ErrorHelp>(
+        arg_name: &str,
+        raw_arg: Option<Spanned<String>>,
+        cmd_span: Span,
+        parser: Parser,
+        parse_help: ParserHelp,
+        error_help: ErrorHelp,
+    ) -> Result<T, ShellError>
+    where
+        E: Error,
+        Parser: FnOnce(String) -> Result<T, E>,
+        ParserHelp: FnOnce() -> String,
+        ErrorHelp: FnOnce() -> String,
+    {
+        if let Some(arg) = raw_arg {
+            parser(arg.item).map_err(|e| ShellError::CommandArgument {
+                span: arg.span,
+                help: parse_help(),
+                label: e.to_string(),
+            })
+        } else {
+            Err(ShellError::CommandArgument {
+                span: cmd_span,
+                help: error_help(),
+                label: format!("Empty `{arg_name}` argument"),
+            })
+        }
     }
 }

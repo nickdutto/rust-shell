@@ -3,11 +3,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum HttpMethodError {
-    #[error("{method} is not a valid HttpMethod. Available methods: {available_methods}")]
-    InvalidMethod {
-        method: String,
-        available_methods: String,
-    },
+    #[error("Invalid HttpMethod `{method}`")]
+    InvalidMethod { method: String },
 }
 
 #[derive(Debug)]
@@ -31,7 +28,6 @@ impl HttpMethod {
             "get" => Ok(HttpMethod::Get),
             _ => Err(HttpMethodError::InvalidMethod {
                 method: method.to_owned(),
-                available_methods: Self::available_methods(),
             }),
         }
     }
