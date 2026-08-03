@@ -1,6 +1,6 @@
 use crate::parser::error::{ParserError, ParserMultiError};
 use crate::parser::span::Span;
-use miette::Diagnostic;
+use miette::{Diagnostic, NamedSource, Report};
 use std::io;
 use thiserror::Error;
 
@@ -37,4 +37,22 @@ pub enum ShellError {
         #[label("{label}")]
         span: Span,
     },
+}
+
+impl ShellError {
+    pub fn report_eprintln(self, line: &str) {
+        let report_err = |err: ShellError| {
+            let report =
+                Report::new(err).with_source_code(NamedSource::new("line", line.to_string()));
+            eprintln!("{report:?}");
+        };
+
+        if let ShellError::Multiple(errors) = self {
+            for err in errors {
+                report_err(err);
+            }
+        } else {
+            report_err(self);
+        }
+    }
 }

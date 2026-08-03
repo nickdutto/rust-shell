@@ -1,6 +1,15 @@
+use crate::engine::exit::ExitCode;
+use crate::io::redirection::{RedirectionMode, initialise_writer_file};
+use crate::parser::command_node::{CommandNode, Redirection};
+use crate::parser::word::words_to_string;
+use crate::shell::variables::Variables;
+use reedline::ExternalPrinter;
 use std::fs::File;
-use std::io::{PipeReader, PipeWriter, Write};
+use std::io::{BufRead, PipeReader, PipeWriter, Write};
+use std::iter::Peekable;
 use std::process::Stdio;
+use std::thread::JoinHandle;
+use std::vec::IntoIter;
 
 pub enum InputStream {
     Stdin,
@@ -42,6 +51,28 @@ impl IoStreams {
             output: self.output.try_clone()?,
             error: self.error.try_clone()?,
         })
+    }
+
+    pub fn apply_redirection(&mut self, redirection: Redirection, variables: &Variables) {
+        if redirection.mode != RedirectionMode::Nothing && !redirection.path.is_empty() {
+            let file = initialise_writer_file(
+                &redirection.mode,
+                &words_to_string(redirection.path, variables),
+            );
+
+            match redirection.mode {
+                RedirectionMode::Out | RedirectionMode::OutAppend => {
+                    self.output = OutputStream::File(file);
+                }
+                RedirectionMode::Error | RedirectionMode::ErrorAppend => {
+                    self.error = OutputStream::File(file);
+                }
+                RedirectionMode::Nothing => {
+                    self.output = OutputStream::Stdout;
+                    self.error = OutputStream::Stderr;
+                }
+            }
+        }
     }
 }
 
@@ -110,4 +141,68 @@ impl Write for OutputStream {
             OutputStream::Pipe(p) => p.flush(),
         }
     }
+}
+
+pub fn create_pipe() -> Result<(PipeReader, PipeWriter), ExitCode> {
+    match std::io::pipe() {
+        Ok(pipes) => Ok(pipes),
+        Err(err) => {
+            eprintln!("shell: pipe creation failed: {err}");
+
+            Err(ExitCode::FAILURE)
+        }
+    }
+}
+
+pub fn pipe_io_streams(
+    current_input: InputStream,
+    parent_output: OutputStream,
+    parent_error: OutputStream,
+    iter: &mut Peekable<IntoIter<CommandNode>>,
+) -> Result<(IoStreams, InputStream), ExitCode> {
+    let (next_input, current_output) = if iter.peek().is_some() {
+        let (read_end, write_end) = create_pipe()?;
+        (InputStream::Pipe(read_end), OutputStream::Pipe(write_end))
+    } else {
+        (InputStream::Stdin, parent_output)
+    };
+
+    Ok((
+        IoStreams {
+            input: current_input,
+            output: current_output,
+            error: parent_error,
+        },
+        next_input,
+    ))
+}
+
+pub fn background_io_streams(
+    printer: &ExternalPrinter<String>,
+) -> Result<(IoStreams, JoinHandle<()>, JoinHandle<()>), ExitCode> {
+    let (read_out, write_out) = create_pipe()?;
+    let (read_err, write_err) = create_pipe()?;
+
+    let out_reader_printer = spawn_background_reader_printer(printer.clone(), read_out);
+    let err_reader_printer = spawn_background_reader_printer(printer.clone(), read_err);
+
+    let bg_io_streams = IoStreams {
+        input: InputStream::Stdin,
+        output: OutputStream::Pipe(write_out),
+        error: OutputStream::Pipe(write_err),
+    };
+
+    Ok((bg_io_streams, out_reader_printer, err_reader_printer))
+}
+
+fn spawn_background_reader_printer(
+    printer: ExternalPrinter<String>,
+    pipe_reader: PipeReader,
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        let reader = std::io::BufReader::new(pipe_reader);
+        for line in reader.lines().map_while(Result::ok) {
+            let _ = printer.print(line);
+        }
+    })
 }

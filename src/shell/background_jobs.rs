@@ -68,13 +68,13 @@ impl BackgroundJob {
         self.status = background_job_status;
     }
 
-    pub fn format_job_started(id: usize) -> String {
-        format!("[{id}] Started")
+    pub fn format_job_running(id: usize) -> String {
+        format!("[{id}]{:<3}Running", "")
     }
 
     pub fn format_job_done(&self, idx: usize, len: usize) -> String {
         format!(
-            "[{}]{}  {:<24} {}",
+            "[{}]{:<3}{:<9}{}",
             self.id,
             BackgroundJob::format_marker(idx, len),
             self.status.to_string(),
