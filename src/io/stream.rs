@@ -35,6 +35,14 @@ impl IoStreams {
             error: OutputStream::Stderr,
         }
     }
+
+    pub fn try_clone(&self) -> std::io::Result<Self> {
+        Ok(IoStreams {
+            input: self.input.try_clone()?,
+            output: self.output.try_clone()?,
+            error: self.error.try_clone()?,
+        })
+    }
 }
 
 impl InputStream {
@@ -43,6 +51,14 @@ impl InputStream {
             InputStream::Stdin => Stdio::inherit(),
             InputStream::File(f) => Stdio::from(f),
             InputStream::Pipe(p) => Stdio::from(p),
+        }
+    }
+
+    pub fn try_clone(&self) -> std::io::Result<Self> {
+        match self {
+            InputStream::Stdin => Ok(InputStream::Stdin),
+            InputStream::File(file) => file.try_clone().map(InputStream::File),
+            InputStream::Pipe(reader) => reader.try_clone().map(InputStream::Pipe),
         }
     }
 }
@@ -54,6 +70,15 @@ impl OutputStream {
             OutputStream::Stderr => Stdio::inherit(),
             OutputStream::File(f) => Stdio::from(f),
             OutputStream::Pipe(p) => Stdio::from(p),
+        }
+    }
+
+    pub fn try_clone(&self) -> std::io::Result<Self> {
+        match self {
+            OutputStream::Stdout => Ok(OutputStream::Stdout),
+            OutputStream::Stderr => Ok(OutputStream::Stderr),
+            OutputStream::File(file) => file.try_clone().map(OutputStream::File),
+            OutputStream::Pipe(writer) => writer.try_clone().map(OutputStream::Pipe),
         }
     }
 
