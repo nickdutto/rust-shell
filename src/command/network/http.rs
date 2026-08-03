@@ -5,9 +5,9 @@ use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
-use crate::parser::span::{Span, Spanned};
+use crate::parser::argument::parse_arg;
+use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
-use std::error::Error;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 use url::Url;
@@ -34,7 +34,7 @@ impl Command for Http {
     ) -> Result<CommandData, ShellError> {
         let mut args_iter = args.into_iter();
 
-        let http_method_res = Self::parse_arg(
+        let http_method_res = parse_arg(
             "HttpMethod",
             args_iter.next(),
             cmd.span,
@@ -43,7 +43,7 @@ impl Command for Http {
             String::new,
         );
 
-        let url_res = Self::parse_arg(
+        let url_res = parse_arg(
             "Url",
             args_iter.next(),
             cmd.span,
@@ -70,36 +70,5 @@ impl Command for Http {
         }
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
-    }
-}
-
-impl Http {
-    fn parse_arg<T, E, Parser, ParserHelp, ErrorHelp>(
-        arg_name: &str,
-        raw_arg: Option<Spanned<String>>,
-        cmd_span: Span,
-        parser: Parser,
-        parse_help: ParserHelp,
-        error_help: ErrorHelp,
-    ) -> Result<T, ShellError>
-    where
-        E: Error,
-        Parser: FnOnce(String) -> Result<T, E>,
-        ParserHelp: FnOnce() -> String,
-        ErrorHelp: FnOnce() -> String,
-    {
-        if let Some(arg) = raw_arg {
-            parser(arg.item).map_err(|e| ShellError::CommandArgument {
-                span: arg.span,
-                help: parse_help(),
-                label: e.to_string(),
-            })
-        } else {
-            Err(ShellError::CommandArgument {
-                span: cmd_span,
-                help: error_help(),
-                label: format!("Empty `{arg_name}` argument"),
-            })
-        }
     }
 }
