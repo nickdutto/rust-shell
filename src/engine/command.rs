@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
     "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type", "date",
-    "timezone", "http", "http get",
+    "timezone", "explain", "http", "http get",
 ];
 
 pub enum CommandData {

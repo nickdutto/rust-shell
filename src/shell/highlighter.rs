@@ -25,7 +25,7 @@ impl SyntaxHighlighter {
         }
     }
 
-    fn highlight_tokens(&self, line: &str) -> StyledText {
+    pub fn highlight_tokens(&self, line: &str) -> StyledText {
         let mut chars = line.chars().peekable();
         let mut buffer = StyledText::new();
         let mut in_quotes = false;

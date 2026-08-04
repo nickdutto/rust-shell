@@ -12,6 +12,7 @@ use crate::command::builtin::theme::Theme;
 use crate::command::builtin::type_cmd::TypeCmd;
 use crate::command::date::now::Now;
 use crate::command::date::timezone::Timezone;
+use crate::command::help::explain::Explain;
 use crate::command::network::http::Http;
 use crate::config::Config;
 use crate::engine::command::Command;
@@ -68,6 +69,8 @@ impl CommandRouter {
 
         self.register(Arc::new(Now));
         self.register(Arc::new(Timezone));
+
+        self.register(Arc::new(Explain));
 
         self.register(Arc::new(Http));
     }
