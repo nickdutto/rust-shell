@@ -109,9 +109,9 @@ impl SyntaxHighlighter {
     fn highlight_ampersand(&self, buffer: &mut StyledText, chars: &mut Peekable<Chars>, ch: char) {
         let is_background = chars.peek() == Some(&'&');
         let color = if is_background {
-            self.config.theme.colors.background
-        } else {
             self.config.theme.colors.and
+        } else {
+            self.config.theme.colors.background
         };
 
         if is_background {
