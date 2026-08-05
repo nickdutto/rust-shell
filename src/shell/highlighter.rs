@@ -90,7 +90,7 @@ impl SyntaxHighlighter {
             ));
         };
 
-        if matches!(ch, '"' | '\'') {
+        if !matches!(ch, '"' | '\'') {
             push_ch(quote_char);
             return;
         }
