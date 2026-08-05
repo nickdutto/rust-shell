@@ -219,13 +219,29 @@ impl Engine {
                 return;
             };
 
-            if let Err(err) =
+            if let Err(error) =
                 runner_clone.run_statement(statement, Some(job_id), &line, bg_io_streams)
             {
-                let report =
-                    Report::new(err).with_source_code(NamedSource::new("line", cmd_string));
+                let report_err = |err: ShellError| {
+                    let report = Report::new(err)
+                        .with_source_code(NamedSource::new("line", cmd_string.clone()));
+                    let formatted = format!("{report:?}");
 
-                let _ = runner_clone.printer.print(format!("{report:?}"));
+                    for report_line in formatted.lines() {
+                        let trimmed = report_line.trim_end();
+                        if !trimmed.is_empty() {
+                            let _ = runner_clone.printer.print(trimmed.to_string());
+                        }
+                    }
+                };
+
+                if let ShellError::Multiple(errors) = error {
+                    for err in errors {
+                        report_err(err);
+                    }
+                } else {
+                    report_err(error);
+                }
             }
 
             let _ = out_reader_printer.join();
