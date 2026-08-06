@@ -85,7 +85,7 @@ impl Command for Explain {
 
         writeln!(
             io_streams.output,
-            "\n{}\n",
+            "\n{}",
             explain_buffer
                 .iter()
                 .map(ToString::to_string)
@@ -139,7 +139,7 @@ fn match_redirection(
     is_redirect_word: &mut bool,
     config: &Arc<Config>,
 ) {
-    let explain_str = format!("redirect cmd {command_id} to file");
+    let explain_str = format!("redirect cmd {command_id} output to file");
     let explain_color_redirection = Color::Fixed(126);
 
     *is_first_word = true;
