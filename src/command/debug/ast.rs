@@ -4,19 +4,18 @@ use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
 use crate::format::debug::highlight_debug;
 use crate::io::stream::IoStreams;
+use crate::parser::Parser;
 use crate::parser::lexer::lex;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
-use nu_ansi_term::{Color, Style};
-use reedline::StyledText;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-pub struct Lex;
+pub struct Ast;
 
-impl Command for Lex {
+impl Command for Ast {
     fn name(&self) -> &'static str {
-        "lex"
+        "ast"
     }
 
     fn command_type(&self) -> CommandType {
@@ -38,7 +37,7 @@ impl Command for Lex {
         let Some(line_arg) = args_iter.next() else {
             return Err(ShellError::CommandArgument {
                 span: cmd.span,
-                help: "Add line to be lexed inside quotes. Example: 'echo \"hello \\\"world\\\"\" && ls -la'"
+                help: "Add line to get AST statements inside quotes. Example: 'echo \"hello \\\"world\\\"\" && ls -la'"
                     .to_owned(),
                 label: "Empty `line` argument".to_owned(),
             });
@@ -51,10 +50,12 @@ impl Command for Lex {
         }
 
         let tokens = lex(&line_arg.item);
+        let statements = Parser::new(tokens).parse_statements();
+
         let formatted = if pretty_print {
-            format!("{tokens:#?}")
+            format!("{statements:#?}")
         } else {
-            format!("{tokens:?}")
+            format!("{statements:?}")
         };
 
         let styled = highlight_debug(&formatted);
