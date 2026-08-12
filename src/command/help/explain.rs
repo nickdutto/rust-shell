@@ -1,10 +1,13 @@
 use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::redirection::RedirectionMode;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
 use crate::parser::lexer::{TokenKind, lex};
+use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
 use crate::parser::word::Word;
 use crate::shell::highlighter::SyntaxHighlighter;
@@ -24,25 +27,27 @@ impl Command for Explain {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name()).required_positional(
+            "line",
+            SyntaxShape::String,
+            "Line to be explained",
+        )
+    }
+
     fn run(
         &self,
-        cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        _cmd: Spanned<String>,
+        args: ParsedArguments,
         _job_id: Option<usize>,
         config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        let Some(explain_line_arg) = args.first() else {
-            return Err(ShellError::CommandArgument {
-                span: cmd.span,
-                help: "Add line to be explained inside quotes. Example: 'ls -la | grep .git 1> temp/out.txt ; pwd'".to_owned(),
-                label: "Empty `line` argument".to_owned(),
-            });
-        };
+        let line = args.req::<String>(0)?;
 
         let highlighter = SyntaxHighlighter::new(config.clone(), BUILTIN_COMMANDS);
-        let tokens = lex(explain_line_arg.item.as_str());
+        let tokens = lex(&line);
 
         let mut command_id = 1;
         let mut is_first_word = true;

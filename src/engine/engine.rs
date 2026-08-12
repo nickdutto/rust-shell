@@ -83,7 +83,7 @@ impl Engine {
             }
 
             Statement::Command(command_node) => self
-                .run_command(command_node, current_job_id, io_streams)
+                .run_command(command_node, current_job_id, io_streams)?
                 .wait(),
         }
     }
@@ -159,7 +159,7 @@ impl Engine {
                 }
             };
 
-            let handle = self.run_command(command_node, current_job_id, piped_io_streams);
+            let handle = self.run_command(command_node, current_job_id, piped_io_streams)?;
 
             if let ProcessHandle::Immediate(Err(err)) = handle {
                 for h in handles {
@@ -265,7 +265,7 @@ impl Engine {
         command_node: CommandNode,
         current_job_id: Option<usize>,
         mut io_streams: IoStreams,
-    ) -> ProcessHandle {
+    ) -> Result<ProcessHandle, ShellError> {
         io_streams.apply_redirection(
             command_node.redirection,
             &self.shell_state.read().unwrap().variables,

@@ -1,8 +1,10 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use comfy_table::Table;
@@ -23,10 +25,19 @@ impl Command for Theme {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name())
+            .switch("fg", "foreground colors", Some('f'))
+            .switch("bg", "background colors", Some('b'))
+            .switch("text", "text styles", Some('t'))
+            .switch("shape", "shape characters", Some('s'))
+            .switch("config", "current config theme", Some('c'))
+    }
+
     fn run(
         &self,
         _cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        args: ParsedArguments,
         _job_id: Option<usize>,
         config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -34,79 +45,77 @@ impl Command for Theme {
     ) -> Result<CommandData, ShellError> {
         let mut buffer = String::with_capacity(8192);
 
-        for arg in &args {
-            match arg.item.as_str() {
-                "-fg" => {
-                    let style = Style::new();
-                    let _ = writeln!(
-                        buffer,
-                        "{}",
-                        style.fg(Color::Fixed(39)).paint("Foreground (ANSI 256)")
-                    );
+        if args.has_named("fg") {
+            let style = Style::new();
+            let _ = writeln!(
+                buffer,
+                "{}",
+                style.fg(Color::Fixed(39)).paint("Foreground (ANSI 256)")
+            );
 
-                    for color_idx in 0..256 {
-                        let _ = write!(
-                            buffer,
-                            "{}",
-                            style
-                                .fg(Color::Fixed(u8::try_from(color_idx).unwrap_or(0)))
-                                .paint(format!("{color_idx:^5}"))
-                        );
+            for color_idx in 0..256 {
+                let _ = write!(
+                    buffer,
+                    "{}",
+                    style
+                        .fg(Color::Fixed(u8::try_from(color_idx).unwrap_or(0)))
+                        .paint(format!("{color_idx:^5}"))
+                );
 
-                        if (color_idx + 1) % 16 == 0 {
-                            buffer.push('\n');
-                        }
-                    }
+                if (color_idx + 1) % 16 == 0 {
+                    buffer.push('\n');
                 }
-                "-bg" => {
-                    let style = Style::new();
-                    let _ = writeln!(
-                        buffer,
-                        "{}",
-                        style.fg(Color::Fixed(39)).paint("Background (ANSI 256)")
-                    );
-
-                    for color_idx in 0..256 {
-                        let _ = write!(
-                            buffer,
-                            "{}",
-                            style
-                                .fg(Self::get_contrast_foreground(
-                                    u8::try_from(color_idx).unwrap_or(0)
-                                ))
-                                .on(Color::Fixed(u8::try_from(color_idx).unwrap_or(0)))
-                                .paint(format!("{color_idx:^5}"))
-                        );
-
-                        if (color_idx + 1) % 16 == 0 {
-                            buffer.push('\n');
-                        }
-                    }
-                }
-                "-text" => {
-                    let style = Style::new();
-                    let table = Self::text_table(style);
-
-                    let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Text"));
-                    let _ = writeln!(buffer, "{table}");
-                }
-                "-shape" => {
-                    let style = Style::new();
-                    let table = Self::shape_table(style);
-
-                    let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Shapes"));
-                    let _ = writeln!(buffer, "{table}");
-                }
-                "-config" => {
-                    let style = Style::new();
-                    let table = Self::config_table(style, &config);
-
-                    let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Config"));
-                    let _ = writeln!(buffer, "{table}");
-                }
-
-                _ => {}
             }
+        }
+
+        if args.has_named("bg") {
+            let style = Style::new();
+            let _ = writeln!(
+                buffer,
+                "{}",
+                style.fg(Color::Fixed(39)).paint("Background (ANSI 256)")
+            );
+
+            for color_idx in 0..256 {
+                let _ = write!(
+                    buffer,
+                    "{}",
+                    style
+                        .fg(Self::get_contrast_foreground(
+                            u8::try_from(color_idx).unwrap_or(0)
+                        ))
+                        .on(Color::Fixed(u8::try_from(color_idx).unwrap_or(0)))
+                        .paint(format!("{color_idx:^5}"))
+                );
+
+                if (color_idx + 1) % 16 == 0 {
+                    buffer.push('\n');
+                }
+            }
+        }
+
+        if args.has_named("text") {
+            let style = Style::new();
+            let table = Self::text_table(style);
+
+            let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Text"));
+            let _ = writeln!(buffer, "{table}");
+        }
+
+        if args.has_named("shape") {
+            let style = Style::new();
+            let table = Self::shape_table(style);
+
+            let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Shapes"));
+            let _ = writeln!(buffer, "{table}");
+        }
+
+        if args.has_named("config") {
+            let style = Style::new();
+            let table = Self::config_table(style, &config);
+
+            let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Config"));
+            let _ = writeln!(buffer, "{table}");
         }
 
         if !buffer.is_empty() {

@@ -6,6 +6,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum ShellError {
+    #[error("{0}")]
+    Generic(String),
+
     #[error("Multiple shell errors")]
     Multiple(Vec<ShellError>),
 
@@ -37,6 +40,15 @@ pub enum ShellError {
         #[label("{label}")]
         span: Span,
     },
+
+    #[error("Type mismatch: expected {expected}, got {actual}")]
+    #[diagnostic(code(rs_shell::type_mismatch), help("Provide type '{expected}'"))]
+    TypeMismatch {
+        expected: String,
+        actual: String,
+        #[label("expected {expected}, got {actual}")]
+        span: Span,
+    },
 }
 
 impl ShellError {
@@ -53,6 +65,18 @@ impl ShellError {
             }
         } else {
             report_err(self);
+        }
+    }
+
+    pub fn type_mismatch(
+        expected: impl Into<String>,
+        actual: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self::TypeMismatch {
+            expected: expected.into(),
+            actual: actual.into(),
+            span,
         }
     }
 }

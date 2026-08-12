@@ -1,9 +1,13 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
+use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
+use crate::parser::value::Value;
 use crate::shell::shell_state::ShellState;
 use comfy_table::presets::NOTHING;
 use comfy_table::{Attribute, Cell, Table};
@@ -13,16 +17,61 @@ use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
-enum OutputMode {
+#[derive(Clone)]
+enum Format {
     Table,
     List,
 }
 
-#[derive(PartialEq)]
-enum SortMode {
+#[derive(Clone, PartialEq)]
+enum Sort {
     Alphabetical,
     Offset,
+    Input,
 }
+
+struct NamedSpec<T> {
+    name: &'static str,
+    description: &'static str,
+    short: Option<char>,
+    mode: T,
+}
+
+const FORMAT_SPECS: &[NamedSpec<Format>] = &[
+    NamedSpec {
+        name: "list",
+        description: "List format",
+        short: Some('l'),
+        mode: Format::List,
+    },
+    NamedSpec {
+        name: "table",
+        description: "Table format",
+        short: Some('t'),
+        mode: Format::Table,
+    },
+];
+
+const SORT_SPECS: &[NamedSpec<Sort>] = &[
+    NamedSpec {
+        name: "sort-a",
+        description: "Sort by alphabetical",
+        short: None,
+        mode: Sort::Alphabetical,
+    },
+    NamedSpec {
+        name: "sort-o",
+        description: "Sort by offset",
+        short: None,
+        mode: Sort::Offset,
+    },
+    NamedSpec {
+        name: "sort-i",
+        description: "sort by input order",
+        short: None,
+        mode: Sort::Input,
+    },
+];
 
 pub struct Timezone;
 
@@ -35,10 +84,28 @@ impl Command for Timezone {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        let mut signature = Signature::new(self.name());
+
+        for spec in FORMAT_SPECS {
+            signature = signature.switch(spec.name, spec.description, spec.short);
+        }
+
+        for spec in SORT_SPECS {
+            signature = signature.switch(spec.name, spec.description, spec.short);
+        }
+
+        signature.rest(
+            "timezones",
+            SyntaxShape::String,
+            "One or more IANA timezone identifiers",
+        )
+    }
+
     fn run(
         &self,
         _cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        args: ParsedArguments,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
@@ -46,58 +113,54 @@ impl Command for Timezone {
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
         let mut tz_timestamps = vec![];
-        let mut output_mode = OutputMode::Table;
-        let mut sort_mode = Some(SortMode::Alphabetical);
+        let mut format = Format::Table;
+        let mut sort = Sort::Input;
         let now = Timestamp::now();
 
-        for arg in args {
-            match arg.item.as_str() {
-                "-t" => {
-                    output_mode = OutputMode::Table;
-                }
-                "-l" => {
-                    output_mode = OutputMode::List;
-                }
-                "-sort-a" => {
-                    sort_mode = Some(SortMode::Alphabetical);
-                }
-                "-sort-o" => {
-                    sort_mode = Some(SortMode::Offset);
-                }
-                "-no-sort" => {
-                    sort_mode = None;
-                }
-                _ => {
-                    let tz = match TimeZone::get(&arg.item) {
-                        Ok(t) => t,
-                        Err(e) => {
-                            writeln!(io_streams.error, "{e}")?;
-                            final_exit_code = ExitCode::FAILURE;
-                            continue;
-                        }
-                    };
+        for spec in FORMAT_SPECS {
+            if args.has_named(spec.name) {
+                format = spec.mode.clone();
+            }
+        }
 
-                    tz_timestamps.push((arg.item.clone(), now.to_zoned(tz)));
-                }
+        for spec in SORT_SPECS {
+            if args.has_named(spec.name) {
+                sort = spec.mode.clone();
+            }
+        }
+
+        for arg in args.rest {
+            if let Value::String(spanned_tz) = arg {
+                let timezone_name = &spanned_tz.item;
+                let timezone = match TimeZone::get(timezone_name) {
+                    Ok(tz) => tz,
+                    Err(err) => {
+                        writeln!(io_streams.error, "{err}")?;
+                        final_exit_code = ExitCode::FAILURE;
+                        continue;
+                    }
+                };
+
+                tz_timestamps.push((timezone_name.clone(), now.to_zoned(timezone)));
             }
         }
 
         if !tz_timestamps.is_empty() {
-            match sort_mode {
-                Some(SortMode::Alphabetical) => tz_timestamps.sort_by(|a, b| a.0.cmp(&b.0)),
-                Some(SortMode::Offset) => {
+            match sort {
+                Sort::Alphabetical => tz_timestamps.sort_by(|a, b| a.0.cmp(&b.0)),
+                Sort::Offset => {
                     tz_timestamps
                         .sort_by(|a, b| a.1.offset().cmp(&b.1.offset()).then(a.0.cmp(&b.0)));
                 }
-                None => {}
+                Sort::Input => {}
             }
 
-            match output_mode {
-                OutputMode::Table => {
-                    writeln!(io_streams.output, "{}", Self::table_output(tz_timestamps))?;
-                }
-                OutputMode::List => {
+            match format {
+                Format::List => {
                     write!(io_streams.output, "{}", Self::list_output(&tz_timestamps))?;
+                }
+                Format::Table => {
+                    writeln!(io_streams.output, "{}", Self::table_output(tz_timestamps))?;
                 }
             }
         }

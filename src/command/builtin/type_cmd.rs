@@ -1,8 +1,11 @@
 use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
+use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_paths;
@@ -22,25 +25,34 @@ impl Command for TypeCmd {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name()).required_positional(
+            "command_name",
+            SyntaxShape::String,
+            "Command name to find",
+        )
+    }
+
     fn run(
         &self,
         _cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        args: ParsedArguments,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        let cmd_arg = args.first().map_or("", |s| s.item.as_str());
-        if cmd_arg.is_empty() {
+        let command_name = args.req::<String>(0)?;
+
+        if command_name.is_empty() {
             writeln!(io_streams.error, "type: missing operand")?;
             return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
         }
 
         let mut buffer = String::new();
 
-        if BUILTIN_COMMANDS.contains(&cmd_arg) {
-            let _ = write!(buffer, "{cmd_arg} is a shell builtin");
+        if BUILTIN_COMMANDS.contains(&command_name.as_str()) {
+            let _ = write!(buffer, "{command_name} is a shell builtin");
         } else {
             let Ok(paths) = get_env_paths("PATH") else {
                 writeln!(
@@ -66,21 +78,22 @@ impl Command for TypeCmd {
 
             let mut found = false;
             for entry in entries {
-                if *entry.file_name().unwrap_or_default() != *cmd_arg {
+                if *entry.file_name().unwrap_or_default() != *command_name {
                     continue;
                 }
 
-                buffer = format!("{} is {}", cmd_arg, entry.to_str().unwrap_or_default());
+                buffer = format!("{} is {}", command_name, entry.to_str().unwrap_or_default());
                 found = true;
                 break;
             }
 
             if !found {
-                buffer = format!("{cmd_arg}: not found");
+                buffer = format!("{command_name}: not found");
             }
         }
 
         writeln!(io_streams.output, "{}", buffer.trim())?;
+
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }
 }

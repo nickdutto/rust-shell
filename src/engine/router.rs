@@ -5,7 +5,6 @@ use crate::command::builtin::declare::Declare;
 use crate::command::builtin::echo::Echo;
 use crate::command::builtin::executable::Executable;
 use crate::command::builtin::exit::Exit;
-use crate::command::builtin::history::History;
 use crate::command::builtin::jobs::Jobs;
 use crate::command::builtin::pwd::Pwd;
 use crate::command::builtin::theme::Theme;
@@ -19,6 +18,7 @@ use crate::command::network::http::Http;
 use crate::config::Config;
 use crate::engine::command::Command;
 use crate::engine::process::ProcessHandle;
+use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
@@ -63,7 +63,7 @@ impl CommandRouter {
         self.register(Arc::new(Declare));
         self.register(Arc::new(Echo));
         self.register(Arc::new(Exit));
-        self.register(Arc::new(History));
+        // self.register(Arc::new(History));
         self.register(Arc::new(Jobs));
         self.register(Arc::new(Pwd));
         self.register(Arc::new(Theme));
@@ -89,16 +89,27 @@ impl CommandRouter {
         config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
         io_streams: IoStreams,
-    ) -> ProcessHandle {
+    ) -> Result<ProcessHandle, ShellError> {
         let command = self
             .get(&cmd.item)
             .unwrap_or_else(|| self.executable_command.clone());
 
-        ProcessHandle::run_producer(
+        let parsed_args = command.signature().parse(args)?;
+
+        let handle = ProcessHandle::run_producer(
             Box::new(move || {
-                command.run(cmd, args, current_job_id, config, shell_state, io_streams)
+                command.run(
+                    cmd,
+                    parsed_args,
+                    current_job_id,
+                    config,
+                    shell_state,
+                    io_streams,
+                )
             }),
             needs_thread,
-        )
+        );
+
+        Ok(handle)
     }
 }

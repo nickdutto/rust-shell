@@ -1,8 +1,10 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::io::ErrorKind;
@@ -19,10 +21,14 @@ impl Command for Executable {
         CommandType::External
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name()).allow_unknown_args(true)
+    }
+
     fn run(
         &self,
         cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        args: ParsedArguments,
         job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
@@ -38,7 +44,10 @@ impl Command for Executable {
             .stdout(io_streams.output.into_stdio())
             .stderr(io_streams.error.into_stdio());
 
-        match command.args(args.iter().map(|s| s.item.as_str())).spawn() {
+        match command
+            .args(args.raw_args.iter().map(|s| s.item.as_str()))
+            .spawn()
+        {
             Ok(child) => {
                 if let Some(jb_id) = job_id
                     && let Some(job) = shell_state

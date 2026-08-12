@@ -1,10 +1,13 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
+use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
-use std::io::{Write, stdout};
+use std::io::Write;
 use std::process;
 use std::sync::{Arc, RwLock};
 
@@ -19,15 +22,25 @@ impl Command for Exit {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name()).positional(
+            "exit_code",
+            SyntaxShape::Int,
+            "Exit code to return with",
+        )
+    }
+
     fn run(
         &self,
         _cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
+        args: ParsedArguments,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
+        let exit_code = args.opt(0)?.unwrap_or(0) as i32;
+
         if let Err(e) = shell_state
             .write()
             .unwrap()
@@ -37,12 +50,8 @@ impl Command for Exit {
             writeln!(io_streams.error, "{e}")?;
         }
 
-        stdout().flush()?;
-
-        let exit_code = args
-            .first()
-            .and_then(|s| s.item.parse::<i32>().ok())
-            .unwrap_or(0);
+        let _ = io_streams.output.flush();
+        let _ = io_streams.error.flush();
 
         process::exit(exit_code);
     }

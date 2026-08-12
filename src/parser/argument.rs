@@ -1,32 +1,72 @@
 use crate::error::shell_error::ShellError;
-use crate::parser::span::{Span, Spanned};
-use std::error::Error;
+use crate::parser::span::Spanned;
+use crate::parser::value::{FromValue, Value};
+use std::collections::HashMap;
 
-pub fn parse_arg<T, E, Parser, ParserHelp, ErrorHelp>(
-    arg_name: &str,
-    raw_arg: Option<Spanned<String>>,
-    cmd_span: Span,
-    parser: Parser,
-    parse_help: ParserHelp,
-    error_help: ErrorHelp,
-) -> Result<T, ShellError>
-where
-    E: Error,
-    Parser: FnOnce(String) -> Result<T, E>,
-    ParserHelp: FnOnce() -> String,
-    ErrorHelp: FnOnce() -> String,
-{
-    if let Some(arg) = raw_arg {
-        parser(arg.item).map_err(|e| ShellError::CommandArgument {
-            span: arg.span,
-            help: parse_help(),
-            label: e.to_string(),
-        })
-    } else {
-        Err(ShellError::CommandArgument {
-            span: cmd_span,
-            help: error_help(),
-            label: format!("Empty `{arg_name}` argument"),
+#[derive(Default)]
+pub struct ParsedArguments {
+    pub positionals: Vec<Value>,
+    pub rest: Vec<Value>,
+    pub named: HashMap<String, Value>,
+    pub raw_args: Vec<Spanned<String>>,
+}
+
+impl ParsedArguments {
+    pub fn req<T: FromValue>(&self, index: usize) -> Result<T, ShellError> {
+        self.positionals
+            .get(index)
+            .cloned()
+            .ok_or_else(|| {
+                ShellError::Generic(format!("Missing required argument at index {index}"))
+            })
+            .and_then(T::from_value)
+    }
+
+    pub fn opt<T: FromValue>(&self, index: usize) -> Result<Option<T>, ShellError> {
+        match self.positionals.get(index) {
+            Some(v) => T::from_value(v.clone()).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    pub fn req_named<T: FromValue>(&self, name: &str) -> Result<T, ShellError> {
+        self.named
+            .get(name)
+            .cloned()
+            .ok_or_else(|| ShellError::Generic(format!("Missing required argument: --{name}")))
+            .and_then(T::from_value)
+    }
+
+    pub fn opt_named<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
+        match self.named.get(name) {
+            Some(v) => T::from_value(v.clone()).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    pub fn has_named(&self, name: &str) -> bool {
+        match self.named.get(name) {
+            Some(Value::Bool(v)) => v.item,
+            _ => false,
+        }
+    }
+
+    pub fn get_positional(&self, index: usize) -> Option<&Value> {
+        self.positionals.get(index)
+    }
+
+    pub fn get_named(&self, name: &str) -> Option<&Value> {
+        self.named.get(name)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.positionals.is_empty() && self.named.is_empty()
+    }
+
+    pub fn rest_strings(&self) -> impl Iterator<Item=&str> {
+        self.rest.iter().filter_map(|v| match v {
+            Value::String(spanned) => Some(spanned.item.as_str()),
+            _ => None,
         })
     }
 }

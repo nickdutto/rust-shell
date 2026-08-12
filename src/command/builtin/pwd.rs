@@ -1,8 +1,10 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::exit::ExitCode;
+use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::shell::shell_state::ShellState;
 use std::env;
@@ -20,10 +22,14 @@ impl Command for Pwd {
         CommandType::Builtin
     }
 
+    fn signature(&self) -> Signature {
+        Signature::new(self.name())
+    }
+
     fn run(
         &self,
         _cmd: Spanned<String>,
-        _args: Vec<Spanned<String>>,
+        _args: ParsedArguments,
         _job_id: Option<usize>,
         _config: Arc<Config>,
         _shell_state: Arc<RwLock<ShellState>>,

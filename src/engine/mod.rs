@@ -5,5 +5,6 @@ pub mod exit;
 pub mod expansion;
 pub mod process;
 pub mod router;
+pub mod signature;
 
 pub use self::engine::*;
