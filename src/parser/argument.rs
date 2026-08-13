@@ -51,6 +51,10 @@ impl ParsedArguments {
         }
     }
 
+    pub fn rest<T: FromValue>(&self) -> Result<Vec<T>, ShellError> {
+        self.rest.iter().cloned().map(T::from_value).collect()
+    }
+
     pub fn get_positional(&self, index: usize) -> Option<&Value> {
         self.positionals.get(index)
     }
