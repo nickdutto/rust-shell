@@ -45,7 +45,7 @@ impl Command for Theme {
     ) -> Result<CommandData, ShellError> {
         let mut buffer = String::with_capacity(8192);
 
-        if args.has_named("fg") {
+        if args.has_switch("fg") {
             let style = Style::new();
             let _ = writeln!(
                 buffer,
@@ -68,7 +68,7 @@ impl Command for Theme {
             }
         }
 
-        if args.has_named("bg") {
+        if args.has_switch("bg") {
             let style = Style::new();
             let _ = writeln!(
                 buffer,
@@ -94,7 +94,7 @@ impl Command for Theme {
             }
         }
 
-        if args.has_named("text") {
+        if args.has_switch("text") {
             let style = Style::new();
             let table = Self::text_table(style);
 
@@ -102,7 +102,7 @@ impl Command for Theme {
             let _ = writeln!(buffer, "{table}");
         }
 
-        if args.has_named("shape") {
+        if args.has_switch("shape") {
             let style = Style::new();
             let table = Self::shape_table(style);
 
@@ -110,7 +110,7 @@ impl Command for Theme {
             let _ = writeln!(buffer, "{table}");
         }
 
-        if args.has_named("config") {
+        if args.has_switch("config") {
             let style = Style::new();
             let table = Self::config_table(style, &config);
 

@@ -79,7 +79,7 @@ impl Command for Alias {
         }
 
         for spec in FORMAT_SPECS {
-            if args.has_named(spec.name) {
+            if args.has_switch(spec.name) {
                 format = spec.mode.clone();
             }
         }

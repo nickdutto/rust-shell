@@ -44,7 +44,7 @@ impl ParsedArguments {
         }
     }
 
-    pub fn has_named(&self, name: &str) -> bool {
+    pub fn has_switch(&self, name: &str) -> bool {
         match self.named.get(name) {
             Some(Value::Bool(v)) => v.item,
             _ => false,

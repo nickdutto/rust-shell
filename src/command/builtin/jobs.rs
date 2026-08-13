@@ -34,7 +34,7 @@ impl Command for Jobs {
         shell_state: Arc<RwLock<ShellState>>,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        if args.has_named("table") {
+        if args.has_switch("table") {
             let table = shell_state.read().unwrap().background_jobs.to_table();
             writeln!(io_streams.output, "{table}")?;
         } else {

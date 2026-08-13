@@ -41,7 +41,7 @@ impl Command for Ast {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let line = args.req::<String>(0)?;
-        let pretty_print = args.has_named("pretty");
+        let pretty_print = args.has_switch("pretty");
 
         let tokens = lex(&line);
         let statements = Parser::new(tokens).parse_statements();

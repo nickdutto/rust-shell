@@ -143,12 +143,12 @@ impl Command for Now {
     ) -> Result<CommandData, ShellError> {
         let now = Zoned::now();
 
-        if args.is_empty() || args.has_named("raw") {
+        if args.is_empty() || args.has_switch("raw") {
             writeln!(io_streams.output, "{now}")?;
         }
 
         for spec in NAMED_SPECS {
-            if args.has_named(spec.name) {
+            if args.has_switch(spec.name) {
                 writeln!(io_streams.output, "{}", now.strftime(spec.format))?;
             }
         }

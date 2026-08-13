@@ -40,7 +40,7 @@ impl Command for Lex {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let line = args.req::<String>(0)?;
-        let pretty_print = args.has_named("pretty");
+        let pretty_print = args.has_switch("pretty");
 
         let tokens = lex(&line);
         let formatted = if pretty_print {

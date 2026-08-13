@@ -118,13 +118,13 @@ impl Command for Timezone {
         let now = Timestamp::now();
 
         for spec in FORMAT_SPECS {
-            if args.has_named(spec.name) {
+            if args.has_switch(spec.name) {
                 format = spec.mode.clone();
             }
         }
 
         for spec in SORT_SPECS {
-            if args.has_named(spec.name) {
+            if args.has_switch(spec.name) {
                 sort = spec.mode.clone();
             }
         }
