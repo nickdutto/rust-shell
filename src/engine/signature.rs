@@ -239,7 +239,7 @@ impl Signature {
                 .iter()
                 .find(|n| n.short == Some(short))
                 .map(|na| (na, short.to_string()))
-                .ok_or_else(|| ShellError::Generic(format!("Unknown named arg (short): --{short}")))
+                .ok_or_else(|| ShellError::Generic(format!("Unknown named arg (short): -{short}")))
         } else {
             Err(ShellError::Generic("Error finding named arg".to_owned()))
         }

@@ -5,6 +5,7 @@ use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::argument::ParsedArguments;
+use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
 use crate::shell::aliases::Aliases;
 use crate::shell::shell_state::ShellState;
@@ -27,13 +28,13 @@ struct NamedSpec<T> {
 const FORMAT_SPECS: &[NamedSpec<Format>] = &[
     NamedSpec {
         name: "list",
-        description: "Print all variables with list format",
+        description: "Print with list format",
         short: Some('l'),
         mode: Format::List,
     },
     NamedSpec {
         name: "table",
-        description: "Print all variables with table format",
+        description: "Print with table format",
         short: Some('t'),
         mode: Format::Table,
     },
@@ -58,6 +59,15 @@ impl Command for Alias {
         }
 
         signature
+            .switch("all", "list all aliases", Some('u'))
+            .rest("add", SyntaxShape::String, "alias key and value to add")
+            .named("remove", SyntaxShape::String, "alias to remove", Some('r'))
+            .named(
+                "print",
+                SyntaxShape::String,
+                "alias to get and print",
+                Some('p'),
+            )
     }
 
     fn run(
@@ -70,121 +80,148 @@ impl Command for Alias {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
-        let mut format = Format::Table;
 
-        if args.is_empty() {
-            let table = shell_state.read().unwrap().aliases.to_table();
-            writeln!(io_streams.output, "{table}")?;
-            return Ok(CommandData::ExitCode(final_exit_code));
+        if !args.rest.is_empty() {
+            let code = Self::add_alias(&args, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
+            }
         }
 
+        if let Some(key) = args.opt_named::<String>("remove")? {
+            let code = Self::remove_alias(&key, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
+            }
+        }
+
+        if let Some(key) = args.opt_named::<String>("print")? {
+            let code = Self::print_alias(&key, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
+            }
+        }
+
+        if args.has_switch("all") {
+            let code = Self::print_all_aliases(&args, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
+            }
+        }
+
+        Ok(CommandData::ExitCode(final_exit_code))
+    }
+}
+
+impl Alias {
+    fn add_alias(
+        args: &ParsedArguments,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        let mut args_iter = args.rest.iter();
+
+        let Some(key) = args_iter.next().map(|k| k.as_str()).transpose()? else {
+            return Ok(ExitCode::SYNTAX_ERROR);
+        };
+
+        if args_iter.next().map(|a| a.as_str()).transpose()? != Some("=") {
+            writeln!(
+                io_streams.error,
+                "alias: missing = between alias name and aliased value. Example: alias ll = 'ls -la'"
+            )?;
+            return Ok(ExitCode::SYNTAX_ERROR);
+        }
+
+        let mut aliased_args = vec![];
+        for arg in args_iter {
+            aliased_args.push(arg.as_str()?);
+        }
+
+        if !aliased_args.is_empty() {
+            shell_state
+                .write()
+                .unwrap()
+                .aliases
+                .insert(key.to_owned(), aliased_args.join(" "));
+        }
+
+        Ok(ExitCode::SUCCESS)
+    }
+
+    fn remove_alias(
+        key: &str,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        if key.is_empty() {
+            writeln!(io_streams.error, "alias: missing alias key after -r")?;
+            return Ok(ExitCode::SYNTAX_ERROR);
+        }
+
+        match shell_state.write().unwrap().aliases.remove(key) {
+            Some(value) => {
+                writeln!(
+                    io_streams.output,
+                    "alias: removed: {}",
+                    Aliases::format_item_string(key, &value)
+                )?;
+            }
+            None => {
+                writeln!(io_streams.error, "alias: no alias key \"{key}\" to remove")?;
+                return Ok(ExitCode::FAILURE);
+            }
+        }
+
+        Ok(ExitCode::SUCCESS)
+    }
+
+    fn print_alias(
+        key: &str,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        if key.is_empty() {
+            writeln!(io_streams.error, "alias: missing alias key after -p")?;
+            return Ok(ExitCode::SYNTAX_ERROR);
+        }
+
+        match shell_state.read().unwrap().aliases.get(key) {
+            Some(value) => {
+                writeln!(
+                    io_streams.output,
+                    "{}",
+                    Aliases::format_item_string(key, value)
+                )?;
+            }
+            None => {
+                writeln!(io_streams.error, "alias: no alias key {key} found")?;
+            }
+        }
+
+        Ok(ExitCode::SUCCESS)
+    }
+
+    fn print_all_aliases(
+        args: &ParsedArguments,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        let mut format = Format::Table;
         for spec in FORMAT_SPECS {
             if args.has_switch(spec.name) {
                 format = spec.mode.clone();
             }
         }
 
-        match format {
-            Format::List => {
-                let aliases = shell_state.read().unwrap().aliases.to_list_string();
-                writeln!(io_streams.output, "{}", aliases.trim_end())?;
-            }
-            Format::Table => {
-                let table = shell_state.read().unwrap().aliases.to_table();
-                writeln!(io_streams.output, "{table}")?;
-            }
-        }
+        let aliases = &shell_state.read().unwrap().aliases;
+        let output = match format {
+            Format::List => aliases.to_list_string(),
+            Format::Table => aliases.to_table().to_string(),
+        };
 
-        // while let Some(arg) = args_iter.next() {
-        //     match arg.item.as_str() {
-        //         "-p" => {
-        //             if let Some(alias_key_arg) = args_iter.next() {
-        //                 match shell_state
-        //                     .write()
-        //                     .unwrap()
-        //                     .aliases
-        //                     .get(&alias_key_arg.item)
-        //                 {
-        //                     Some(value) => {
-        //                         writeln!(
-        //                             io_streams.output,
-        //                             "{}",
-        //                             Aliases::format_item_string(&alias_key_arg.item, value)
-        //                         )?;
-        //                     }
-        //                     None => {
-        //                         writeln!(
-        //                             io_streams.error,
-        //                             "alias: no alias named {} found",
-        //                             alias_key_arg.item
-        //                         )?;
-        //                     }
-        //                 }
-        //             } else {
-        //                 writeln!(io_streams.error, "alias: missing alias name after -p")?;
-        //                 final_exit_code = ExitCode::SYNTAX_ERROR;
-        //             }
-        //         }
-        //
-        //         "-r" => {
-        //             if let Some(alias_key_arg) = args_iter.next() {
-        //                 match shell_state
-        //                     .write()
-        //                     .unwrap()
-        //                     .aliases
-        //                     .remove(&alias_key_arg.item)
-        //                 {
-        //                     Some(value) => {
-        //                         writeln!(
-        //                             io_streams.output,
-        //                             "alias: removed: {}",
-        //                             Aliases::format_item_string(&alias_key_arg.item, &value)
-        //                         )?;
-        //                     }
-        //                     None => {
-        //                         writeln!(
-        //                             io_streams.error,
-        //                             "alias: no alias named \"{}\" to remove",
-        //                             alias_key_arg.item
-        //                         )?;
-        //                         final_exit_code = ExitCode::FAILURE;
-        //                     }
-        //                 }
-        //             } else {
-        //                 writeln!(io_streams.error, "alias: missing alias name after -r")?;
-        //                 final_exit_code = ExitCode::SYNTAX_ERROR;
-        //             }
-        //         }
-        //
-        //         alias_name_arg => {
-        //             let eq_arg = args_iter.next().map(|s| s.item.as_str());
-        //             if eq_arg == Some("=") {
-        //                 let mut aliased_args = vec![];
-        //                 for arg in args_iter.by_ref() {
-        //                     aliased_args.push(arg.clone());
-        //                 }
-        //
-        //                 if !aliased_args.is_empty() {
-        //                     shell_state.write().unwrap().aliases.insert(
-        //                         alias_name_arg.to_owned(),
-        //                         aliased_args
-        //                             .iter()
-        //                             .map(|s| s.item.as_str())
-        //                             .collect::<Vec<&str>>()
-        //                             .join(" "),
-        //                     );
-        //                 }
-        //             } else {
-        //                 writeln!(
-        //                     io_streams.error,
-        //                     "alias: missing = between alias name and aliased value. Example: alias ll = ls -la"
-        //                 )?;
-        //                 final_exit_code = ExitCode::SYNTAX_ERROR;
-        //             }
-        //         }
-        //     }
-        // }
+        writeln!(io_streams.output, "{}", output.trim_end())?;
 
-        Ok(CommandData::ExitCode(final_exit_code))
+        Ok(ExitCode::SUCCESS)
     }
 }

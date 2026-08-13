@@ -24,19 +24,21 @@ impl Command for Complete {
 
     fn signature(&self) -> Signature {
         Signature::new(self.name())
-            // TODO: new logic required for requiring name and path
-            .named("add", SyntaxShape::String, "Add completion path", Some('a'))
+            .rest(
+                "add",
+                SyntaxShape::String,
+                "completion script key and path to add",
+            )
             .named(
                 "remove",
                 SyntaxShape::String,
                 "Remove completion",
                 Some('r'),
             )
-            // TODO better name
             .named(
                 "print",
                 SyntaxShape::String,
-                "find and print completion",
+                "completion script to get and print",
                 Some('p'),
             )
     }
@@ -52,52 +54,83 @@ impl Command for Complete {
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        let print = args.opt_named::<String>("print")?;
-
-        if let Some(p) = print {
-            match shell_state.read().unwrap().completions.get_key_value(&p) {
-                Ok((name, path)) => {
-                    writeln!(io_streams.output, "complete -C '{path}' {name}")?;
-                }
-                Err(e) => {
-                    writeln!(io_streams.error, "{e}")?;
-                    final_exit_code = ExitCode::FAILURE;
-                }
+        if !args.rest.is_empty() {
+            let code = Self::add_completion(&args, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
             }
-        } else if print.unwrap_or(String::new()).is_empty() {
+        }
+
+        if let Some(key) = args.opt_named::<String>("remove")? {
+            Self::remove_completion(&key, &shell_state);
+        }
+
+        if let Some(key) = args.opt_named::<String>("print")? {
+            let code = Self::print_completion(&key, &shell_state, &mut io_streams)?;
+            if code != ExitCode::SUCCESS {
+                final_exit_code = code;
+            }
+        }
+
+        Ok(CommandData::ExitCode(final_exit_code))
+    }
+}
+
+impl Complete {
+    fn add_completion(
+        args: &ParsedArguments,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        let mut args_iter = args.rest.iter();
+
+        let Some(key) = args_iter.next().map(|k| k.as_str()).transpose()? else {
+            return Ok(ExitCode::SYNTAX_ERROR);
+        };
+
+        let Some(path) = args_iter.next().map(|k| k.as_str()).transpose()? else {
+            writeln!(
+                io_streams.error,
+                "complete: missing script path after key. Example: complete script_name /path"
+            )?;
+            return Ok(ExitCode::SYNTAX_ERROR);
+        };
+
+        shell_state
+            .write()
+            .unwrap()
+            .completions
+            .insert(key.to_owned(), path.to_owned());
+
+        Ok(ExitCode::SUCCESS)
+    }
+    fn remove_completion(key: &str, shell_state: &Arc<RwLock<ShellState>>) {
+        shell_state.write().unwrap().completions.remove(key);
+    }
+
+    fn print_completion(
+        key: &str,
+        shell_state: &Arc<RwLock<ShellState>>,
+        io_streams: &mut IoStreams,
+    ) -> Result<ExitCode, ShellError> {
+        if key.is_empty() {
             writeln!(
                 io_streams.error,
                 "complete: missing specification name for -p",
             )?;
-            final_exit_code = ExitCode::SYNTAX_ERROR;
+            return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        if let Some(remove_name) = args.opt_named::<String>("remove")? {
-            shell_state
-                .write()
-                .unwrap()
-                .completions
-                .remove(&remove_name);
+        match shell_state.read().unwrap().completions.get_key_value(key) {
+            Ok((name, path)) => {
+                writeln!(io_streams.output, "complete -C '{path}' {name}")?;
+            }
+            Err(e) => {
+                writeln!(io_streams.error, "{e}")?;
+                return Ok(ExitCode::FAILURE);
+            }
         }
 
-        // TODO
-        // while let Some(arg) = args_iter.next() {
-        //     match arg.item.as_str() {
-        //         "-C" => {
-        //             if let Some(path_arg) = args_iter.next()
-        //                 && let Some(name_arg) = args_iter.next()
-        //             {
-        //                 shell_state
-        //                     .write()
-        //                     .unwrap()
-        //                     .completions
-        //                     .insert(name_arg.item.clone(), path_arg.item.clone());
-        //             }
-        //         }
-        //         _ => (),
-        //     }
-        // }
-
-        Ok(CommandData::ExitCode(final_exit_code))
+        Ok(ExitCode::SUCCESS)
     }
 }
