@@ -9,31 +9,47 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn as_bool(&self) -> Option<bool> {
+    pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
-            Value::Bool(v) => Some(v.item),
-            _ => None,
+            Value::Bool(v) => Ok(v.item),
+            v => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                v.type_name(),
+                v.span(),
+            )),
         }
     }
 
-    pub fn as_int(&self) -> Option<i64> {
+    pub fn as_int(&self) -> Result<i64, ShellError> {
         match self {
-            Value::Int(v) => Some(v.item),
-            _ => None,
+            Value::Int(v) => Ok(v.item),
+            v => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                v.type_name(),
+                v.span(),
+            )),
         }
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub fn as_str(&self) -> Result<&str, ShellError> {
         match self {
-            Value::String(v) => Some(&v.item),
-            _ => None,
+            Value::String(v) => Ok(&v.item),
+            v => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                v.type_name(),
+                v.span(),
+            )),
         }
     }
 
-    pub fn into_string(self) -> Option<String> {
+    pub fn into_string(self) -> Result<String, ShellError> {
         match self {
-            Value::String(v) => Some(v.item),
-            _ => None,
+            Value::String(v) => Ok(v.item),
+            v => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                v.type_name(),
+                v.span(),
+            )),
         }
     }
 
