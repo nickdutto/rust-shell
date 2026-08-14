@@ -94,7 +94,7 @@ impl CommandRouter {
             .get(&cmd.item)
             .unwrap_or_else(|| self.executable_command.clone());
 
-        let parsed_args = command.signature().parse(args)?;
+        let parsed_args = command.signature().parse(&cmd, args)?;
 
         let handle = ProcessHandle::run_producer(
             Box::new(move || {

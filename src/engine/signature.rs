@@ -1,10 +1,8 @@
 use crate::error::shell_error::ShellError;
 use crate::parser::argument::ParsedArguments;
-use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
-use std::collections::HashMap;
 
 pub struct PositionalArg {
     pub name: &'static str,
@@ -146,24 +144,39 @@ impl Signature {
         self
     }
 
-    pub fn parse(&self, raw_args: Vec<Spanned<String>>) -> Result<ParsedArguments, ShellError> {
+    pub fn parse(
+        &self,
+        cmd: &Spanned<String>,
+        raw_args: Vec<Spanned<String>>,
+    ) -> Result<ParsedArguments, ShellError> {
         if self.allows_unknown_args {
             return Ok(ParsedArguments {
-                positionals: vec![],
-                rest: vec![],
-                named: HashMap::new(),
+                cmd: cmd.clone(),
                 raw_args,
+                ..ParsedArguments::default()
             });
         }
 
         let mut parsed = ParsedArguments {
+            cmd: cmd.clone(),
             raw_args: raw_args.clone(),
             ..ParsedArguments::default()
         };
 
+        self.parse_arguments(raw_args, &mut parsed)?;
+        self.validate_required(cmd, &mut parsed)?;
+
+        Ok(parsed)
+    }
+
+    fn parse_arguments(
+        &self,
+        raw_args: Vec<Spanned<String>>,
+        parsed: &mut ParsedArguments,
+    ) -> Result<(), ShellError> {
         let mut stop_flags = false;
         let mut raw_args_iter = raw_args.into_iter().peekable();
-        let mut pos_specs_iter = self.positionals.iter();
+        let mut pos_args_iter = self.positionals.iter();
 
         while let Some(arg) = raw_args_iter.next() {
             if !stop_flags && arg.item == "--" {
@@ -172,7 +185,7 @@ impl Signature {
             }
 
             if !stop_flags && arg.item.starts_with('-') && arg.item != "-" {
-                let (named_arg, _) = self.find_named(&arg)?;
+                let named_arg = self.find_named(&arg)?;
 
                 if named_arg.shape == SyntaxShape::Bool {
                     parsed.named.insert(
@@ -181,48 +194,58 @@ impl Signature {
                     );
                 } else {
                     let value = raw_args_iter.next().ok_or_else(|| {
-                        ShellError::Generic(format!(
-                            "Named arg '--{}' requires a value",
-                            named_arg.name
-                        ))
+                        ShellError::MissingNamedArgumentValue {
+                            name: named_arg.name.to_owned(),
+                            span: arg.span,
+                        }
                     })?;
 
-                    let parsed_value = parse_value_shape(value, &named_arg.shape)?;
-                    parsed.named.insert(named_arg.name.to_owned(), parsed_value);
+                    parsed.named.insert(
+                        named_arg.name.to_owned(),
+                        named_arg.shape.parse_value(value)?,
+                    );
                 }
-            } else if let Some(pos_spec) = pos_specs_iter.next() {
-                let parsed_value = parse_value_shape(arg, &pos_spec.shape)?;
-                parsed.positionals.push(parsed_value);
-            } else if let Some(rest_spec) = &self.rest_positional {
-                let parsed_value = parse_value_shape(arg, &rest_spec.shape)?;
-                parsed.rest.push(parsed_value);
+            } else if let Some(pos_arg) = pos_args_iter.next() {
+                parsed.positionals.push(pos_arg.shape.parse_value(arg)?);
+            } else if let Some(rest_pos_arg) = &self.rest_positional {
+                parsed.rest.push(rest_pos_arg.shape.parse_value(arg)?);
             } else {
-                return Err(ShellError::Generic(format!(
-                    "Too many arguments passed to command: {}",
-                    self.name
-                )));
+                return Err(ShellError::TooManyArguments {
+                    cmd: self.name.to_owned(),
+                    span: arg.span,
+                });
             }
         }
 
+        Ok(())
+    }
+
+    fn validate_required(
+        &self,
+        cmd: &Spanned<String>,
+        parsed: &mut ParsedArguments,
+    ) -> Result<(), ShellError> {
         for (i, pos_arg) in self.positionals.iter().enumerate() {
             if pos_arg.required && i >= parsed.positionals.len() {
-                return Err(ShellError::Generic(format!(
-                    "Missing required positional argument: {}",
-                    pos_arg.name
-                )));
+                return Err(ShellError::MissingPositionalArgument {
+                    cmd: self.name.to_owned(),
+                    name: pos_arg.name.to_owned(),
+                    span: cmd.span,
+                });
             }
         }
 
         for named_arg in &self.named {
             if named_arg.required && !parsed.named.contains_key(named_arg.name) {
-                return Err(ShellError::Generic(format!(
-                    "Missing required named arg: --{}",
-                    named_arg.name
-                )));
+                return Err(ShellError::MissingNamedArgument {
+                    cmd: self.name.to_owned(),
+                    name: named_arg.name.to_owned(),
+                    span: cmd.span,
+                });
             }
         }
 
-        Ok(parsed)
+        Ok(())
     }
 
     fn find_named(&self, arg: &Spanned<String>) -> Result<&NamedArg, ShellError> {
@@ -231,8 +254,8 @@ impl Signature {
         let matched = if let Some(long) = name_str.strip_prefix("--") {
             self.named.iter().find(|n| n.name == long)
         } else if let Some(short_str) = name_str.strip_prefix("-") {
-            let short_ch = short_str.chars().next();
-            self.named.iter().find(|n| n.short == short_ch)
+            let short = short_str.chars().next();
+            self.named.iter().find(|n| n.short == short)
         } else {
             None
         };

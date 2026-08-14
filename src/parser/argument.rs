@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct ParsedArguments {
+    pub cmd: Spanned<String>,
     pub positionals: Vec<Value>,
     pub rest: Vec<Value>,
     pub named: HashMap<String, Value>,
@@ -16,8 +17,10 @@ impl ParsedArguments {
         self.positionals
             .get(index)
             .cloned()
-            .ok_or_else(|| {
-                ShellError::Generic(format!("Missing required argument at index {index}"))
+            .ok_or_else(|| ShellError::MissingPositionalArgument {
+                cmd: String::new(),
+                name: format!("index {index}"),
+                span: self.cmd.span,
             })
             .and_then(T::from_value)
     }
@@ -33,7 +36,11 @@ impl ParsedArguments {
         self.named
             .get(name)
             .cloned()
-            .ok_or_else(|| ShellError::Generic(format!("Missing required argument: --{name}")))
+            .ok_or_else(|| ShellError::MissingNamedArgument {
+                cmd: self.cmd.item.clone(),
+                name: name.to_owned(),
+                span: self.cmd.span,
+            })
             .and_then(T::from_value)
     }
 
@@ -67,7 +74,7 @@ impl ParsedArguments {
         self.positionals.is_empty() && self.named.is_empty()
     }
 
-    pub fn rest_strings(&self) -> impl Iterator<Item=&str> {
+    pub fn rest_strings(&self) -> impl Iterator<Item = &str> {
         self.rest.iter().filter_map(|v| match v {
             Value::String(spanned) => Some(spanned.item.as_str()),
             _ => None,

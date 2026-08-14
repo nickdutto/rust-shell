@@ -1,6 +1,6 @@
 use miette::SourceSpan;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct Spanned<T> {
     pub item: T,
     pub span: Span,

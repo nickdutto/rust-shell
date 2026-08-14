@@ -41,12 +41,55 @@ pub enum ShellError {
         span: Span,
     },
 
-    #[error("Type mismatch: expected {expected}, got {actual}")]
-    #[diagnostic(code(rs_shell::type_mismatch), help("Provide type '{expected}'"))]
+    #[error("Type mismatch: expected `{expected}`, got `{actual}`")]
+    #[diagnostic(code(rs_shell::type_mismatch), help("Provide type `{expected}`"))]
     TypeMismatch {
         expected: String,
         actual: String,
-        #[label("expected {expected}, got {actual}")]
+        #[label("expected `{expected}`, got `{actual}`")]
+        span: Span,
+    },
+
+    #[error("Unknown named argument `{name}` for command `{cmd}`")]
+    #[diagnostic(code(rs_shell::unknown_named_argument))]
+    UnknownNamedArgument {
+        cmd: String,
+        name: String,
+        #[label("unknown named argument")]
+        span: Span,
+    },
+
+    #[error("Too many arguments provided to `{cmd}`")]
+    #[diagnostic(code(rs_shell::too_many_arguments))]
+    TooManyArguments {
+        cmd: String,
+        #[label("unexpected extra argument")]
+        span: Span,
+    },
+
+    #[error("Missing required positional argument `{name}` for command `{cmd}`")]
+    #[diagnostic(code(rs_shell::missing_positional_argument))]
+    MissingPositionalArgument {
+        cmd: String,
+        name: String,
+        #[label("missing positional argument `{name}`")]
+        span: Span,
+    },
+
+    #[error("Missing required named argument `{name}` for command `{cmd}`")]
+    #[diagnostic(code(rs_shell::missing_named_argument))]
+    MissingNamedArgument {
+        cmd: String,
+        name: String,
+        #[label("missing named argument `{name}`")]
+        span: Span,
+    },
+
+    #[error("Missing value for named argument `{name}`")]
+    #[diagnostic(code(rs_shell::missing_named_argument_value))]
+    MissingNamedArgumentValue {
+        name: String,
+        #[label("missing named argument value")]
         span: Span,
     },
 }
