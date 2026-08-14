@@ -2,6 +2,7 @@ use crate::error::shell_error::ShellError;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::shape::SyntaxShape;
 use crate::parser::span::Spanned;
+use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
 use std::collections::HashMap;
 
