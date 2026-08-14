@@ -225,48 +225,22 @@ impl Signature {
         Ok(parsed)
     }
 
-    fn find_named(&self, arg: &Spanned<String>) -> Result<(&NamedArg, String), ShellError> {
+    fn find_named(&self, arg: &Spanned<String>) -> Result<&NamedArg, ShellError> {
         let name_str = &arg.item;
 
-        if let Some(long) = name_str.strip_prefix("--") {
-            self.named
-                .iter()
-                .find(|n| n.name == long)
-                .map(|na| (na, long.to_owned()))
-                .ok_or_else(|| ShellError::Generic(format!("Unknown named arg (long): --{long}")))
+        let matched = if let Some(long) = name_str.strip_prefix("--") {
+            self.named.iter().find(|n| n.name == long)
         } else if let Some(short_str) = name_str.strip_prefix("-") {
-            let short = short_str.chars().next().unwrap_or_default();
-            self.named
-                .iter()
-                .find(|n| n.short == Some(short))
-                .map(|na| (na, short.to_string()))
-                .ok_or_else(|| ShellError::Generic(format!("Unknown named arg (short): -{short}")))
+            let short_ch = short_str.chars().next();
+            self.named.iter().find(|n| n.short == short_ch)
         } else {
-            Err(ShellError::Generic("Error finding named arg".to_owned()))
-        }
-    }
-}
+            None
+        };
 
-fn parse_value_shape(raw: Spanned<String>, shape: &SyntaxShape) -> Result<Value, ShellError> {
-    match shape {
-        SyntaxShape::Bool => {
-            let parsed = raw
-                .item
-                .parse::<bool>()
-                .map_err(|_| ShellError::Generic(format!("Expected boolean, got {}", raw.item)))?;
-
-            Ok(Value::Bool(Spanned::new(parsed, raw.span)))
-        }
-
-        SyntaxShape::Int => {
-            let parsed = raw
-                .item
-                .parse::<i64>()
-                .map_err(|_| ShellError::Generic(format!("Expected int, got {}", raw.item)))?;
-
-            Ok(Value::Int(Spanned::new(parsed, raw.span)))
-        }
-
-        SyntaxShape::String => Ok(Value::String(raw)),
+        matched.ok_or_else(|| ShellError::UnknownNamedArgument {
+            cmd: self.name.to_owned(),
+            name: arg.item.clone(),
+            span: arg.span,
+        })
     }
 }
