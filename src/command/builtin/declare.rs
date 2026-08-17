@@ -1,11 +1,10 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
 use crate::shell::variables::{VariableError, Variables};
@@ -76,37 +75,35 @@ impl Command for Declare {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        if let (Some(key), Some(value)) = (args.rest.first(), args.rest.get(2)) {
+        if let (Some(key), Some(value)) = (call.rest.first(), call.rest.get(2)) {
             let code = Self::add_variable(key, value, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
-        if let Some(key) = args.opt_named::<String>("remove")? {
+        if let Some(key) = call.opt_named::<String>("remove")? {
             let code = Self::remove_variable(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
-        if let Some(key) = args.opt_named::<String>("print")? {
+        if let Some(key) = call.opt_named::<String>("print")? {
             let code = Self::print_variable(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
-        if args.has_switch("all") {
-            let code = Self::print_all_variables(&args, engine_state, &mut io_streams)?;
+        if call.has_switch("all") {
+            let code = Self::print_all_variables(&call, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
@@ -208,7 +205,7 @@ impl Declare {
     }
 
     fn print_all_variables(
-        args: &ParsedArguments,
+        args: &Call,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {

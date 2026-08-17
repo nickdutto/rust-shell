@@ -1,3 +1,4 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
@@ -6,8 +7,7 @@ use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::{Span, Spanned};
+use crate::parser::span::Span;
 use crate::parser::syntax_shape::SyntaxShape;
 use std::error::Error;
 use std::io::Write;
@@ -32,17 +32,15 @@ impl Command for Http {
 
     fn run(
         &self,
-        cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        let http_method_res = HttpMethod::parse(&args.req::<String>(0)?)
-            .map_err(|err| map_shell_error(err, cmd.span, String::new()));
+        let http_method_res = HttpMethod::parse(&call.req::<String>(0)?)
+            .map_err(|err| map_shell_error(err, call.cmd.span, String::new()));
 
-        let url_res = Url::parse(&args.req::<String>(1)?)
-            .map_err(|err| map_shell_error(err, cmd.span, String::new()));
+        let url_res = Url::parse(&call.req::<String>(1)?)
+            .map_err(|err| map_shell_error(err, call.cmd.span, String::new()));
 
         let (Ok(http_method), Ok(url)) = (&http_method_res, &url_res) else {
             let mut errors = vec![];

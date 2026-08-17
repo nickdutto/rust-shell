@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::engine::call::Call;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
@@ -6,7 +7,6 @@ use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::redirection::RedirectionMode;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
 use crate::parser::lexer::{TokenKind, lex};
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
@@ -37,13 +37,11 @@ impl Command for Explain {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        let line = args.req::<String>(0)?;
+        let line = call.req::<String>(0)?;
 
         let highlighter = SyntaxHighlighter::new(engine_state.config.clone(), BUILTIN_COMMANDS);
         let tokens = lex(&line);

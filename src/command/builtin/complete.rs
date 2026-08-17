@@ -1,11 +1,10 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use std::io::Write;
 
@@ -43,26 +42,24 @@ impl Command for Complete {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        if !args.rest.is_empty() {
-            let code = Self::add_completion(&args, engine_state, &mut io_streams)?;
+        if !call.rest.is_empty() {
+            let code = Self::add_completion(&call, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
-        if let Some(key) = args.opt_named::<String>("remove")? {
+        if let Some(key) = call.opt_named::<String>("remove")? {
             Self::remove_completion(&key, engine_state);
         }
 
-        if let Some(key) = args.opt_named::<String>("print")? {
+        if let Some(key) = call.opt_named::<String>("print")? {
             let code = Self::print_completion(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
@@ -75,7 +72,7 @@ impl Command for Complete {
 
 impl Complete {
     fn add_completion(
-        args: &ParsedArguments,
+        args: &Call,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {

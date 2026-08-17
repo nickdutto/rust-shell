@@ -1,11 +1,10 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use std::io::ErrorKind;
 
 pub struct Executable;
@@ -25,28 +24,26 @@ impl Command for Executable {
 
     fn run(
         &self,
-        cmd: Spanned<String>,
-        args: ParsedArguments,
-        job_id: Option<usize>,
+        call: Call,
         engine_state: &EngineState,
         io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        if cmd.item.is_empty() {
+        if call.cmd.item.is_empty() {
             return Ok(CommandData::ExitCode(ExitCode::FAILURE));
         }
 
-        let mut command_binding = std::process::Command::new(&cmd.item);
+        let mut command_binding = std::process::Command::new(&call.cmd.item);
         let command = command_binding
             .stdin(io_streams.input.into_stdio())
             .stdout(io_streams.output.into_stdio())
             .stderr(io_streams.error.into_stdio());
 
         match command
-            .args(args.raw_args.iter().map(|s| s.item.as_str()))
+            .args(call.raw_args.iter().map(|s| s.item.as_str()))
             .spawn()
         {
             Ok(child) => {
-                if let Some(jb_id) = job_id
+                if let Some(jb_id) = call.job_id
                     && let Some(job) = engine_state
                     .shell_state
                     .write()
@@ -62,15 +59,15 @@ impl Command for Executable {
             Err(e) if e.kind() == ErrorKind::NotFound => Err(ShellError::ExternalCommand {
                 help: format!(
                     "`{}` is neither a built-in nor a known external command",
-                    cmd.item
+                    call.cmd.item
                 ),
-                label: format!("Command `{}` not found", cmd.item),
-                span: cmd.span,
+                label: format!("Command `{}` not found", call.cmd.item),
+                span: call.cmd.span,
             }),
             Err(e) => Err(ShellError::ExternalCommand {
                 help: String::new(),
                 label: format!("{e}"),
-                span: cmd.span,
+                span: call.cmd.span,
             }),
         }
     }

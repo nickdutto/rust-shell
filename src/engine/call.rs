@@ -4,15 +4,16 @@ use crate::parser::value::{FromValue, Value};
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct ParsedArguments {
+pub struct Call {
     pub cmd: Spanned<String>,
     pub positionals: Vec<Value>,
     pub rest: Vec<Value>,
     pub named: HashMap<String, Value>,
     pub raw_args: Vec<Spanned<String>>,
+    pub job_id: Option<usize>,
 }
 
-impl ParsedArguments {
+impl Call {
     pub fn req<T: FromValue>(&self, index: usize) -> Result<T, ShellError> {
         self.positionals
             .get(index)
@@ -70,7 +71,7 @@ impl ParsedArguments {
         self.named.get(name)
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn is_args_empty(&self) -> bool {
         self.positionals.is_empty() && self.named.is_empty()
     }
 

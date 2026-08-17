@@ -1,11 +1,10 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use jiff::Zoned;
 use std::io::Write;
@@ -132,25 +131,23 @@ impl Command for Now {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let now = Zoned::now();
 
-        if args.is_empty() || args.has_switch("raw") {
+        if call.is_args_empty() || call.has_switch("raw") {
             writeln!(io_streams.output, "{now}")?;
         }
 
         for spec in NAMED_SPECS {
-            if args.has_switch(spec.name) {
+            if call.has_switch(spec.name) {
                 writeln!(io_streams.output, "{}", now.strftime(spec.format))?;
             }
         }
 
-        if let Some(format) = args.opt_named::<String>("f")? {
+        if let Some(format) = call.opt_named::<String>("f")? {
             match jiff::fmt::strtime::format(format, &now) {
                 Ok(f) => writeln!(io_streams.output, "{f}")?,
                 Err(e) => {

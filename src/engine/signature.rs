@@ -1,5 +1,5 @@
+use crate::engine::call::Call;
 use crate::error::shell_error::ShellError;
-use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
@@ -146,36 +146,30 @@ impl Signature {
 
     pub fn parse(
         &self,
-        cmd: &Spanned<String>,
+        cmd: Spanned<String>,
         raw_args: Vec<Spanned<String>>,
-    ) -> Result<ParsedArguments, ShellError> {
-        if self.allows_unknown_args {
-            return Ok(ParsedArguments {
-                cmd: cmd.clone(),
-                raw_args,
-                ..ParsedArguments::default()
-            });
-        }
-
-        let mut parsed = ParsedArguments {
-            cmd: cmd.clone(),
-            raw_args: raw_args.clone(),
-            ..ParsedArguments::default()
+        job_id: Option<usize>,
+    ) -> Result<Call, ShellError> {
+        let mut call = Call {
+            cmd,
+            raw_args,
+            job_id,
+            ..Call::default()
         };
 
-        self.parse_arguments(raw_args, &mut parsed)?;
-        self.validate_required(cmd, &mut parsed)?;
+        if self.allows_unknown_args {
+            return Ok(call);
+        }
 
-        Ok(parsed)
+        self.parse_arguments(&mut call)?;
+        self.validate_required(&mut call)?;
+
+        Ok(call)
     }
 
-    fn parse_arguments(
-        &self,
-        raw_args: Vec<Spanned<String>>,
-        parsed: &mut ParsedArguments,
-    ) -> Result<(), ShellError> {
+    fn parse_arguments(&self, call: &mut Call) -> Result<(), ShellError> {
         let mut stop_flags = false;
-        let mut raw_args_iter = raw_args.into_iter().peekable();
+        let mut raw_args_iter = call.raw_args.clone().into_iter().peekable();
         let mut pos_args_iter = self.positionals.iter();
 
         while let Some(arg) = raw_args_iter.next() {
@@ -188,7 +182,7 @@ impl Signature {
                 let named_arg = self.find_named(&arg)?;
 
                 if named_arg.shape == SyntaxShape::Bool {
-                    parsed.named.insert(
+                    call.named.insert(
                         named_arg.name.to_owned(),
                         Value::Bool(Spanned::new(true, arg.span)),
                     );
@@ -200,15 +194,15 @@ impl Signature {
                         }
                     })?;
 
-                    parsed.named.insert(
+                    call.named.insert(
                         named_arg.name.to_owned(),
                         named_arg.shape.parse_value(value)?,
                     );
                 }
             } else if let Some(pos_arg) = pos_args_iter.next() {
-                parsed.positionals.push(pos_arg.shape.parse_value(arg)?);
+                call.positionals.push(pos_arg.shape.parse_value(arg)?);
             } else if let Some(rest_pos_arg) = &self.rest_positional {
-                parsed.rest.push(rest_pos_arg.shape.parse_value(arg)?);
+                call.rest.push(rest_pos_arg.shape.parse_value(arg)?);
             } else {
                 return Err(ShellError::TooManyArguments {
                     cmd: self.name.to_owned(),
@@ -220,27 +214,23 @@ impl Signature {
         Ok(())
     }
 
-    fn validate_required(
-        &self,
-        cmd: &Spanned<String>,
-        parsed: &mut ParsedArguments,
-    ) -> Result<(), ShellError> {
+    fn validate_required(&self, call: &Call) -> Result<(), ShellError> {
         for (i, pos_arg) in self.positionals.iter().enumerate() {
-            if pos_arg.required && i >= parsed.positionals.len() {
+            if pos_arg.required && i >= call.positionals.len() {
                 return Err(ShellError::MissingPositionalArgument {
                     cmd: self.name.to_owned(),
                     name: pos_arg.name.to_owned(),
-                    span: cmd.span,
+                    span: call.cmd.span,
                 });
             }
         }
 
         for named_arg in &self.named {
-            if named_arg.required && !parsed.named.contains_key(named_arg.name) {
+            if named_arg.required && !call.named.contains_key(named_arg.name) {
                 return Err(ShellError::MissingNamedArgument {
                     cmd: self.name.to_owned(),
                     name: named_arg.name.to_owned(),
-                    span: cmd.span,
+                    span: call.cmd.span,
                 });
             }
         }

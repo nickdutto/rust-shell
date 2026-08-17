@@ -1,12 +1,11 @@
 use crate::config::Config;
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use comfy_table::Table;
 use comfy_table::presets::NOTHING;
 use nu_ansi_term::{Color, Style};
@@ -35,15 +34,13 @@ impl Command for Theme {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut buffer = String::with_capacity(8192);
 
-        if args.has_switch("fg") {
+        if call.has_switch("fg") {
             let style = Style::new();
             let _ = writeln!(
                 buffer,
@@ -66,7 +63,7 @@ impl Command for Theme {
             }
         }
 
-        if args.has_switch("bg") {
+        if call.has_switch("bg") {
             let style = Style::new();
             let _ = writeln!(
                 buffer,
@@ -92,7 +89,7 @@ impl Command for Theme {
             }
         }
 
-        if args.has_switch("text") {
+        if call.has_switch("text") {
             let style = Style::new();
             let table = Self::text_table(style);
 
@@ -100,7 +97,7 @@ impl Command for Theme {
             let _ = writeln!(buffer, "{table}");
         }
 
-        if args.has_switch("shape") {
+        if call.has_switch("shape") {
             let style = Style::new();
             let table = Self::shape_table(style);
 
@@ -108,7 +105,7 @@ impl Command for Theme {
             let _ = writeln!(buffer, "{table}");
         }
 
-        if args.has_switch("config") {
+        if call.has_switch("config") {
             let style = Style::new();
             let table = Self::config_table(style, &engine_state.config);
 

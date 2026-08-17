@@ -1,3 +1,4 @@
+pub mod call;
 pub mod command;
 pub mod command_registry;
 #[allow(clippy::module_inception)]

@@ -1,11 +1,10 @@
+use crate::engine::call::Call;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::argument::ParsedArguments;
-use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
 use comfy_table::presets::NOTHING;
@@ -102,9 +101,7 @@ impl Command for Timezone {
 
     fn run(
         &self,
-        _cmd: Spanned<String>,
-        args: ParsedArguments,
-        _job_id: Option<usize>,
+        call: Call,
         _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
@@ -115,18 +112,18 @@ impl Command for Timezone {
         let now = Timestamp::now();
 
         for spec in FORMAT_SPECS {
-            if args.has_switch(spec.name) {
+            if call.has_switch(spec.name) {
                 format = spec.mode.clone();
             }
         }
 
         for spec in SORT_SPECS {
-            if args.has_switch(spec.name) {
+            if call.has_switch(spec.name) {
                 sort = spec.mode.clone();
             }
         }
 
-        for arg in args.rest {
+        for arg in call.rest {
             if let Value::String(spanned_tz) = arg {
                 let timezone_name = &spanned_tz.item;
                 let timezone = match TimeZone::get(timezone_name) {

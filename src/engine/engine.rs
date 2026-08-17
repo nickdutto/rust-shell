@@ -277,7 +277,7 @@ impl Engine {
             &self.engine_state.shell_state.read().unwrap().variables,
         );
 
-        let (cmd_name, args) = expand_command_node_values(
+        let (cmd, raw_args) = expand_command_node_values(
             command_node.cmd,
             command_node.args,
             &self.engine_state.shell_state,
@@ -286,9 +286,9 @@ impl Engine {
         let command = self
             .engine_state
             .command_registry
-            .get_or_fallback(&cmd_name.item);
+            .get_or_fallback(&cmd.item);
 
-        let parsed_args = command.signature().parse(&cmd_name, args)?;
+        let call = command.signature().parse(cmd, raw_args, current_job_id)?;
 
         let needs_thread = command.command_type() == CommandType::Builtin
             && matches!(io_streams.output, OutputStream::Pipe(_));
@@ -296,15 +296,7 @@ impl Engine {
         let engine_state = self.engine_state.clone();
 
         let handle = ProcessHandle::run_producer(
-            Box::new(move || {
-                command.run(
-                    cmd_name,
-                    parsed_args,
-                    current_job_id,
-                    &engine_state,
-                    io_streams,
-                )
-            }),
+            Box::new(move || command.run(call, &engine_state, io_streams)),
             needs_thread,
         );
 
