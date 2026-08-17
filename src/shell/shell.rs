@@ -1,77 +1,80 @@
-﻿use crate::config::Config;
-use crate::engine::Engine;
+﻿use crate::engine::Engine;
 use crate::engine::command::BUILTIN_COMMANDS;
-use crate::engine::router::CommandRouter;
+use crate::engine::engine_state::EngineState;
 use crate::shell::completer::Completer;
 use crate::shell::highlighter::SyntaxHighlighter;
 use crate::shell::menus::Menus;
 use crate::shell::prompt::{ShellPrompt, make_transient_prompt};
-use crate::shell::shell_state::ShellState;
 use crate::shell::suggestions::Suggestions;
 use reedline::{Emacs, ExternalPrinter, Reedline, Signal, default_emacs_keybindings};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
-pub struct Shell {
-    config: Arc<Config>,
-    command_router: Arc<CommandRouter>,
-    shell_state: Arc<RwLock<ShellState>>,
-}
-
-impl Default for Shell {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub struct Shell;
 
 impl Shell {
-    pub fn new() -> Self {
-        let mut config = Config::default();
-        match config.load() {
-            Ok(()) => {}
-            Err(e) => eprintln!("{e}"),
-        }
+    pub fn start_session() {
+        let printer = ExternalPrinter::default();
+        let engine_state = EngineState::new();
+        let engine = Engine::new(engine_state.clone(), printer.clone());
+        let prompt = ShellPrompt::from_engine_state(engine.engine_state());
 
-        let mut command_router = CommandRouter::new();
-        command_router.register_builtins();
+        let mut editor =
+            Self::build_editor(&engine.engine_state(), engine.printer().clone(), &prompt);
 
-        let mut shell_state = ShellState::new();
+        Self::repl(&mut editor, &engine, prompt);
+    }
 
-        if !config.aliases.is_empty() {
-            shell_state.aliases.set(std::mem::take(&mut config.aliases));
-        }
+    fn repl(editor: &mut Reedline, engine: &Engine, mut prompt: ShellPrompt) {
+        loop {
+            prompt.refresh_time();
 
-        if !config.variables.is_empty() {
-            shell_state
-                .variables
-                .set(std::mem::take(&mut config.variables));
-        }
+            match editor.read_line(&prompt) {
+                Ok(Signal::Success(buffer)) => {
+                    if buffer.trim().is_empty() {
+                        continue;
+                    }
 
-        Self {
-            config: Arc::new(config),
-            command_router: Arc::new(command_router),
-            shell_state: Arc::new(RwLock::new(shell_state)),
+                    editor.history_mut().sync().unwrap();
+                    engine.run_line(&buffer);
+                }
+
+                Ok(Signal::CtrlC) => {}
+
+                Ok(Signal::CtrlD) => {
+                    println!("Aborted");
+                    break;
+                }
+
+                x => {
+                    println!("Event: {x:?}");
+                }
+            }
         }
     }
 
-    pub fn start_session(&mut self) {
+    fn build_editor(
+        engine_state: &EngineState,
+        external_printer: ExternalPrinter<String>,
+        shell_prompt: &ShellPrompt,
+    ) -> Reedline {
         let mut editor = Reedline::create();
         let mut keybindings = default_emacs_keybindings();
-        let printer = ExternalPrinter::default();
-        let prompt = ShellPrompt::new(Arc::clone(&self.config), Arc::clone(&self.shell_state));
-        let completer = Completer::new(Arc::clone(&self.shell_state), BUILTIN_COMMANDS);
-        let suggestions = Suggestions::new(&self.config);
-        let syntax_highlighter = SyntaxHighlighter::new(Arc::clone(&self.config), BUILTIN_COMMANDS);
 
-        if self.config.menus.completions.enabled {
+        let completer = Completer::new(Arc::clone(&engine_state.shell_state), BUILTIN_COMMANDS);
+        let suggestions = Suggestions::new(&engine_state.config);
+        let syntax_highlighter =
+            SyntaxHighlighter::new(Arc::clone(&engine_state.config), BUILTIN_COMMANDS);
+
+        if engine_state.config.menus.completions.enabled {
             editor = editor.with_menu(Menus::completions_menu(
-                &self.config.menus.completions,
+                &engine_state.config.menus.completions,
                 &mut keybindings,
             ));
         }
 
-        if self.config.menus.history.enabled {
+        if engine_state.config.menus.history.enabled {
             editor = editor.with_menu(Menus::history_menu(
-                &self.config.menus.history,
+                &engine_state.config.menus.history,
                 &mut keybindings,
             ));
         }
@@ -79,51 +82,11 @@ impl Shell {
         editor = editor
             .with_completer(Box::new(completer))
             .with_edit_mode(Box::new(Emacs::new(keybindings)))
-            .with_external_printer(printer.clone())
+            .with_external_printer(external_printer)
             .with_highlighter(Box::new(syntax_highlighter))
             .with_hinter(Box::new(suggestions))
-            .with_transient_prompt(make_transient_prompt(&prompt));
+            .with_transient_prompt(make_transient_prompt(shell_prompt));
 
-        let engine = Engine::new(
-            Arc::clone(&self.config),
-            Arc::clone(&self.command_router),
-            Arc::clone(&self.shell_state),
-            printer,
-        );
-
-        self.repl(&mut editor, &engine, prompt);
-    }
-
-    fn repl(&mut self, editor: &mut Reedline, engine: &Engine, mut prompt: ShellPrompt) {
-        loop {
-            prompt.refresh_time();
-
-            let sig = editor.read_line(&prompt);
-            match sig {
-                Ok(Signal::Success(buffer)) => {
-                    if buffer.trim().is_empty() {
-                        continue;
-                    }
-
-                    editor.history_mut().sync().unwrap();
-
-                    engine.run_line(&buffer);
-
-                    self.shell_state
-                        .write()
-                        .unwrap()
-                        .background_jobs
-                        .remove_done_jobs();
-                }
-                Ok(Signal::CtrlC) => {}
-                Ok(Signal::CtrlD) => {
-                    println!("Aborted");
-                    break;
-                }
-                x => {
-                    println!("Event: {x:?}");
-                }
-            }
-        }
+        editor
     }
 }

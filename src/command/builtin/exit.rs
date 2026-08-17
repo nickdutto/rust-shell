@@ -1,15 +1,13 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::shell::shell_state::ShellState;
 use std::io::Write;
 use std::process;
-use std::sync::{Arc, RwLock};
 
 pub struct Exit;
 
@@ -35,13 +33,13 @@ impl Command for Exit {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let exit_code = args.opt(0)?.unwrap_or(0) as i32;
 
-        if let Err(e) = shell_state
+        if let Err(e) = engine_state
+            .shell_state
             .write()
             .unwrap()
             .history

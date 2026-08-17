@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::config::prompt::{PromptMode, PromptSegment};
+use crate::engine::engine_state::EngineState;
 use crate::shell::shell_state::ShellState;
 use jiff::Zoned;
 use nu_ansi_term::{Color, Style};
@@ -31,6 +32,13 @@ impl ShellPrompt {
             transient: false,
             prompt_time: None,
         }
+    }
+
+    pub fn from_engine_state(engine_state: &EngineState) -> Self {
+        Self::new(
+            Arc::clone(&engine_state.config),
+            Arc::clone(&engine_state.shell_state),
+        )
     }
 
     pub fn set_transient(&mut self, transient: bool) {

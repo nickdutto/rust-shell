@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::shell::aliases::Aliases;
 use crate::shell::background_jobs::BackgroundJobs;
 use crate::shell::completions::Completions;
@@ -29,5 +30,19 @@ impl ShellState {
             current_directory: env::current_dir().unwrap_or_default(),
             username: os::get_username().unwrap_or("user?".into()),
         }
+    }
+
+    pub fn from_config(config: &Config) -> Self {
+        let mut shell_state = Self::new();
+
+        if !config.aliases.is_empty() {
+            shell_state.aliases.set(config.aliases.clone());
+        }
+
+        if !config.variables.is_empty() {
+            shell_state.variables.set(config.variables.clone());
+        }
+
+        shell_state
     }
 }

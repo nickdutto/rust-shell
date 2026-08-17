@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -7,9 +7,7 @@ use crate::io::stream::IoStreams;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::shell::shell_state::ShellState;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 pub struct Complete;
 
@@ -48,25 +46,24 @@ impl Command for Complete {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
         if !args.rest.is_empty() {
-            let code = Self::add_completion(&args, &shell_state, &mut io_streams)?;
+            let code = Self::add_completion(&args, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = args.opt_named::<String>("remove")? {
-            Self::remove_completion(&key, &shell_state);
+            Self::remove_completion(&key, engine_state);
         }
 
         if let Some(key) = args.opt_named::<String>("print")? {
-            let code = Self::print_completion(&key, &shell_state, &mut io_streams)?;
+            let code = Self::print_completion(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
@@ -79,7 +76,7 @@ impl Command for Complete {
 impl Complete {
     fn add_completion(
         args: &ParsedArguments,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         let mut args_iter = args.rest.iter();
@@ -96,7 +93,8 @@ impl Complete {
             return Ok(ExitCode::SYNTAX_ERROR);
         };
 
-        shell_state
+        engine_state
+            .shell_state
             .write()
             .unwrap()
             .completions
@@ -104,13 +102,18 @@ impl Complete {
 
         Ok(ExitCode::SUCCESS)
     }
-    fn remove_completion(key: &str, shell_state: &Arc<RwLock<ShellState>>) {
-        shell_state.write().unwrap().completions.remove(key);
+    fn remove_completion(key: &str, engine_state: &EngineState) {
+        engine_state
+            .shell_state
+            .write()
+            .unwrap()
+            .completions
+            .remove(key);
     }
 
     fn print_completion(
         key: &str,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
@@ -121,7 +124,13 @@ impl Complete {
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match shell_state.read().unwrap().completions.get_key_value(key) {
+        match engine_state
+            .shell_state
+            .read()
+            .unwrap()
+            .completions
+            .get_key_value(key)
+        {
             Ok((name, path)) => {
                 writeln!(io_streams.output, "complete -C '{path}' {name}")?;
             }

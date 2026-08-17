@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -38,8 +38,7 @@ impl Command for Cd {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
@@ -49,12 +48,12 @@ impl Command for Cd {
         let result = match target.trim() {
             "~" => {
                 if let Some(home) = env::var_os("HOME") {
-                    cd_set_dir(Path::new(&home), &shell_state)
+                    cd_set_dir(Path::new(&home), &engine_state.shell_state)
                 } else {
                     Ok(())
                 }
             }
-            _ => cd_set_dir(Path::new(&target), &shell_state),
+            _ => cd_set_dir(Path::new(&target), &engine_state.shell_state),
         };
 
         if let Err(e) = result {

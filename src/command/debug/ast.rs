@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -10,9 +10,7 @@ use crate::parser::argument::ParsedArguments;
 use crate::parser::lexer::lex;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::shell::shell_state::ShellState;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 pub struct Ast;
 
@@ -36,8 +34,7 @@ impl Command for Ast {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let line = args.req::<String>(0)?;

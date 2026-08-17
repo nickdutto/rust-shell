@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -8,10 +8,8 @@ use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
-use crate::shell::shell_state::ShellState;
 use crate::shell::variables::{VariableError, Variables};
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 enum Format {
@@ -81,35 +79,34 @@ impl Command for Declare {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
         if let (Some(key), Some(value)) = (args.rest.first(), args.rest.get(2)) {
-            let code = Self::add_variable(key, value, &shell_state, &mut io_streams)?;
+            let code = Self::add_variable(key, value, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = args.opt_named::<String>("remove")? {
-            let code = Self::remove_variable(&key, &shell_state, &mut io_streams)?;
+            let code = Self::remove_variable(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = args.opt_named::<String>("print")? {
-            let code = Self::print_variable(&key, &shell_state, &mut io_streams)?;
+            let code = Self::print_variable(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if args.has_switch("all") {
-            let code = Self::print_all_variables(&args, &shell_state, &mut io_streams)?;
+            let code = Self::print_all_variables(&args, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
@@ -123,13 +120,14 @@ impl Declare {
     fn add_variable(
         key: &Value,
         value: &Value,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         let key = key.as_str()?;
         let value = value.as_str()?;
 
-        match shell_state
+        match engine_state
+            .shell_state
             .write()
             .unwrap()
             .variables
@@ -151,7 +149,7 @@ impl Declare {
 
     fn remove_variable(
         key: &str,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
@@ -159,7 +157,13 @@ impl Declare {
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match shell_state.write().unwrap().variables.remove(key) {
+        match engine_state
+            .shell_state
+            .write()
+            .unwrap()
+            .variables
+            .remove(key)
+        {
             Some(value) => {
                 writeln!(
                     io_streams.output,
@@ -178,7 +182,7 @@ impl Declare {
 
     fn print_variable(
         key: &str,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
@@ -186,7 +190,7 @@ impl Declare {
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match shell_state.read().unwrap().variables.get(key) {
+        match engine_state.shell_state.read().unwrap().variables.get(key) {
             Ok(Some(value)) => {
                 writeln!(
                     io_streams.output,
@@ -205,7 +209,7 @@ impl Declare {
 
     fn print_all_variables(
         args: &ParsedArguments,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         let mut format = Format::Table;
@@ -215,7 +219,7 @@ impl Declare {
             }
         }
 
-        let variables = &shell_state.read().unwrap().variables;
+        let variables = &engine_state.shell_state.read().unwrap().variables;
         let output = match format {
             Format::List => variables.to_list_string(),
             Format::Table => variables.to_table().to_string(),

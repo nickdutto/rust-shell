@@ -12,5 +12,5 @@ pub mod system;
 use shell::Shell;
 
 fn main() {
-    Shell::new().start_session();
+    Shell::start_session();
 }

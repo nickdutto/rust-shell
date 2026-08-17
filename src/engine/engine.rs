@@ -1,8 +1,8 @@
-use crate::config::Config;
+use crate::engine::command::CommandType;
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::expansion::expand_command_node_values;
 use crate::engine::process::ProcessHandle;
-use crate::engine::router::CommandRouter;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::{
     InputStream, IoStreams, OutputStream, background_io_streams, pipe_io_streams,
@@ -13,32 +13,30 @@ use crate::parser::error::collect_parser_errors;
 use crate::parser::lexer::lex;
 use crate::parser::statement::Statement;
 use crate::shell::background_jobs::BackgroundJob;
-use crate::shell::shell_state::ShellState;
 use miette::{NamedSource, Report};
 use reedline::ExternalPrinter;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Engine {
-    config: Arc<Config>,
-    command_router: Arc<CommandRouter>,
-    shell_state: Arc<RwLock<ShellState>>,
+    engine_state: EngineState,
     printer: ExternalPrinter<String>,
 }
 
 impl Engine {
-    pub fn new(
-        config: Arc<Config>,
-        command_router: Arc<CommandRouter>,
-        shell_state: Arc<RwLock<ShellState>>,
-        printer: ExternalPrinter<String>,
-    ) -> Self {
+    pub fn new(engine_state: EngineState, printer: ExternalPrinter<String>) -> Self {
         Self {
-            config,
-            command_router,
-            shell_state,
+            engine_state,
             printer,
         }
+    }
+
+    pub fn engine_state(&self) -> &EngineState {
+        &self.engine_state
+    }
+
+    pub fn printer(&self) -> &ExternalPrinter<String> {
+        &self.printer
     }
 
     pub fn run_line(&self, line: &str) {
@@ -56,6 +54,13 @@ impl Engine {
                 err.report_eprintln(line);
             }
         }
+
+        self.engine_state
+            .shell_state
+            .write()
+            .unwrap()
+            .background_jobs
+            .remove_done_jobs();
     }
 
     fn run_statement(
@@ -199,6 +204,7 @@ impl Engine {
         let cmd_string = format!("{} &", statement.to_statement_string());
 
         let job_id = self
+            .engine_state
             .shell_state
             .write()
             .unwrap()
@@ -210,7 +216,7 @@ impl Engine {
             .print(BackgroundJob::format_job_running(job_id));
 
         let runner_clone = self.clone();
-        let shell_state_clone = Arc::clone(&self.shell_state);
+        let shell_state_clone = Arc::clone(&self.engine_state.shell_state);
 
         std::thread::spawn(move || {
             let Ok((bg_io_streams, out_reader_printer, err_reader_printer)) =
@@ -268,23 +274,40 @@ impl Engine {
     ) -> Result<ProcessHandle, ShellError> {
         io_streams.apply_redirection(
             command_node.redirection,
-            &self.shell_state.read().unwrap().variables,
+            &self.engine_state.shell_state.read().unwrap().variables,
         );
 
-        let (cmd_name, args) =
-            expand_command_node_values(command_node.cmd, command_node.args, &self.shell_state);
+        let (cmd_name, args) = expand_command_node_values(
+            command_node.cmd,
+            command_node.args,
+            &self.engine_state.shell_state,
+        );
 
-        let needs_thread = self.command_router.is_builtin(&cmd_name.item)
+        let command = self
+            .engine_state
+            .command_registry
+            .get_or_fallback(&cmd_name.item);
+
+        let parsed_args = command.signature().parse(&cmd_name, args)?;
+
+        let needs_thread = command.command_type() == CommandType::Builtin
             && matches!(io_streams.output, OutputStream::Pipe(_));
 
-        self.command_router.dispatch(
-            cmd_name,
-            args,
+        let engine_state = self.engine_state.clone();
+
+        let handle = ProcessHandle::run_producer(
+            Box::new(move || {
+                command.run(
+                    cmd_name,
+                    parsed_args,
+                    current_job_id,
+                    &engine_state,
+                    io_streams,
+                )
+            }),
             needs_thread,
-            current_job_id,
-            Arc::clone(&self.config),
-            Arc::clone(&self.shell_state),
-            io_streams,
-        )
+        );
+
+        Ok(handle)
     }
 }

@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -7,12 +7,10 @@ use crate::io::stream::IoStreams;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::shell::shell_state::ShellState;
 use crate::system::env::get_env_paths;
 use is_executable::is_executable;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 pub struct TypeCmd;
 
@@ -38,8 +36,7 @@ impl Command for TypeCmd {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let command_name = args.req::<String>(0)?;

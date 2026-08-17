@@ -1,18 +1,17 @@
 use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
-use crate::shell::shell_state::ShellState;
 use comfy_table::Table;
 use comfy_table::presets::NOTHING;
 use nu_ansi_term::{Color, Style};
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 pub struct Theme;
 
@@ -39,8 +38,7 @@ impl Command for Theme {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut buffer = String::with_capacity(8192);
@@ -112,7 +110,7 @@ impl Command for Theme {
 
         if args.has_switch("config") {
             let style = Style::new();
-            let table = Self::config_table(style, &config);
+            let table = Self::config_table(style, &engine_state.config);
 
             let _ = writeln!(buffer, "{}", style.fg(Color::Fixed(39)).paint("Config"));
             let _ = writeln!(buffer, "{table}");

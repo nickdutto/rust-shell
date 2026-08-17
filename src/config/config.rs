@@ -45,24 +45,33 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load(&mut self) -> Result<(), ConfigError> {
-        if let Some(path) = Self::init_file()? {
-            let config_content =
-                fs::read_to_string(&path).map_err(|e| ConfigError::ReadFile { error: Some(e) })?;
+    pub fn load() -> Result<Self, ConfigError> {
+        let Some(path) = Self::init_file()? else {
+            return Ok(Self::default());
+        };
 
-            if config_content.trim().is_empty() {
-                self.save()?;
-                return Ok(());
-            }
+        let config_content =
+            fs::read_to_string(&path).map_err(|e| ConfigError::ReadFile { error: Some(e) })?;
 
-            let config: Config = toml::from_str(&config_content)
-                .map_err(|error| ConfigError::Deserialize { error })?;
-
-            *self = config;
-            self.save()?;
+        if config_content.trim().is_empty() {
+            let mut config = Self::default();
+            config.save()?;
+            return Ok(config);
         }
 
-        Ok(())
+        let mut config: Config =
+            toml::from_str(&config_content).map_err(|error| ConfigError::Deserialize { error })?;
+
+        config.save()?;
+
+        Ok(config)
+    }
+
+    pub fn load_or_default() -> Self {
+        Self::load().unwrap_or_else(|err| {
+            eprintln!("{err}");
+            Self::default()
+        })
     }
 
     pub fn save(&mut self) -> Result<(), ConfigError> {

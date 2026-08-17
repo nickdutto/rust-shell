@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -8,9 +8,7 @@ use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::shell::aliases::Aliases;
-use crate::shell::shell_state::ShellState;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 enum Format {
@@ -75,35 +73,34 @@ impl Command for Alias {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
         if !args.rest.is_empty() {
-            let code = Self::add_alias(&args, &shell_state, &mut io_streams)?;
+            let code = Self::add_alias(&args, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = args.opt_named::<String>("remove")? {
-            let code = Self::remove_alias(&key, &shell_state, &mut io_streams)?;
+            let code = Self::remove_alias(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = args.opt_named::<String>("print")? {
-            let code = Self::print_alias(&key, &shell_state, &mut io_streams)?;
+            let code = Self::print_alias(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if args.has_switch("all") {
-            let code = Self::print_all_aliases(&args, &shell_state, &mut io_streams)?;
+            let code = Self::print_all_aliases(&args, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
@@ -116,7 +113,7 @@ impl Command for Alias {
 impl Alias {
     fn add_alias(
         args: &ParsedArguments,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         let mut args_iter = args.rest.iter();
@@ -139,7 +136,8 @@ impl Alias {
         }
 
         if !aliased_args.is_empty() {
-            shell_state
+            engine_state
+                .shell_state
                 .write()
                 .unwrap()
                 .aliases
@@ -151,7 +149,7 @@ impl Alias {
 
     fn remove_alias(
         key: &str,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
@@ -159,7 +157,13 @@ impl Alias {
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match shell_state.write().unwrap().aliases.remove(key) {
+        match engine_state
+            .shell_state
+            .write()
+            .unwrap()
+            .aliases
+            .remove(key)
+        {
             Some(value) => {
                 writeln!(
                     io_streams.output,
@@ -178,7 +182,7 @@ impl Alias {
 
     fn print_alias(
         key: &str,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
@@ -186,7 +190,7 @@ impl Alias {
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match shell_state.read().unwrap().aliases.get(key) {
+        match engine_state.shell_state.read().unwrap().aliases.get(key) {
             Some(value) => {
                 writeln!(
                     io_streams.output,
@@ -204,7 +208,7 @@ impl Alias {
 
     fn print_all_aliases(
         args: &ParsedArguments,
-        shell_state: &Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         let mut format = Format::Table;
@@ -214,7 +218,7 @@ impl Alias {
             }
         }
 
-        let aliases = &shell_state.read().unwrap().aliases;
+        let aliases = &engine_state.shell_state.read().unwrap().aliases;
         let output = match format {
             Format::List => aliases.to_list_string(),
             Format::Table => aliases.to_table().to_string(),

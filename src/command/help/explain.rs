@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -11,10 +12,9 @@ use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::word::Word;
 use crate::shell::highlighter::SyntaxHighlighter;
-use crate::shell::shell_state::ShellState;
 use nu_ansi_term::{AnsiGenericString, Color, Style};
 use std::io::Write;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 pub struct Explain;
 
@@ -40,13 +40,12 @@ impl Command for Explain {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let line = args.req::<String>(0)?;
 
-        let highlighter = SyntaxHighlighter::new(config.clone(), BUILTIN_COMMANDS);
+        let highlighter = SyntaxHighlighter::new(engine_state.config.clone(), BUILTIN_COMMANDS);
         let tokens = lex(&line);
 
         let mut command_id = 1;
@@ -71,7 +70,7 @@ impl Command for Explain {
                     command_id,
                     &mut is_first_word,
                     &mut is_redirect_word,
-                    &config,
+                    &engine_state.config,
                 ),
 
                 flag @ (TokenKind::Pipe
@@ -83,7 +82,7 @@ impl Command for Explain {
                     &mut command_id,
                     &mut is_first_word,
                     &mut is_redirect_word,
-                    &config,
+                    &engine_state.config,
                 ),
             }
         }

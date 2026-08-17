@@ -15,28 +15,22 @@ use crate::command::debug::ast::Ast;
 use crate::command::debug::lex::Lex;
 use crate::command::help::explain::Explain;
 use crate::command::network::http::Http;
-use crate::config::Config;
 use crate::engine::command::Command;
-use crate::engine::process::ProcessHandle;
-use crate::error::shell_error::ShellError;
-use crate::io::stream::IoStreams;
-use crate::parser::span::Spanned;
-use crate::shell::shell_state::ShellState;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
-pub struct CommandRouter {
+pub struct CommandRegistry {
     commands: HashMap<String, Arc<dyn Command + Send + Sync>>,
     executable_command: Arc<dyn Command + Send + Sync>,
 }
 
-impl Default for CommandRouter {
+impl Default for CommandRegistry {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl CommandRouter {
+impl CommandRegistry {
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
@@ -52,11 +46,16 @@ impl CommandRouter {
         self.commands.get(name).cloned()
     }
 
+    pub fn get_or_fallback(&self, name: &str) -> Arc<dyn Command + Send + Sync> {
+        self.get(name)
+            .unwrap_or_else(|| self.executable_command.clone())
+    }
+
     pub fn is_builtin(&self, name: &str) -> bool {
         self.commands.contains_key(name)
     }
 
-    pub fn register_builtins(&mut self) {
+    pub fn register_builtins(mut self) -> Self {
         self.register(Arc::new(Alias));
         self.register(Arc::new(Cd));
         self.register(Arc::new(Complete));
@@ -78,38 +77,7 @@ impl CommandRouter {
         self.register(Arc::new(Explain));
 
         self.register(Arc::new(Http));
-    }
 
-    pub fn dispatch(
-        &self,
-        cmd: Spanned<String>,
-        args: Vec<Spanned<String>>,
-        needs_thread: bool,
-        current_job_id: Option<usize>,
-        config: Arc<Config>,
-        shell_state: Arc<RwLock<ShellState>>,
-        io_streams: IoStreams,
-    ) -> Result<ProcessHandle, ShellError> {
-        let command = self
-            .get(&cmd.item)
-            .unwrap_or_else(|| self.executable_command.clone());
-
-        let parsed_args = command.signature().parse(&cmd, args)?;
-
-        let handle = ProcessHandle::run_producer(
-            Box::new(move || {
-                command.run(
-                    cmd,
-                    parsed_args,
-                    current_job_id,
-                    config,
-                    shell_state,
-                    io_streams,
-                )
-            }),
-            needs_thread,
-        );
-
-        Ok(handle)
+        self
     }
 }

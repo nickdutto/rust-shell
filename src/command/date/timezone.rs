@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -8,14 +8,12 @@ use crate::parser::argument::ParsedArguments;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
 use crate::parser::value::Value;
-use crate::shell::shell_state::ShellState;
 use comfy_table::presets::NOTHING;
 use comfy_table::{Attribute, Cell, Table};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 enum Format {
@@ -107,8 +105,7 @@ impl Command for Timezone {
         _cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;

@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
@@ -9,10 +9,8 @@ use crate::network::http_method::HttpMethod;
 use crate::parser::argument::ParsedArguments;
 use crate::parser::span::{Span, Spanned};
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::shell::shell_state::ShellState;
 use std::error::Error;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
 use url::Url;
 
 pub struct Http;
@@ -37,8 +35,7 @@ impl Command for Http {
         cmd: Spanned<String>,
         args: ParsedArguments,
         _job_id: Option<usize>,
-        _config: Arc<Config>,
-        _shell_state: Arc<RwLock<ShellState>>,
+        _engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let http_method_res = HttpMethod::parse(&args.req::<String>(0)?)
