@@ -8,8 +8,23 @@ use std::fmt::{Display, Formatter};
 use std::process::Child;
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
-    "cd", "complete", "echo", "declare", "exit", "history", "jobs", "pwd", "theme", "type",
-    "timezone", "ast", "lex", "explain", "http", "http get",
+    "cd",
+    "complete",
+    "echo",
+    "declare",
+    "exit",
+    "history",
+    "jobs",
+    "pwd",
+    "theme",
+    "type",
+    "timezone",
+    "ast",
+    "lex",
+    "explain",
+    "help commands",
+    "http",
+    "http get",
 ];
 
 pub enum CommandData {

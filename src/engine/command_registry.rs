@@ -7,6 +7,7 @@ use crate::command::debug::lex::Lex;
 use crate::command::filesystem::cd::Cd;
 use crate::command::filesystem::pwd::Pwd;
 use crate::command::help::explain::Explain;
+use crate::command::help::help_commands::HelpCommands;
 use crate::command::help::type_cmd::TypeCmd;
 use crate::command::network::http::Http;
 use crate::command::process::jobs::Jobs;
@@ -22,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct CommandRegistry {
-    commands: HashMap<String, Arc<dyn Command + Send + Sync>>,
+    pub commands: HashMap<String, Arc<dyn Command + Send + Sync>>,
     executable_command: Arc<dyn Command + Send + Sync>,
 }
 
@@ -103,6 +104,7 @@ impl CommandRegistry {
         self.register(Arc::new(Lex));
 
         self.register(Arc::new(Explain));
+        self.register(Arc::new(HelpCommands));
         self.register(Arc::new(TypeCmd));
 
         self.register(Arc::new(Http));
