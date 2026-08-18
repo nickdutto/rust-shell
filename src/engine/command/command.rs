@@ -4,6 +4,7 @@ use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
+use std::fmt::{Display, Formatter};
 use std::process::Child;
 
 pub const BUILTIN_COMMANDS: &[&str] = &[
@@ -22,6 +23,15 @@ pub enum CommandType {
     External,
 }
 
+impl Display for CommandType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandType::Builtin => write!(f, "builtin"),
+            CommandType::External => write!(f, "external"),
+        }
+    }
+}
+
 impl CommandData {
     pub fn into_exit_code(self) -> ExitCode {
         match self {
@@ -33,6 +43,10 @@ impl CommandData {
 
 pub trait Command {
     fn name(&self) -> &'static str;
+
+    fn description(&self) -> &'static str {
+        ""
+    }
 
     fn command_type(&self) -> CommandType;
 
