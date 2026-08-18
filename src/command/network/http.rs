@@ -1,8 +1,9 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
@@ -25,7 +26,8 @@ impl Command for Http {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new("http")
+        Signature::new(self.name())
+            .category(Category::Network)
             .required_positional("METHOD", SyntaxShape::String, "HTTP Method")
             .required_positional("URL", SyntaxShape::String, "URL to fetch from")
     }

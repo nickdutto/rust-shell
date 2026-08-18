@@ -1,17 +1,18 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use std::io::ErrorKind;
 
-pub struct Executable;
+pub struct External;
 
-impl Command for Executable {
+impl Command for External {
     fn name(&self) -> &'static str {
-        "executable"
+        "external"
     }
 
     fn command_type(&self) -> CommandType {
@@ -19,7 +20,9 @@ impl Command for Executable {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).allow_unknown_args(true)
+        Signature::new(self.name())
+            .category(Category::Core)
+            .allow_unknown_args(true)
     }
 
     fn run(

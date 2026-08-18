@@ -1,7 +1,7 @@
 use crate::engine::command::CommandType;
+use crate::engine::command::expansion::expand_command_node_values;
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::expansion::expand_command_node_values;
 use crate::engine::process::ProcessHandle;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::{

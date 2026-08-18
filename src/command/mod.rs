@@ -1,5 +1,9 @@
-pub mod builtin;
+pub mod core;
 pub mod date;
 pub mod debug;
+pub mod filesystem;
 pub mod help;
 pub mod network;
+pub mod process;
+pub mod shell;
+pub mod ui;

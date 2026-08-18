@@ -1,8 +1,9 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
@@ -25,11 +26,9 @@ impl Command for Cd {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).required_positional(
-            "path",
-            SyntaxShape::String,
-            "The path to change to",
-        )
+        Signature::new(self.name())
+            .category(Category::FileSystem)
+            .required_positional("path", SyntaxShape::String, "The path to change to")
     }
 
     fn run(

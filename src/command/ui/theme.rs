@@ -1,9 +1,10 @@
 use crate::config::Config;
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use comfy_table::Table;
@@ -25,6 +26,7 @@ impl Command for Theme {
 
     fn signature(&self) -> Signature {
         Signature::new(self.name())
+            .category(Category::Ui)
             .switch("fg", "foreground colors", Some('f'))
             .switch("bg", "background colors", Some('b'))
             .switch("text", "text styles", Some('t'))

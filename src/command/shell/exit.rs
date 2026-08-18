@@ -1,7 +1,8 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
@@ -20,11 +21,9 @@ impl Command for Exit {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).positional(
-            "exit_code",
-            SyntaxShape::Int,
-            "Exit code to return with",
-        )
+        Signature::new(self.name())
+            .category(Category::Shell)
+            .positional("exit_code", SyntaxShape::Int, "Exit code to return with")
     }
 
     fn run(

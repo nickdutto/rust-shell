@@ -1,4 +1,5 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
 use crate::error::shell_error::ShellError;
 use crate::parser::span::Spanned;
 use crate::parser::syntax_shape::SyntaxShape;
@@ -20,11 +21,12 @@ pub struct NamedArg {
 }
 
 pub struct Signature {
-    name: &'static str,
+    pub name: &'static str,
     positionals: Vec<PositionalArg>,
     rest_positional: Option<PositionalArg>,
     named: Vec<NamedArg>,
     allows_unknown_args: bool,
+    pub category: Category,
 }
 
 impl Signature {
@@ -35,11 +37,17 @@ impl Signature {
             named: vec![],
             rest_positional: None,
             allows_unknown_args: false,
+            category: Category::Empty,
         }
     }
 
     pub fn allow_unknown_args(mut self, allow: bool) -> Self {
         self.allows_unknown_args = allow;
+        self
+    }
+
+    pub fn category(mut self, category: Category) -> Self {
+        self.category = category;
         self
     }
 

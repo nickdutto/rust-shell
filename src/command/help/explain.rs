@@ -1,9 +1,10 @@
 use crate::config::Config;
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::redirection::RedirectionMode;
 use crate::io::stream::IoStreams;
@@ -28,11 +29,9 @@ impl Command for Explain {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).required_positional(
-            "line",
-            SyntaxShape::String,
-            "Line to be explained",
-        )
+        Signature::new(self.name())
+            .category(Category::Help)
+            .required_positional("line", SyntaxShape::String, "Line to be explained")
     }
 
     fn run(

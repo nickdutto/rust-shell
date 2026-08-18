@@ -1,13 +1,13 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
-use crate::parser::value::Value;
-use crate::shell::variables::{VariableError, Variables};
+use crate::shell::aliases::Aliases;
 use std::io::Write;
 
 #[derive(Clone)]
@@ -38,11 +38,11 @@ const FORMAT_SPECS: &[NamedSpec<Format>] = &[
     },
 ];
 
-pub struct Declare;
+pub struct Alias;
 
-impl Command for Declare {
+impl Command for Alias {
     fn name(&self) -> &'static str {
-        "declare"
+        "alias"
     }
 
     fn command_type(&self) -> CommandType {
@@ -50,25 +50,20 @@ impl Command for Declare {
     }
 
     fn signature(&self) -> Signature {
-        let mut signature = Signature::new(self.name());
+        let mut signature = Signature::new(self.name()).category(Category::Shell);
 
         for spec in FORMAT_SPECS {
             signature = signature.switch(spec.name, spec.description, spec.short);
         }
 
         signature
-            .switch("all", "list all user defined variables", Some('u'))
-            .rest("add", SyntaxShape::String, "variable key and value to add")
-            .named(
-                "remove",
-                SyntaxShape::String,
-                "variable to remove",
-                Some('r'),
-            )
+            .switch("all", "list all aliases", Some('u'))
+            .rest("add", SyntaxShape::String, "alias key and value to add")
+            .named("remove", SyntaxShape::String, "alias to remove", Some('r'))
             .named(
                 "print",
                 SyntaxShape::String,
-                "variable to get and print",
+                "alias to get and print",
                 Some('p'),
             )
     }
@@ -81,29 +76,29 @@ impl Command for Declare {
     ) -> Result<CommandData, ShellError> {
         let mut final_exit_code = ExitCode::SUCCESS;
 
-        if let (Some(key), Some(value)) = (call.rest.first(), call.rest.get(2)) {
-            let code = Self::add_variable(key, value, engine_state, &mut io_streams)?;
+        if !call.rest.is_empty() {
+            let code = Self::add_alias(&call, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = call.opt_named::<String>("remove")? {
-            let code = Self::remove_variable(&key, engine_state, &mut io_streams)?;
+            let code = Self::remove_alias(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if let Some(key) = call.opt_named::<String>("print")? {
-            let code = Self::print_variable(&key, engine_state, &mut io_streams)?;
+            let code = Self::print_alias(&key, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
         }
 
         if call.has_switch("all") {
-            let code = Self::print_all_variables(&call, engine_state, &mut io_streams)?;
+            let code = Self::print_all_aliases(&call, engine_state, &mut io_streams)?;
             if code != ExitCode::SUCCESS {
                 final_exit_code = code;
             }
@@ -113,44 +108,50 @@ impl Command for Declare {
     }
 }
 
-impl Declare {
-    fn add_variable(
-        key: &Value,
-        value: &Value,
+impl Alias {
+    fn add_alias(
+        args: &Call,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
-        let key = key.as_str()?;
-        let value = value.as_str()?;
+        let mut args_iter = args.rest.iter();
 
-        match engine_state
-            .shell_state
-            .write()
-            .unwrap()
-            .variables
-            .insert(key.to_owned(), value.to_owned())
-        {
-            Ok(_) => {}
-            Err(VariableError::InvalidIdentifier { key, value }) => {
-                writeln!(
-                    io_streams.error,
-                    "declare: `{}': not a valid identifier",
-                    Variables::format_item_string(&key, &value)
-                )?;
-                return Ok(ExitCode::FAILURE);
-            }
+        let Some(key) = args_iter.next().map(|k| k.as_str()).transpose()? else {
+            return Ok(ExitCode::SYNTAX_ERROR);
+        };
+
+        if args_iter.next().map(|a| a.as_str()).transpose()? != Some("=") {
+            writeln!(
+                io_streams.error,
+                "alias: missing = between alias name and aliased value. Example: alias ll = 'ls -la'"
+            )?;
+            return Ok(ExitCode::SYNTAX_ERROR);
+        }
+
+        let mut aliased_args = vec![];
+        for arg in args_iter {
+            aliased_args.push(arg.as_str()?);
+        }
+
+        if !aliased_args.is_empty() {
+            engine_state
+                .shell_state
+                .write()
+                .unwrap()
+                .aliases
+                .insert(key.to_owned(), aliased_args.join(" "));
         }
 
         Ok(ExitCode::SUCCESS)
     }
 
-    fn remove_variable(
+    fn remove_alias(
         key: &str,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
-            writeln!(io_streams.error, "declare: missing variable key after -r")?;
+            writeln!(io_streams.error, "alias: missing alias key after -r")?;
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
@@ -158,18 +159,18 @@ impl Declare {
             .shell_state
             .write()
             .unwrap()
-            .variables
+            .aliases
             .remove(key)
         {
             Some(value) => {
                 writeln!(
                     io_streams.output,
-                    "declare: removed: {}",
-                    Variables::format_item_string(key, &value)
+                    "alias: removed: {}",
+                    Aliases::format_item_string(key, &value)
                 )?;
             }
             None => {
-                writeln!(io_streams.error, "declare: no variable key {key} to remove")?;
+                writeln!(io_streams.error, "alias: no alias key \"{key}\" to remove")?;
                 return Ok(ExitCode::FAILURE);
             }
         }
@@ -177,34 +178,33 @@ impl Declare {
         Ok(ExitCode::SUCCESS)
     }
 
-    fn print_variable(
+    fn print_alias(
         key: &str,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
     ) -> Result<ExitCode, ShellError> {
         if key.is_empty() {
-            writeln!(io_streams.error, "declare: missing variable key after -p")?;
+            writeln!(io_streams.error, "alias: missing alias key after -p")?;
             return Ok(ExitCode::SYNTAX_ERROR);
         }
 
-        match engine_state.shell_state.read().unwrap().variables.get(key) {
-            Ok(Some(value)) => {
+        match engine_state.shell_state.read().unwrap().aliases.get(key) {
+            Some(value) => {
                 writeln!(
                     io_streams.output,
                     "{}",
-                    Variables::format_item_string(key, value)
+                    Aliases::format_item_string(key, value)
                 )?;
             }
-            Err(_) => {
-                writeln!(io_streams.error, "declare: no variable key {key} found")?;
+            None => {
+                writeln!(io_streams.error, "alias: no alias key {key} found")?;
             }
-            _ => {}
         }
 
         Ok(ExitCode::SUCCESS)
     }
 
-    fn print_all_variables(
+    fn print_all_aliases(
         args: &Call,
         engine_state: &EngineState,
         io_streams: &mut IoStreams,
@@ -216,10 +216,10 @@ impl Declare {
             }
         }
 
-        let variables = &engine_state.shell_state.read().unwrap().variables;
+        let aliases = &engine_state.shell_state.read().unwrap().aliases;
         let output = match format {
-            Format::List => variables.to_list_string(),
-            Format::Table => variables.to_table().to_string(),
+            Format::List => aliases.to_list_string(),
+            Format::Table => aliases.to_table().to_string(),
         };
 
         writeln!(io_streams.output, "{}", output.trim_end())?;

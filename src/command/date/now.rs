@@ -1,8 +1,9 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
@@ -115,7 +116,7 @@ impl Command for Now {
     }
 
     fn signature(&self) -> Signature {
-        let mut signature = Signature::new(self.name());
+        let mut signature = Signature::new(self.name()).category(Category::Date);
 
         for spec in NAMED_SPECS {
             signature = signature.switch(spec.name, spec.description, spec.short);

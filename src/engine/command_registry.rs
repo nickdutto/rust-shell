@@ -1,21 +1,22 @@
-use crate::command::builtin::alias::Alias;
-use crate::command::builtin::cd::Cd;
-use crate::command::builtin::complete::Complete;
-use crate::command::builtin::declare::Declare;
-use crate::command::builtin::echo::Echo;
-use crate::command::builtin::executable::Executable;
-use crate::command::builtin::exit::Exit;
-use crate::command::builtin::jobs::Jobs;
-use crate::command::builtin::pwd::Pwd;
-use crate::command::builtin::theme::Theme;
-use crate::command::builtin::type_cmd::TypeCmd;
+use crate::command::core::echo::Echo;
+use crate::command::core::external::External;
 use crate::command::date::now::Now;
 use crate::command::date::timezone::Timezone;
 use crate::command::debug::ast::Ast;
 use crate::command::debug::lex::Lex;
+use crate::command::filesystem::cd::Cd;
+use crate::command::filesystem::pwd::Pwd;
 use crate::command::help::explain::Explain;
+use crate::command::help::type_cmd::TypeCmd;
 use crate::command::network::http::Http;
+use crate::command::process::jobs::Jobs;
+use crate::command::shell::alias::Alias;
+use crate::command::shell::complete::Complete;
+use crate::command::shell::declare::Declare;
+use crate::command::shell::exit::Exit;
+use crate::command::ui::theme::Theme;
 use crate::engine::command::Command;
+use crate::engine::command::signature::Signature;
 use crate::parser::span::{Span, Spanned};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -35,7 +36,7 @@ impl CommandRegistry {
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
-            executable_command: Arc::new(Executable),
+            executable_command: Arc::new(External),
         }
     }
 
@@ -79,6 +80,10 @@ impl CommandRegistry {
         self.commands.contains_key(name)
     }
 
+    pub fn all_signatures(&self) -> Vec<Signature> {
+        self.commands.values().map(|v| v.signature()).collect()
+    }
+
     pub fn register_builtins(mut self) -> Self {
         self.register(Arc::new(Alias));
         self.register(Arc::new(Cd));
@@ -90,7 +95,6 @@ impl CommandRegistry {
         self.register(Arc::new(Jobs));
         self.register(Arc::new(Pwd));
         self.register(Arc::new(Theme));
-        self.register(Arc::new(TypeCmd));
 
         self.register(Arc::new(Now));
         self.register(Arc::new(Timezone));
@@ -99,6 +103,7 @@ impl CommandRegistry {
         self.register(Arc::new(Lex));
 
         self.register(Arc::new(Explain));
+        self.register(Arc::new(TypeCmd));
 
         self.register(Arc::new(Http));
 

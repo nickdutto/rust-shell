@@ -1,8 +1,9 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::format::debug::highlight_debug;
 use crate::io::stream::IoStreams;
@@ -23,6 +24,7 @@ impl Command for Lex {
 
     fn signature(&self) -> Signature {
         Signature::new(self.name())
+            .category(Category::Debug)
             .required_positional("line", SyntaxShape::String, "Line to build lex tokens from")
             .switch("pretty", "Pretty print", Some('p'))
     }

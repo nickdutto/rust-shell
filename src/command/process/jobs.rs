@@ -1,8 +1,9 @@
 use crate::engine::call::Call;
+use crate::engine::command::category::Category;
+use crate::engine::command::signature::Signature;
 use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
-use crate::engine::signature::Signature;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use std::io::Write;
@@ -19,7 +20,9 @@ impl Command for Jobs {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).switch("table", "Table format", Some('t'))
+        Signature::new(self.name())
+            .category(Category::Process)
+            .switch("table", "Table format", Some('t'))
     }
 
     fn run(
