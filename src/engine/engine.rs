@@ -277,18 +277,18 @@ impl Engine {
             &self.engine_state.shell_state.read().unwrap().variables,
         );
 
-        let (cmd, raw_args) = expand_command_node_values(
+        let (cmd_name, raw_args) = expand_command_node_values(
             command_node.cmd,
             command_node.args,
             &self.engine_state.shell_state,
         );
 
-        let command = self
-            .engine_state
-            .command_registry
-            .get_or_fallback(&cmd.item);
+        let (command, cmd_name, raw_args) =
+            self.engine_state.command_registry.get(cmd_name, raw_args);
 
-        let call = command.signature().parse(cmd, raw_args, current_job_id)?;
+        let call = command
+            .signature()
+            .parse(cmd_name, raw_args, current_job_id)?;
 
         let needs_thread = command.command_type() == CommandType::Builtin
             && matches!(io_streams.output, OutputStream::Pipe(_));

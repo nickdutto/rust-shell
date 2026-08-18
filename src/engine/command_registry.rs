@@ -16,6 +16,7 @@ use crate::command::debug::lex::Lex;
 use crate::command::help::explain::Explain;
 use crate::command::network::http::Http;
 use crate::engine::command::Command;
+use crate::parser::span::{Span, Spanned};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -42,13 +43,36 @@ impl CommandRegistry {
         self.commands.insert(command.name().to_string(), command);
     }
 
-    pub fn get(&self, name: &str) -> Option<Arc<dyn Command + Send + Sync>> {
-        self.commands.get(name).cloned()
-    }
+    pub fn get(
+        &self,
+        cmd_name: Spanned<String>,
+        mut args: Vec<Spanned<String>>,
+    ) -> (
+        Arc<dyn Command + Send + Sync>,
+        Spanned<String>,
+        Vec<Spanned<String>>,
+    ) {
+        if !args.is_empty() {
+            let sub_cmd_name = format!("{} {}", cmd_name.item, args[0].item);
 
-    pub fn get_or_fallback(&self, name: &str) -> Arc<dyn Command + Send + Sync> {
-        self.get(name)
-            .unwrap_or_else(|| self.executable_command.clone())
+            if let Some(command) = self.commands.get(&sub_cmd_name) {
+                let first_arg = args.remove(0);
+                return (
+                    Arc::clone(command),
+                    Spanned::new(
+                        sub_cmd_name,
+                        Span::new(cmd_name.span.start, first_arg.span.end),
+                    ),
+                    args,
+                );
+            }
+        }
+
+        if let Some(command) = self.commands.get(&cmd_name.item) {
+            return (Arc::clone(command), cmd_name, args);
+        }
+
+        (Arc::clone(&self.executable_command), cmd_name, args)
     }
 
     pub fn is_builtin(&self, name: &str) -> bool {
