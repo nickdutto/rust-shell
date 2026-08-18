@@ -162,7 +162,7 @@ impl Signature {
         }
 
         self.parse_arguments(&mut call)?;
-        self.validate_required(&mut call)?;
+        self.validate_required(&call)?;
 
         Ok(call)
     }

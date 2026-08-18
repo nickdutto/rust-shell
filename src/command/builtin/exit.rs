@@ -33,7 +33,9 @@ impl Command for Exit {
         engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        let exit_code = call.opt(0)?.unwrap_or(0) as i32;
+        let exit_code = call
+            .opt(0)?
+            .map_or(0, |v: i64| i32::try_from(v).unwrap_or(0));
 
         if let Err(e) = engine_state
             .shell_state

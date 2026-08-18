@@ -19,7 +19,7 @@ impl Shell {
         let prompt = ShellPrompt::from_engine_state(engine.engine_state());
 
         let mut editor =
-            Self::build_editor(&engine.engine_state(), engine.printer().clone(), &prompt);
+            Self::build_editor(engine.engine_state(), engine.printer().clone(), &prompt);
 
         Self::repl(&mut editor, &engine, prompt);
     }

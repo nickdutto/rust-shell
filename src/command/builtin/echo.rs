@@ -31,7 +31,7 @@ impl Command for Echo {
     ) -> Result<CommandData, ShellError> {
         let message = call.rest_strings().collect::<Vec<_>>().join(" ");
 
-        writeln!(io_streams.output, "{}", message)?;
+        writeln!(io_streams.output, "{message}")?;
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }

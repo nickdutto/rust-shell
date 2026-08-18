@@ -33,7 +33,7 @@ impl ParserError {
     pub fn span(&self) -> Span {
         match self {
             ParserError::InvalidVariableName { span }
-            | ParserError::UnclosedVariableBrace { span } => span.clone(),
+            | ParserError::UnclosedVariableBrace { span } => *span,
         }
     }
 }
