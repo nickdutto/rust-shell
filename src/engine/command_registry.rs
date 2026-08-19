@@ -45,7 +45,11 @@ impl CommandRegistry {
         self.commands.insert(command.name().to_string(), command);
     }
 
-    pub fn get(
+    pub fn get(&self, cmd_name: &str) -> Option<Arc<dyn Command + Send + Sync>> {
+        self.commands.get(cmd_name).cloned()
+    }
+
+    pub fn resolve(
         &self,
         cmd_name: Spanned<String>,
         mut args: Vec<Spanned<String>>,

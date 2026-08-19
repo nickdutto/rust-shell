@@ -22,10 +22,10 @@ pub struct NamedArg {
 
 pub struct Signature {
     pub name: &'static str,
-    positionals: Vec<PositionalArg>,
-    rest_positional: Option<PositionalArg>,
-    named: Vec<NamedArg>,
-    allows_unknown_args: bool,
+    pub positionals: Vec<PositionalArg>,
+    pub rest_positional: Option<PositionalArg>,
+    pub named: Vec<NamedArg>,
+    pub allows_unknown_args: bool,
     pub category: Category,
 }
 
@@ -39,6 +39,11 @@ impl Signature {
             allows_unknown_args: false,
             category: Category::Empty,
         }
+            .add_help()
+    }
+
+    pub fn add_help(self) -> Self {
+        self.switch("help", "Show command help information", Some('h'))
     }
 
     pub fn allow_unknown_args(mut self, allow: bool) -> Self {
@@ -170,6 +175,11 @@ impl Signature {
         }
 
         self.parse_arguments(&mut call)?;
+
+        if call.has_switch("help") {
+            return Ok(call);
+        }
+
         self.validate_required(&call)?;
 
         Ok(call)

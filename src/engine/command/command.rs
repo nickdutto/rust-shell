@@ -18,6 +18,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "pwd",
     "theme",
     "type",
+    "now",
     "timezone",
     "ast",
     "lex",

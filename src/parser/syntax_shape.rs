@@ -1,12 +1,23 @@
 use crate::error::shell_error::ShellError;
 use crate::parser::span::Spanned;
 use crate::parser::value::Value;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum SyntaxShape {
     Bool,
     Int,
     String,
+}
+
+impl Display for SyntaxShape {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyntaxShape::Bool => write!(f, "bool"),
+            SyntaxShape::Int => write!(f, "int"),
+            SyntaxShape::String => write!(f, "string"),
+        }
+    }
 }
 
 impl SyntaxShape {

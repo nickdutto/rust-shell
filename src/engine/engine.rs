@@ -1,4 +1,5 @@
 use crate::engine::command::CommandType;
+use crate::engine::command::command_help::generate_command_help;
 use crate::engine::command::expansion::expand_command_node_values;
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
@@ -15,6 +16,7 @@ use crate::parser::statement::Statement;
 use crate::shell::background_jobs::BackgroundJob;
 use miette::{NamedSource, Report};
 use reedline::ExternalPrinter;
+use std::io::Write;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -283,12 +285,20 @@ impl Engine {
             &self.engine_state.shell_state,
         );
 
-        let (command, cmd_name, raw_args) =
-            self.engine_state.command_registry.get(cmd_name, raw_args);
+        let (command, cmd_name, raw_args) = self
+            .engine_state
+            .command_registry
+            .resolve(cmd_name, raw_args);
 
         let call = command
             .signature()
             .parse(cmd_name, raw_args, current_job_id)?;
+
+        if command.command_type() == CommandType::Builtin && call.has_switch("help") {
+            let help_text = generate_command_help(&command);
+            writeln!(io_streams.output, "{help_text}")?;
+            return Ok(ProcessHandle::Immediate(Ok(ExitCode::SUCCESS)));
+        }
 
         let needs_thread = command.command_type() == CommandType::Builtin
             && matches!(io_streams.output, OutputStream::Pipe(_));

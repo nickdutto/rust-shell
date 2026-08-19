@@ -16,6 +16,10 @@ impl Command for Echo {
         "echo"
     }
 
+    fn description(&self) -> &'static str {
+        "writes the input into an output stream"
+    }
+
     fn command_type(&self) -> CommandType {
         CommandType::Builtin
     }

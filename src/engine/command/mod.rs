@@ -1,6 +1,7 @@
 pub mod category;
 #[allow(clippy::module_inception)]
 mod command;
+pub mod command_help;
 pub mod expansion;
 pub mod signature;
 
