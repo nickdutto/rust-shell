@@ -295,7 +295,7 @@ impl Engine {
             .parse(cmd_name, raw_args, current_job_id)?;
 
         if command.command_type() == CommandType::Builtin && call.has_switch("help") {
-            let help_text = generate_command_help(&command);
+            let help_text = generate_command_help(&command, &self.engine_state);
             writeln!(io_streams.output, "{help_text}")?;
             return Ok(ProcessHandle::Immediate(Ok(ExitCode::SUCCESS)));
         }
