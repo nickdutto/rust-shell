@@ -17,6 +17,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "declare",
     "explain",
     "history",
+    "sys os",
     "theme",
     "echo",
     "exit",
