@@ -10,6 +10,7 @@ use std::process::Child;
 pub const BUILTIN_COMMANDS: &[&str] = &[
     "help commands",
     "sys network",
+    "sys process",
     "complete",
     "http get",
     "timezone",
