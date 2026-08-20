@@ -18,6 +18,7 @@ use crate::command::shell::declare::Declare;
 use crate::command::shell::exit::Exit;
 use crate::command::system::sys::Sys;
 use crate::command::system::sys_disk::SysDisk;
+use crate::command::system::sys_network::SysNetwork;
 use crate::command::ui::theme::Theme;
 use crate::engine::command::Command;
 use crate::engine::command::signature::Signature;
@@ -119,6 +120,7 @@ impl CommandRegistry {
 
         self.register(Arc::new(Sys));
         self.register(Arc::new(SysDisk));
+        self.register(Arc::new(SysNetwork));
 
         self
     }
