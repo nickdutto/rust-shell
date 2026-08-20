@@ -10,6 +10,7 @@ use crate::command::help::explain::Explain;
 use crate::command::help::help_commands::HelpCommands;
 use crate::command::help::type_cmd::TypeCmd;
 use crate::command::network::http::Http;
+use crate::command::network::http_get::HttpGet;
 use crate::command::process::jobs::Jobs;
 use crate::command::shell::alias::Alias;
 use crate::command::shell::complete::Complete;
@@ -112,6 +113,7 @@ impl CommandRegistry {
         self.register(Arc::new(TypeCmd));
 
         self.register(Arc::new(Http));
+        self.register(Arc::new(HttpGet));
 
         self
     }
