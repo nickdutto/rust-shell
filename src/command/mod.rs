@@ -6,4 +6,5 @@ pub mod help;
 pub mod network;
 pub mod process;
 pub mod shell;
+pub mod system;
 pub mod ui;

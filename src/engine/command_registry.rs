@@ -16,6 +16,8 @@ use crate::command::shell::alias::Alias;
 use crate::command::shell::complete::Complete;
 use crate::command::shell::declare::Declare;
 use crate::command::shell::exit::Exit;
+use crate::command::system::sys::Sys;
+use crate::command::system::sys_disk::SysDisk;
 use crate::command::ui::theme::Theme;
 use crate::engine::command::Command;
 use crate::engine::command::signature::Signature;
@@ -114,6 +116,9 @@ impl CommandRegistry {
 
         self.register(Arc::new(Http));
         self.register(Arc::new(HttpGet));
+
+        self.register(Arc::new(Sys));
+        self.register(Arc::new(SysDisk));
 
         self
     }

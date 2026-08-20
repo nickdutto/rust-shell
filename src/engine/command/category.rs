@@ -10,6 +10,7 @@ pub enum Category {
     Network,
     Process,
     Shell,
+    System,
     Ui,
 }
 
@@ -25,6 +26,7 @@ impl Display for Category {
             Category::Network => write!(f, "network"),
             Category::Process => write!(f, "process"),
             Category::Shell => write!(f, "shell"),
+            Category::System => write!(f, "system"),
             Category::Ui => write!(f, "ui"),
         }
     }

@@ -12,6 +12,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "complete",
     "http get",
     "timezone",
+    "sys disk",
     "declare",
     "explain",
     "history",
@@ -25,6 +26,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "lex",
     "now",
     "pwd",
+    "sys",
     "cd",
 ];
 
