@@ -20,6 +20,7 @@ use crate::command::system::sys::Sys;
 use crate::command::system::sys_disk::SysDisk;
 use crate::command::system::sys_network::SysNetwork;
 use crate::command::system::sys_os::SysOs;
+use crate::command::system::sys_perf::SysPerf;
 use crate::command::system::sys_process::SysProcess;
 use crate::command::ui::theme::Theme;
 use crate::engine::command::Command;
@@ -124,6 +125,7 @@ impl CommandRegistry {
         self.register(Arc::new(SysDisk));
         self.register(Arc::new(SysNetwork));
         self.register(Arc::new(SysOs));
+        self.register(Arc::new(SysPerf));
         self.register(Arc::new(SysProcess));
 
         self

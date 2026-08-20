@@ -15,6 +15,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "http get",
     "timezone",
     "sys disk",
+    "sys perf",
     "declare",
     "explain",
     "history",
