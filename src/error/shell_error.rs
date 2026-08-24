@@ -23,6 +23,13 @@ pub enum ShellError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
+    #[error("Command interrupted")]
+    #[diagnostic(code(rs_shell::interrupted))]
+    Interrupted {
+        #[label("This command was interrupted")]
+        span: Span,
+    },
+
     #[error("External command failed")]
     #[diagnostic(code(rs_shell::external_command), help("{help}"))]
     ExternalCommand {

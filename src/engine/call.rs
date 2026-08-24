@@ -1,5 +1,5 @@
 use crate::error::shell_error::ShellError;
-use crate::parser::span::Spanned;
+use crate::parser::span::{Span, Spanned};
 use crate::parser::value::{FromValue, Value};
 use std::collections::HashMap;
 
@@ -80,5 +80,14 @@ impl Call {
             Value::String(spanned) => Some(spanned.item.as_str()),
             _ => None,
         })
+    }
+
+    pub fn call_span(&self) -> Span {
+        Span::new(
+            self.cmd.span.start,
+            self.raw_args
+                .last()
+                .map_or(self.cmd.span.end, |s| s.span.end),
+        )
     }
 }

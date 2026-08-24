@@ -4,6 +4,7 @@ use crate::engine::command::expansion::expand_command_node_values;
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::engine::process::ProcessHandle;
+use crate::engine::signals::Signals;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::{
     InputStream, IoStreams, OutputStream, background_io_streams, pipe_io_streams,
@@ -42,6 +43,8 @@ impl Engine {
     }
 
     pub fn run_line(&self, line: &str) {
+        self.engine_state.signals.reset();
+
         let tokens = lex(line);
 
         let errors = collect_parser_errors(&tokens);
@@ -91,7 +94,7 @@ impl Engine {
 
             Statement::Command(command_node) => self
                 .run_command(command_node, current_job_id, io_streams)?
-                .wait(),
+                .wait(&self.engine_state.signals),
         }
     }
 
@@ -160,7 +163,7 @@ impl Engine {
                 Ok(streams) => streams,
                 Err(exit_code) => {
                     for handle in handles {
-                        let _ = handle.wait();
+                        _ = handle.wait(&self.engine_state.signals);
                     }
                     return Ok(exit_code);
                 }
@@ -170,7 +173,7 @@ impl Engine {
 
             if let ProcessHandle::Immediate(Err(err)) = handle {
                 for h in handles {
-                    let _ = h.wait();
+                    _ = h.wait(&self.engine_state.signals);
                 }
                 return Err(err);
             }
@@ -183,7 +186,7 @@ impl Engine {
         let mut errors = vec![];
 
         for handle in handles {
-            match handle.wait() {
+            match handle.wait(&self.engine_state.signals) {
                 Ok(exit_code) => final_exit_code = exit_code,
                 Err(err) => errors.push(err),
             }
@@ -213,23 +216,28 @@ impl Engine {
             .background_jobs
             .add_job(vec![], cmd_string.clone());
 
-        let _ = self
+        _ = self
             .printer
             .print(BackgroundJob::format_job_running(job_id));
 
-        let runner_clone = self.clone();
+        let mut engine_state_clone = self.engine_state.clone();
+        engine_state_clone.signals = Signals::new();
+
+        let mut engine_clone = self.clone();
+        engine_clone.engine_state = engine_state_clone;
+
         let shell_state_clone = Arc::clone(&self.engine_state.shell_state);
 
         std::thread::spawn(move || {
             let Ok((bg_io_streams, out_reader_printer, err_reader_printer)) =
-                background_io_streams(&runner_clone.printer)
+                background_io_streams(&engine_clone.printer)
             else {
                 return;
             };
 
-            if let Err(error) =
-                runner_clone.run_statement(statement, Some(job_id), &line, bg_io_streams)
-            {
+            let res = engine_clone.run_statement(statement, Some(job_id), &line, bg_io_streams);
+
+            if let Err(error) = res {
                 let report_err = |err: ShellError| {
                     let report = Report::new(err)
                         .with_source_code(NamedSource::new("line", cmd_string.clone()));
@@ -238,7 +246,7 @@ impl Engine {
                     for report_line in formatted.lines() {
                         let trimmed = report_line.trim_end();
                         if !trimmed.is_empty() {
-                            let _ = runner_clone.printer.print(trimmed.to_string());
+                            _ = engine_clone.printer.print(trimmed.to_string());
                         }
                     }
                 };
@@ -252,8 +260,8 @@ impl Engine {
                 }
             }
 
-            let _ = out_reader_printer.join();
-            let _ = err_reader_printer.join();
+            _ = out_reader_printer.join();
+            _ = err_reader_printer.join();
 
             if let Some(output) = shell_state_clone
                 .write()
@@ -261,7 +269,7 @@ impl Engine {
                 .background_jobs
                 .complete_job(job_id)
             {
-                let _ = runner_clone.printer.print(output);
+                _ = engine_clone.printer.print(output);
             }
         });
 
@@ -303,11 +311,13 @@ impl Engine {
         let needs_thread = command.command_type() == CommandType::Builtin
             && matches!(io_streams.output, OutputStream::Pipe(_));
 
+        let call_span = call.call_span();
         let engine_state = self.engine_state.clone();
 
         let handle = ProcessHandle::run_producer(
             Box::new(move || command.run(call, &engine_state, io_streams)),
             needs_thread,
+            call_span,
         );
 
         Ok(handle)

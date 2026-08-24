@@ -8,6 +8,7 @@ impl ExitCode {
     pub const FAILURE: Self = Self(1);
     pub const SYNTAX_ERROR: Self = Self(2);
     pub const NOT_FOUND: Self = Self(127);
+    pub const SIGINT: Self = Self(130);
 
     pub fn as_i32(&self) -> i32 {
         self.0

@@ -7,6 +7,7 @@ use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use std::io::ErrorKind;
+use std::os::unix::process::CommandExt;
 
 pub struct External;
 
@@ -41,6 +42,19 @@ impl Command for External {
             .stdout(io_streams.output.into_stdio())
             .stderr(io_streams.error.into_stdio());
 
+        if call.job_id.is_some() {
+            #[cfg(unix)]
+            {
+                command.process_group(0);
+            }
+
+            #[cfg(windows)]
+            {
+                const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+            }
+        }
+
         match command
             .args(call.raw_args.iter().map(|s| s.item.as_str()))
             .spawn()
@@ -48,12 +62,12 @@ impl Command for External {
             Ok(child) => {
                 if let Some(jb_id) = call.job_id
                     && let Some(job) = engine_state
-                    .shell_state
-                    .write()
-                    .unwrap()
-                    .background_jobs
-                    .iter_mut()
-                    .find(|job| job.id() == jb_id)
+                        .shell_state
+                        .write()
+                        .unwrap()
+                        .background_jobs
+                        .iter_mut()
+                        .find(|job| job.id() == jb_id)
                 {
                     job.pids.push(child.id());
                 }

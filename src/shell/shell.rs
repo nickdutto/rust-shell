@@ -18,6 +18,12 @@ impl Shell {
         let engine = Engine::new(engine_state.clone(), printer.clone());
         let prompt = ShellPrompt::from_engine_state(engine.engine_state());
 
+        if let Err(err) = ctrlc::set_handler(move || {
+            engine_state.signals.trigger();
+        }) {
+            eprintln!("Failed to set Ctrl-C handler: {err}");
+        }
+
         let mut editor =
             Self::build_editor(engine.engine_state(), engine.printer().clone(), &prompt);
 
