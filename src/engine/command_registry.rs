@@ -8,7 +8,7 @@ use crate::command::filesystem::cd::Cd;
 use crate::command::filesystem::pwd::Pwd;
 use crate::command::help::explain::Explain;
 use crate::command::help::help_commands::HelpCommands;
-use crate::command::help::type_cmd::TypeCmd;
+use crate::command::help::which::Which;
 use crate::command::network::http::Http;
 use crate::command::network::http_get::HttpGet;
 use crate::command::process::jobs::Jobs;
@@ -28,6 +28,33 @@ use crate::engine::command::signature::Signature;
 use crate::parser::span::{Span, Spanned};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+pub const BUILTIN_COMMANDS: &[&str] = &[
+    "help commands",
+    "sys network",
+    "sys process",
+    "complete",
+    "http get",
+    "timezone",
+    "sys disk",
+    "sys perf",
+    "declare",
+    "explain",
+    "history",
+    "sys os",
+    "theme",
+    "which",
+    "echo",
+    "exit",
+    "http",
+    "jobs",
+    "ast",
+    "lex",
+    "now",
+    "pwd",
+    "sys",
+    "cd",
+];
 
 pub struct CommandRegistry {
     pub commands: HashMap<String, Arc<dyn Command + Send + Sync>>,
@@ -116,7 +143,7 @@ impl CommandRegistry {
 
         self.register(Arc::new(Explain));
         self.register(Arc::new(HelpCommands));
-        self.register(Arc::new(TypeCmd));
+        self.register(Arc::new(Which));
 
         self.register(Arc::new(Http));
         self.register(Arc::new(HttpGet));

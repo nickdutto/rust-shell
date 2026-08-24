@@ -1,7 +1,8 @@
 use crate::engine::call::Call;
 use crate::engine::command::category::Category;
 use crate::engine::command::signature::Signature;
-use crate::engine::command::{BUILTIN_COMMANDS, Command, CommandData, CommandType};
+use crate::engine::command::{Command, CommandData, CommandType};
+use crate::engine::command_registry::BUILTIN_COMMANDS;
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
@@ -12,11 +13,11 @@ use is_executable::is_executable;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
 
-pub struct TypeCmd;
+pub struct Which;
 
-impl Command for TypeCmd {
+impl Command for Which {
     fn name(&self) -> &'static str {
-        "type"
+        "which"
     }
 
     fn command_type(&self) -> CommandType {
@@ -38,7 +39,7 @@ impl Command for TypeCmd {
         let command_name = call.req::<String>(0)?;
 
         if command_name.is_empty() {
-            writeln!(io_streams.error, "type: missing operand")?;
+            writeln!(io_streams.error, "which: missing operand")?;
             return Ok(CommandData::ExitCode(ExitCode::SYNTAX_ERROR));
         }
 
@@ -50,7 +51,7 @@ impl Command for TypeCmd {
             let Ok(paths) = get_env_paths("PATH") else {
                 writeln!(
                     io_streams.error,
-                    "type: error getting env paths for PATH variable"
+                    "which: error getting env paths for PATH variable"
                 )?;
                 return Ok(CommandData::ExitCode(ExitCode::FAILURE));
             };

@@ -7,33 +7,6 @@ use crate::io::stream::IoStreams;
 use std::fmt::{Display, Formatter};
 use std::process::Child;
 
-pub const BUILTIN_COMMANDS: &[&str] = &[
-    "help commands",
-    "sys network",
-    "sys process",
-    "complete",
-    "http get",
-    "timezone",
-    "sys disk",
-    "sys perf",
-    "declare",
-    "explain",
-    "history",
-    "sys os",
-    "theme",
-    "echo",
-    "exit",
-    "http",
-    "jobs",
-    "type",
-    "ast",
-    "lex",
-    "now",
-    "pwd",
-    "sys",
-    "cd",
-];
-
 pub enum CommandData {
     Child(Child),
     ExitCode(ExitCode),

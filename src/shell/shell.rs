@@ -1,5 +1,5 @@
 ﻿use crate::engine::Engine;
-use crate::engine::command::BUILTIN_COMMANDS;
+use crate::engine::command_registry::BUILTIN_COMMANDS;
 use crate::engine::engine_state::EngineState;
 use crate::shell::completer::Completer;
 use crate::shell::highlighter::SyntaxHighlighter;
