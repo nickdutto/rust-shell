@@ -34,6 +34,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "sys network",
     "sys process",
     "complete",
+    "external",
     "http get",
     "timezone",
     "sys disk",
@@ -58,7 +59,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
 
 pub struct CommandRegistry {
     pub commands: HashMap<String, Arc<dyn Command + Send + Sync>>,
-    executable_command: Arc<dyn Command + Send + Sync>,
+    external_command: Arc<dyn Command + Send + Sync>,
 }
 
 impl Default for CommandRegistry {
@@ -71,7 +72,7 @@ impl CommandRegistry {
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
-            executable_command: Arc::new(External),
+            external_command: Arc::new(External),
         }
     }
 
@@ -92,6 +93,10 @@ impl CommandRegistry {
         Spanned<String>,
         Vec<Spanned<String>>,
     ) {
+        if cmd_name.item == self.external_command.name() {
+            return (Arc::clone(&self.external_command), cmd_name, args);
+        }
+
         if !args.is_empty() {
             let sub_cmd_name = format!("{} {}", cmd_name.item, args[0].item);
 
@@ -112,7 +117,7 @@ impl CommandRegistry {
             return (Arc::clone(command), cmd_name, args);
         }
 
-        (Arc::clone(&self.executable_command), cmd_name, args)
+        (Arc::clone(&self.external_command), cmd_name, args)
     }
 
     pub fn is_builtin(&self, name: &str) -> bool {

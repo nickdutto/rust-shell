@@ -16,6 +16,11 @@ impl Command for External {
         "external"
     }
 
+    fn description(&self) -> &'static str {
+        "Executes an external command. Called automatically if a builtin doesn't exist for the command name.\n\
+        Also allows explicitly bypassing a builtin using `external cmd_name`."
+    }
+
     fn command_type(&self) -> CommandType {
         CommandType::External
     }
@@ -32,11 +37,18 @@ impl Command for External {
         engine_state: &EngineState,
         io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
-        if call.cmd.item.is_empty() {
+        let mut raw_args = call.raw_args;
+        let cmd = if call.cmd.item == self.name() {
+            raw_args.remove(0)
+        } else {
+            call.cmd
+        };
+
+        if cmd.item.is_empty() {
             return Ok(CommandData::ExitCode(ExitCode::FAILURE));
         }
 
-        let mut command_binding = std::process::Command::new(&call.cmd.item);
+        let mut command_binding = std::process::Command::new(&cmd.item);
         let command = command_binding
             .stdin(io_streams.input.into_stdio())
             .stdout(io_streams.output.into_stdio())
@@ -56,7 +68,7 @@ impl Command for External {
         }
 
         match command
-            .args(call.raw_args.iter().map(|s| s.item.as_str()))
+            .args(raw_args.iter().map(|s| s.item.as_str()))
             .spawn()
         {
             Ok(child) => {
@@ -76,15 +88,15 @@ impl Command for External {
             Err(e) if e.kind() == ErrorKind::NotFound => Err(ShellError::ExternalCommand {
                 help: format!(
                     "`{}` is neither a built-in nor a known external command",
-                    call.cmd.item
+                    cmd.item
                 ),
-                label: format!("Command `{}` not found", call.cmd.item),
-                span: call.cmd.span,
+                label: format!("Command `{}` not found", cmd.item),
+                span: cmd.span,
             }),
             Err(e) => Err(ShellError::ExternalCommand {
                 help: String::new(),
                 label: format!("{e}"),
-                span: call.cmd.span,
+                span: cmd.span,
             }),
         }
     }
