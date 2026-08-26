@@ -23,6 +23,9 @@ pub enum ShellError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
+    #[error(transparent)]
+    Ureq(#[from] ureq::Error),
+
     #[error("Command interrupted")]
     #[diagnostic(code(rs_shell::interrupted))]
     Interrupted {

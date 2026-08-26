@@ -37,9 +37,11 @@ impl Command for HttpGet {
     fn run(
         &self,
         call: Call,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
+        let call_span = call.call_span();
+
         let url_arg = call.req::<Spanned<String>>(0)?;
         let url = Url::parse(&url_arg.item).map_err(|err| ShellError::CommandArgument {
             span: url_arg.span,
@@ -47,15 +49,11 @@ impl Command for HttpGet {
             label: err.to_string(),
         })?;
 
-        match HttpClient::send_request(&HttpMethod::Get, &url) {
-            Ok(res) => {
-                writeln!(io_streams.output, "{res}")?;
-            }
-            Err(e) => {
-                writeln!(io_streams.error, "{e}")?;
-                return Ok(CommandData::ExitCode(ExitCode::FAILURE));
-            }
-        }
+        let response = HttpClient::send_request(&HttpMethod::Get, &url, engine_state, call_span)?
+            .body_mut()
+            .read_to_string()?;
+
+        writeln!(io_streams.output, "{response}")?;
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }
