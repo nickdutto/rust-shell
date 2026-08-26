@@ -39,7 +39,7 @@ impl Signature {
             allows_unknown_args: false,
             category: Category::Empty,
         }
-            .add_help()
+        .add_help()
     }
 
     pub fn add_help(self) -> Self {
@@ -170,10 +170,6 @@ impl Signature {
             ..Call::default()
         };
 
-        if self.allows_unknown_args {
-            return Ok(call);
-        }
-
         self.parse_arguments(&mut call)?;
 
         if call.has_switch("help") {
@@ -197,31 +193,31 @@ impl Signature {
             }
 
             if !stop_flags && arg.item.starts_with('-') && arg.item != "-" {
-                let named_arg = self.find_named(&arg)?;
+                if let Some(named_arg) = self.find_named(&arg)? {
+                    if named_arg.shape == SyntaxShape::Bool {
+                        call.named.insert(
+                            named_arg.name.to_owned(),
+                            Value::Bool(Spanned::new(true, arg.span)),
+                        );
+                    } else {
+                        let value = raw_args_iter.next().ok_or_else(|| {
+                            ShellError::MissingNamedArgumentValue {
+                                name: named_arg.name.to_owned(),
+                                span: arg.span,
+                            }
+                        })?;
 
-                if named_arg.shape == SyntaxShape::Bool {
-                    call.named.insert(
-                        named_arg.name.to_owned(),
-                        Value::Bool(Spanned::new(true, arg.span)),
-                    );
-                } else {
-                    let value = raw_args_iter.next().ok_or_else(|| {
-                        ShellError::MissingNamedArgumentValue {
-                            name: named_arg.name.to_owned(),
-                            span: arg.span,
-                        }
-                    })?;
-
-                    call.named.insert(
-                        named_arg.name.to_owned(),
-                        named_arg.shape.parse_value(value)?,
-                    );
+                        call.named.insert(
+                            named_arg.name.to_owned(),
+                            named_arg.shape.parse_value(value)?,
+                        );
+                    }
                 }
             } else if let Some(pos_arg) = pos_args_iter.next() {
                 call.positionals.push(pos_arg.shape.parse_value(arg)?);
             } else if let Some(rest_pos_arg) = &self.rest_positional {
                 call.rest.push(rest_pos_arg.shape.parse_value(arg)?);
-            } else {
+            } else if !self.allows_unknown_args {
                 return Err(ShellError::TooManyArguments {
                     cmd: self.name.to_owned(),
                     span: arg.span,
@@ -256,22 +252,25 @@ impl Signature {
         Ok(())
     }
 
-    fn find_named(&self, arg: &Spanned<String>) -> Result<&NamedArg, ShellError> {
+    fn find_named(&self, arg: &Spanned<String>) -> Result<Option<&NamedArg>, ShellError> {
         let name_str = &arg.item;
 
-        let matched = if let Some(long) = name_str.strip_prefix("--") {
+        let named = if let Some(long) = name_str.strip_prefix("--") {
             self.named.iter().find(|n| n.name == long)
-        } else if let Some(short_str) = name_str.strip_prefix("-") {
-            let short = short_str.chars().next();
-            self.named.iter().find(|n| n.short == short)
+        } else if let Some(short) = name_str.strip_prefix("-") {
+            self.named.iter().find(|n| n.short == short.chars().next())
         } else {
             None
         };
 
-        matched.ok_or_else(|| ShellError::UnknownNamedArgument {
-            cmd: self.name.to_owned(),
-            name: arg.item.clone(),
-            span: arg.span,
-        })
+        match named {
+            Some(n) => Ok(Some(n)),
+            None if self.allows_unknown_args => Ok(None),
+            None => Err(ShellError::UnknownNamedArgument {
+                cmd: self.name.to_owned(),
+                name: arg.item.clone(),
+                span: arg.span,
+            }),
+        }
     }
 }
