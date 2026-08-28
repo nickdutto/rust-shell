@@ -8,8 +8,8 @@ use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
 use crate::network::http_client::HttpClient;
 use crate::network::http_method::HttpMethod;
-use crate::parser::span::Spanned;
-use crate::parser::syntax_shape::SyntaxShape;
+use crate::value::span::Spanned;
+use crate::value::syntax_shape::SyntaxShape;
 use std::io::Write;
 use url::Url;
 

@@ -1,9 +1,9 @@
 use crate::engine::call::Call;
 use crate::engine::command::category::Category;
 use crate::error::shell_error::ShellError;
-use crate::parser::span::Spanned;
-use crate::parser::syntax_shape::SyntaxShape;
-use crate::parser::value::Value;
+use crate::value::Value;
+use crate::value::span::Spanned;
+use crate::value::syntax_shape::SyntaxShape;
 
 pub struct PositionalArg {
     pub name: &'static str,

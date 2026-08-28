@@ -1,6 +1,6 @@
 use crate::parser::lexer::{Token, TokenKind};
-use crate::parser::span::Span;
 use crate::parser::word::Word;
+use crate::value::span::Span;
 use miette::Diagnostic;
 use thiserror::Error;
 

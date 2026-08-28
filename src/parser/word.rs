@@ -1,7 +1,7 @@
 use crate::parser::error::ParserError;
-use crate::parser::span::{Span, Spanned};
 use crate::parser::token_scanner::TokenScanner;
 use crate::shell::variables::Variables;
+use crate::value::span::{Span, Spanned};
 use std::fmt::{Display, Formatter, Write};
 
 #[derive(Clone, Debug, Default, PartialEq)]

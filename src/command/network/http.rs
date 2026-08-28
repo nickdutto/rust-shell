@@ -6,7 +6,7 @@ use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
 use crate::io::stream::IoStreams;
-use crate::parser::syntax_shape::SyntaxShape;
+use crate::value::syntax_shape::SyntaxShape;
 
 pub struct Http;
 

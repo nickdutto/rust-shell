@@ -1,7 +1,7 @@
 use crate::io::redirection::RedirectionMode;
-use crate::parser::span::{Span, Spanned};
 use crate::parser::token_scanner::TokenScanner;
 use crate::parser::word::{Word, scan_word, total_word_span};
+use crate::value::span::{Span, Spanned};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
@@ -127,7 +127,7 @@ pub fn lex(input: &str) -> Vec<Token> {
 mod tests {
     use super::*;
     use crate::parser::error::ParserError;
-    use crate::parser::span::Span;
+    use crate::value::span::Span;
 
     struct Case<I, E> {
         input: I,

@@ -1,6 +1,6 @@
-use crate::parser::span::Spanned;
 use crate::parser::word::{Word, total_word_span, words_to_string};
 use crate::shell::shell_state::ShellState;
+use crate::value::span::Spanned;
 use std::sync::{Arc, RwLock};
 
 pub fn expand_command_node_values(

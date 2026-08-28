@@ -25,7 +25,7 @@ use crate::command::system::sys_process::SysProcess;
 use crate::command::ui::theme::Theme;
 use crate::engine::command::Command;
 use crate::engine::command::signature::Signature;
-use crate::parser::span::{Span, Spanned};
+use crate::value::span::{Span, Spanned};
 use std::collections::HashMap;
 use std::sync::Arc;
 

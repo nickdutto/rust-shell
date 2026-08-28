@@ -2,7 +2,7 @@ use crate::engine::command::CommandData;
 use crate::engine::exit::ExitCode;
 use crate::engine::signals::Signals;
 use crate::error::shell_error::ShellError;
-use crate::parser::span::Span;
+use crate::value::span::Span;
 use std::os::unix::process::ExitStatusExt;
 use std::process::Child;
 use std::thread::JoinHandle;

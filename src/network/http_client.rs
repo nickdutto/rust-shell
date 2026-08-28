@@ -1,7 +1,7 @@
 use crate::engine::engine_state::EngineState;
 use crate::error::shell_error::ShellError;
 use crate::network::http_method::HttpMethod;
-use crate::parser::span::Span;
+use crate::value::span::Span;
 use std::sync::mpsc;
 use std::time::Duration;
 use url::Url;

@@ -1,5 +1,5 @@
 use crate::parser::error::{ParserError, ParserMultiError};
-use crate::parser::span::Span;
+use crate::value::span::Span;
 use miette::{Diagnostic, NamedSource, Report};
 use std::io;
 use thiserror::Error;

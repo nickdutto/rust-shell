@@ -9,7 +9,7 @@ use crate::format::debug::highlight_debug;
 use crate::io::stream::IoStreams;
 use crate::parser::Parser;
 use crate::parser::lexer::lex;
-use crate::parser::syntax_shape::SyntaxShape;
+use crate::value::syntax_shape::SyntaxShape;
 use std::io::Write;
 
 pub struct Ast;

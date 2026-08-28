@@ -135,8 +135,8 @@ mod tests {
     use crate::io::redirection::RedirectionMode;
     use crate::parser::command_node::Redirection;
     use crate::parser::lexer::lex;
-    use crate::parser::span::{Span, Spanned};
     use crate::parser::word::Word;
+    use crate::value::span::{Span, Spanned};
 
     #[test]
     fn parse_statements_returns_single_command_node() {

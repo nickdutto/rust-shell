@@ -1,6 +1,6 @@
 use crate::io::redirection::RedirectionMode;
-use crate::parser::span::Spanned;
 use crate::parser::word::Word;
+use crate::value::span::Spanned;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Redirection {

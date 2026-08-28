@@ -1,6 +1,7 @@
 use crate::error::shell_error::ShellError;
-use crate::parser::span::{Span, Spanned};
-use crate::parser::value::{FromValue, Value};
+use crate::value::Value;
+use crate::value::from_value::FromValue;
+use crate::value::span::{Span, Spanned};
 use std::collections::HashMap;
 
 #[derive(Default)]

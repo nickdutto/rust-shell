@@ -1,5 +1,5 @@
 use crate::error::shell_error::ShellError;
-use crate::parser::span::Span;
+use crate::value::span::Span;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 

@@ -1,6 +1,6 @@
 use crate::error::shell_error::ShellError;
-use crate::parser::span::Spanned;
-use crate::parser::value::Value;
+use crate::value::Value;
+use crate::value::span::Spanned;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
