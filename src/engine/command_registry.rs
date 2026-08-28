@@ -5,6 +5,7 @@ use crate::command::date::timezone::Timezone;
 use crate::command::debug::ast::Ast;
 use crate::command::debug::lex::Lex;
 use crate::command::filesystem::cd::Cd;
+use crate::command::filesystem::ls::Ls;
 use crate::command::filesystem::pwd::Pwd;
 use crate::command::help::explain::Explain;
 use crate::command::help::help_commands::HelpCommands;
@@ -55,6 +56,7 @@ pub const BUILTIN_COMMANDS: &[&str] = &[
     "pwd",
     "sys",
     "cd",
+    "ls",
 ];
 
 pub struct CommandRegistry {
@@ -159,6 +161,8 @@ impl CommandRegistry {
         self.register(Arc::new(SysOs));
         self.register(Arc::new(SysPerf));
         self.register(Arc::new(SysProcess));
+
+        self.register(Arc::new(Ls));
 
         self
     }

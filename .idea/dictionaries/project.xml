@@ -8,6 +8,7 @@
       <w>histfile</w>
       <w>iana</w>
       <w>lexed</w>
+      <w>pathbuf</w>
     </words>
   </dictionary>
 </component>

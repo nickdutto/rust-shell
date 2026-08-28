@@ -68,3 +68,71 @@ pub fn convert_data_size_unit(bytes: u64, unit: DataSizeUnit) -> f64 {
         DataSizeUnit::TB => bytes_f / 1000.0f64.powi(4),
     }
 }
+
+pub fn auto_data_size_binary(bytes: u64) -> (f64, DataSizeUnit) {
+    const KIB: u64 = 1024;
+    const MIB: u64 = 1024 * 1024;
+    const GIB: u64 = 1024 * 1024 * 1024;
+    const TIB: u64 = 1024 * 1024 * 1024 * 1024;
+
+    match bytes {
+        b if b >= TIB => (
+            convert_data_size_unit(b, DataSizeUnit::TiB),
+            DataSizeUnit::TiB,
+        ),
+
+        b if b >= GIB => (
+            convert_data_size_unit(b, DataSizeUnit::GiB),
+            DataSizeUnit::GiB,
+        ),
+
+        b if b >= MIB => (
+            convert_data_size_unit(b, DataSizeUnit::MiB),
+            DataSizeUnit::MiB,
+        ),
+
+        b if b >= KIB => (
+            convert_data_size_unit(b, DataSizeUnit::KiB),
+            DataSizeUnit::KiB,
+        ),
+
+        b => (
+            convert_data_size_unit(b, DataSizeUnit::Byte),
+            DataSizeUnit::Byte,
+        ),
+    }
+}
+
+pub fn auto_data_size_decimal(bytes: u64) -> (f64, DataSizeUnit) {
+    const KB: u64 = 1000;
+    const MB: u64 = 1000 * 1000;
+    const GB: u64 = 1000 * 1000 * 1000;
+    const TB: u64 = 1000 * 1000 * 1000 * 1000;
+
+    match bytes {
+        b if b >= TB => (
+            convert_data_size_unit(b, DataSizeUnit::TB),
+            DataSizeUnit::TB,
+        ),
+
+        b if b >= GB => (
+            convert_data_size_unit(b, DataSizeUnit::GB),
+            DataSizeUnit::GB,
+        ),
+
+        b if b >= MB => (
+            convert_data_size_unit(b, DataSizeUnit::MB),
+            DataSizeUnit::MB,
+        ),
+
+        b if b >= KB => (
+            convert_data_size_unit(b, DataSizeUnit::KB),
+            DataSizeUnit::KB,
+        ),
+
+        b => (
+            convert_data_size_unit(b, DataSizeUnit::Byte),
+            DataSizeUnit::Byte,
+        ),
+    }
+}

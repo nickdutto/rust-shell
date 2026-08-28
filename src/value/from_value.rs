@@ -2,6 +2,7 @@ use crate::error::shell_error::ShellError;
 use crate::value::data_size_unit::DataSizeUnit;
 use crate::value::span::Spanned;
 use crate::value::value::Value;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 pub trait FromValue: Sized {
@@ -63,6 +64,23 @@ impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::String(sp) => Ok(sp.item),
+            value => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                value.type_name(),
+                value.span(),
+            )),
+        }
+    }
+}
+
+impl FromValue for PathBuf {
+    fn expected_type() -> &'static str {
+        "PathBuf"
+    }
+
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String(sp) => Ok(PathBuf::from(sp.item)),
             value => Err(ShellError::type_mismatch(
                 Self::expected_type(),
                 value.type_name(),
