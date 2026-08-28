@@ -1,5 +1,8 @@
 use crate::error::shell_error::ShellError;
 use crate::parser::span::{Span, Spanned};
+use crate::value::data_size_unit::DataSizeUnit;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -178,5 +181,22 @@ where
             item: T::from_value(v)?,
             span,
         })
+    }
+}
+
+impl FromValue for DataSizeUnit {
+    fn expected_type() -> &'static str {
+        "DataSizeUnit"
+    }
+
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String(sp) => DataSizeUnit::from_str(&sp.item),
+            value => Err(ShellError::type_mismatch(
+                Self::expected_type(),
+                value.type_name(),
+                value.span(),
+            )),
+        }
     }
 }

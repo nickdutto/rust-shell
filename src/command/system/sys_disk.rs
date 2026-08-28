@@ -5,9 +5,9 @@ use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
-use crate::format::bytes::convert_bytes;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
+use crate::value::data_size_unit::{DataSizeUnit, convert_data_size_unit};
 use comfy_table::presets::NOTHING;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table};
 use std::io::Write;
@@ -34,7 +34,8 @@ impl Command for SysDisk {
             .named(
                 "units",
                 SyntaxShape::String,
-                "Units to use in bytes (default GB). options: B, KB, MB, GB, TB",
+                "Data size units (Default GB. Case insensitive)\n\
+                Options: byte, KiB, MiB, GiB, TiB, KB, MB, GB, TB",
                 Some('u'),
             )
     }
@@ -46,17 +47,17 @@ impl Command for SysDisk {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let units = call
-            .opt_named::<String>("units")?
-            .unwrap_or(String::from("GB"));
+            .opt_named::<DataSizeUnit>("units")?
+            .unwrap_or(DataSizeUnit::GB);
 
-        writeln!(io_streams.output, "{}", Self::disk_table(&units))?;
+        writeln!(io_streams.output, "{}", Self::disk_table(units))?;
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }
 }
 
 impl SysDisk {
-    fn disk_table(units: &str) -> Table {
+    fn disk_table(units: DataSizeUnit) -> Table {
         let mut table = Table::new();
 
         table
@@ -77,9 +78,12 @@ impl SysDisk {
                 disk.name().to_string_lossy().to_string(),
                 format!(
                     "{:.2} {units}",
-                    convert_bytes(disk.available_space(), units)
+                    convert_data_size_unit(disk.available_space(), units)
                 ),
-                format!("{:.2} {units}", convert_bytes(disk.total_space(), units)),
+                format!(
+                    "{:.2} {units}",
+                    convert_data_size_unit(disk.total_space(), units)
+                ),
                 disk.file_system().to_string_lossy().to_string(),
                 disk.kind().to_string(),
                 disk.is_read_only().to_string(),

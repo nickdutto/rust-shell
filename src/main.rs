@@ -8,6 +8,7 @@ pub mod network;
 pub mod parser;
 pub mod shell;
 pub mod system;
+pub mod value;
 
 use shell::Shell;
 

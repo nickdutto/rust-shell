@@ -5,9 +5,9 @@ use crate::engine::command::{Command, CommandData, CommandType};
 use crate::engine::engine_state::EngineState;
 use crate::engine::exit::ExitCode;
 use crate::error::shell_error::ShellError;
-use crate::format::bytes::convert_bytes;
 use crate::io::stream::IoStreams;
 use crate::parser::syntax_shape::SyntaxShape;
+use crate::value::data_size_unit::{DataSizeUnit, convert_data_size_unit};
 use comfy_table::presets::NOTHING;
 use comfy_table::{ContentArrangement, Table};
 use std::io::Write;
@@ -34,7 +34,8 @@ impl Command for SysPerf {
             .named(
                 "units",
                 SyntaxShape::String,
-                "Units to use in bytes (default GB). options: B, KB, MB, GB, TB",
+                "Data size units (default GB).\
+                Options (case insensitive): byte, KiB, MiB, GiB, TiB, KB, MB, GB, TB",
                 Some('u'),
             )
     }
@@ -46,17 +47,17 @@ impl Command for SysPerf {
         mut io_streams: IoStreams,
     ) -> Result<CommandData, ShellError> {
         let units = call
-            .opt_named::<String>("units")?
-            .unwrap_or(String::from("GB"));
+            .opt_named::<DataSizeUnit>("units")?
+            .unwrap_or(DataSizeUnit::GB);
 
-        writeln!(io_streams.output, "{}", Self::perf_table(&units))?;
+        writeln!(io_streams.output, "{}", Self::perf_table(units))?;
 
         Ok(CommandData::ExitCode(ExitCode::SUCCESS))
     }
 }
 
 impl SysPerf {
-    fn perf_table(units: &str) -> Table {
+    fn perf_table(units: DataSizeUnit) -> Table {
         let mut sys = System::new_all();
         sys.refresh_all();
 
@@ -72,8 +73,8 @@ impl SysPerf {
             String::from("Memory"),
             format!(
                 "{:.2} {units} / {:.2} {units}",
-                convert_bytes(sys.used_memory(), units),
-                convert_bytes(sys.total_memory(), units)
+                convert_data_size_unit(sys.used_memory(), units),
+                convert_data_size_unit(sys.total_memory(), units)
             ),
         ]);
 
@@ -81,8 +82,8 @@ impl SysPerf {
             String::from("Swap"),
             format!(
                 "{:.2} {units} / {:.2} {units}",
-                convert_bytes(sys.used_swap(), units),
-                convert_bytes(sys.total_swap(), units)
+                convert_data_size_unit(sys.used_swap(), units),
+                convert_data_size_unit(sys.total_swap(), units)
             ),
         ]);
 
